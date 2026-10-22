@@ -11,7 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from . import db, playbacks, profiles
-from .models import PlaybackIn
+from .events import apply_events
+from .models import EventsIn, PlaybackIn
 
 MAX_BODY_BYTES = 256 * 1024
 
@@ -87,6 +88,12 @@ def create_app(db_path: str, clock: Callable[[], int] = db.now_ms) -> FastAPI:
         if found is None:
             raise HTTPException(status_code=404, detail="not_found")
         return found
+
+    @app.post("/v1/events")
+    def post_events(body: EventsIn, who: Principal = Depends(principal),
+                    conn: sqlite3.Connection = Depends(connection)):
+        with db.write(conn):
+            return {"results": apply_events(conn, who.profile_id, body.events, who.playback_id, clock())}
 
     return app
 
