@@ -69,6 +69,7 @@ function createTools(options) {
         if (!d.own(schemas,call.name) || !valid(args,schemas[call.name])) { finish(appError('invalid_arguments')); return noop; }
         if (call.name === 'set_search_intent') {
             if (args.examples && !args.examples.every(function (k) { return !!store.get(k); })) { finish(appError('unknown_title')); return noop; }
+            if (args.examples) current.examples.forEach(function (key) { if (args.examples.indexOf(key) < 0) args.examples.push(key); });
             var resolved = d.resolveIntent(current,args,options.formFilters || {},options.dictionaries);
             if (resolved.status !== 'ready') {
                 clarification({kind:'filters',query:null,options:[],issues:resolved.issues});

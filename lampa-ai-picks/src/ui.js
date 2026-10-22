@@ -3,7 +3,7 @@ var d = require('./domain'), escapeText = require('./settings').escapeText;
 function createScreen(options) {
     var L = options.Lampa, doc = options.document || document, nav = options.navigator || L.Navigator;
     var root = doc.createElement('section'), scroll = new L.Scroll({mask:true,over:true});
-    var query = '', form = {}, examples = [], dictionaries = null, busy = false, alive = true, lastFocus = null, cancels = [], created = false;
+    var query = '', form = {}, recognized = null, examples = [], dictionaries = null, busy = false, alive = true, lastFocus = null, cancels = [], created = false;
     root.className = 'aip-picks'; root.setAttribute('aria-label','ИИ-подборки');
     function elem(tag, cls, text) { var e = doc.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
     function focus() {
@@ -112,7 +112,7 @@ function createScreen(options) {
     root.appendChild(summary);
     var actions = elem('div','aip-actions'), submit = button('submit','Подобрать',function () {
         if (busy) return;
-        if (!query.trim() && !Object.keys(form).length && !examples.length) { notify('Опишите пожелание, добавьте условие или фильм-пример.'); return; }
+        if (!query.trim() && !Object.keys(cleanForm()).length && !examples.length) { notify('Опишите пожелание, добавьте условие или фильм-пример.'); return; }
         var resolved = d.resolveIntent(d.emptyIntent(),{filters:form},{},dictionaries);
         if (resolved.status !== 'ready') { notify(resolved.issues[0]); return; }
         options.onSubmit(getRequest('new'));
@@ -132,10 +132,21 @@ function createScreen(options) {
             exampleList.appendChild(button('remove-example',c.title + (c.year ? ' · ' + c.year : '') + ' · Убрать',function () { examples = examples.filter(function (x) { return x.key !== c.key; }); update(); focus(); },'aip-example'));
         });
     }
-    function getRequest(mode) { return {query:query,formFilters:d.clone(form),examples:d.clone(examples),mode:mode || 'new'}; }
+    function cleanForm() {
+        var copy = d.clone(form);
+        if (copy.countries && !copy.countries.length) delete copy.countries;
+        if (copy.genres && !['movie','tv'].some(function (type) { return copy.genres[type].include.length + copy.genres[type].exclude.length; })) delete copy.genres;
+        return copy;
+    }
+    function getRequest(mode) { return {query:query,formFilters:cleanForm(),examples:d.clone(examples),mode:mode || 'new'}; }
     function setStage(value) {
         busy = ['parsing','searching','ranking'].indexOf(value) >= 0;
-        submit.disabled = busy;submit.setAttribute('aria-disabled',String(busy));cancel.hidden = !busy;
+        Array.prototype.forEach.call(root.querySelectorAll('button[data-action]'),function (control) {
+            var action = control.getAttribute('data-action');
+            control.disabled = busy && action !== 'cancel' && action !== 'settings';
+            control.setAttribute('aria-disabled',String(control.disabled));
+        });
+        cancel.hidden = !busy;
         status.textContent = {parsing:'Разбираем запрос…',searching:'Ищем фильмы…',ranking:'Выбираем варианты…',cancelled:'Поиск отменён.'}[value] || '';
         root.setAttribute('aria-busy',String(busy));
         if (busy) { lastFocus = cancel; focus(); }
@@ -145,7 +156,23 @@ function createScreen(options) {
         create:function () { if (!created) { created = true; } return scroll.render(); },
         render:function () { return scroll.render(); },element:function () { return root; },resultsHost:function () { return resultHost; },
         getRequest:getRequest,setStage:setStage,setMessage:function (text) { status.textContent = text; },
-        applyIntent:function (intent) { form = d.clone(intent.filters);update(); },
+        applyIntent:function (intent, values) {
+            recognized = d.clone(intent);if (values) dictionaries = values;update();
+            var f = recognized.filters, parts = [{movie:'Фильмы',tv:'Сериалы',all:'Фильмы и сериалы'}[f.media]];
+            if (f.yearMin || f.yearMax) parts.push('Годы: ' + (f.yearMin || 'любой') + '–' + (f.yearMax || 'любой'));
+            if (f.maxRuntimeMinutes) parts.push((f.media === 'tv' ? 'Серия' : 'Длительность') + ' до ' + f.maxRuntimeMinutes + ' мин');
+            ['movie','tv'].forEach(function (type) {
+                ['include','exclude'].forEach(function (kind) {
+                    var ids = f.genres[type][kind];
+                    if (!ids.length) return;
+                    var known = dictionaries && dictionaries.genres[type] || [];
+                    var names = ids.map(function (id) { var match = known.filter(function (g) { return g.id === id; })[0];return match ? match.name : 'выбранный жанр'; });
+                    parts.push((kind === 'exclude' ? 'Без жанров: ' : 'Жанры: ') + names.join(', '));
+                });
+            });
+            if (f.countries.length) parts.push('Страны: ' + f.countries.map(function (code) { var match = (dictionaries && dictionaries.countries || []).filter(function (c) { return c.code === code; })[0];return match ? match.name : code; }).join(', '));
+            summary.textContent = 'Учтено: ' + parts.join(' · ');
+        },
         start:function () {
             L.Controller.add('aip_picks',{toggle:function () { L.Controller.collectionSet(root,false,true);L.Controller.collectionFocus(lastFocus,root,true); },
                 up:function () { if (nav) nav.move('up'); },down:function () { if (nav) nav.move('down'); },

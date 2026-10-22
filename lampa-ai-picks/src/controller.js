@@ -29,7 +29,7 @@ function createController(options) {
         if (options.session.size() >= 200) { result.partial = true; result.notice = 'Показано 200 вариантов. Начните новую подборку.'; }
         rememberedExamples = intent.examples.map(function (key) { return run.store.get(key); }).filter(Boolean);
         rememberedQuery = run.query;
-        stop(run); stage = 'done'; emit(run,'result',{result:result,intent:intent,mode:run.args.mode});
+        stop(run); stage = 'done'; emit(run,'result',{result:result,intent:intent,mode:run.args.mode,dictionaries:run.dictionaries});
     }
     function pause(run, clarification) {
         if (!alive(run)) return;
@@ -141,7 +141,7 @@ function createController(options) {
         return start(args);
     }
     return {start:start,resolveClarification:resolveClarification,
-        cancel:function () { pending = null; if (active) { stop(active); change(active,'cancelled'); } },
+        cancel:function () { pending = null; if (active && active.alive) { stop(active); change(active,'cancelled'); } },
         getState:function () { return {runId:active ? active.id : next,stage:stage}; }};
 }
 module.exports = {createController:createController};

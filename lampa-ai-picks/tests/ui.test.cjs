@@ -37,3 +37,11 @@ test('busy state blocks duplicate submission and cancellation restores controls'
     h.enter('[data-action="cancel"]');assert.equal(h.cancelled(),1);
     h.screen.destroy();assert.equal(h.cancelled(),2);
 });
+
+test('checking then clearing a genre does not turn empty input into a valid request',()=>{
+    const h=setup();h.enter('[data-action="filters"]');h.enter('[data-action="movie-genres"]');
+    h.choose(18);h.choose(18);h.selects.at(-1).onBack();h.enter('[data-action="submit"]');assert.equal(h.submissions.length,0);
+});
+test('search stage disables editable controls so old results cannot overwrite new edits',()=>{
+    const h=setup();h.screen.setStage('searching');h.enter('[data-action="query"]');assert.equal(h.inputs.length,0);
+});

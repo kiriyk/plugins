@@ -67,3 +67,10 @@ test('explicit form conflict produces a filter clarification',()=>{
     tools.execute({id:'x',name:'set_search_intent',arguments:'{"filters":{"yearMin":2010}}'},()=>{});
     assert.equal(clarification[0].kind,'filters');
 });
+
+test('model cannot silently remove user-selected examples',()=>{
+    const h=createHarness(),store=createCandidateStore(80);store.add(movie());
+    const tools=createTools({catalog:{},store,formFilters:{},dictionaries,intent:intent({examples:['tmdb:movie:1']})});
+    tools.execute({id:'intent',name:'set_search_intent',arguments:'{"examples":[]}'},()=>{});
+    assert.deepEqual(tools.getIntent().examples,['tmdb:movie:1']);
+});

@@ -25,7 +25,8 @@ module.exports={createHarness};
 
 function createDOMHarness(options={}) {
     const {parseHTML}=require('linkedom');
-    const {window,document}=parseHTML('<html><head></head><body><nav class="menu"><ul class="menu__list"></ul></nav><main id="content"></main></body></html>');
+    const {window:domWindow,document}=parseHTML('<html><head></head><body><nav class="menu"><ul class="menu__list"></ul></nav><main id="content"></main></body></html>');
+    const window={document,Event:domWindow.Event,setTimeout,clearTimeout};
     const h=createHarness(),selects=[],inputs=[],modals=[],notices=[],registrations=[],params=[],pushes=[],focuses=[],controllers={};
     const storage={...options.storage};let enabled='aip_picks',focused=null;
     h.Lampa.Storage={get:(k,f)=>k in storage?storage[k]:f,field:()=> 'ru-RU',set(k,v){if(options.storageError)throw Error('storage unavailable');storage[k]=v;}};
@@ -42,6 +43,15 @@ function createDOMHarness(options={}) {
     h.Lampa.Listener={follow:(n,cb)=>{h.appListener=cb;}};
     h.Lampa.Scroll=function(){const root=document.createElement('div');root.className='scroll';
         this.append=e=>root.appendChild(e);this.render=()=>root;this.update=()=>{};this.destroy=()=>root.remove();};
+    const madeCards=[];
+    h.Lampa.Maker={make(name,card){
+        if(name!=='Card')throw Error('unsupported Maker type');
+        const modules=[],el=document.createElement('div');el.className='card selector';el.setAttribute('data-title',card.title||card.name);
+        const instance={data:card,use(m){modules.push(m);},create(){el.textContent=card.title||card.name;el.addEventListener('hover:enter',()=>modules.forEach(m=>m.onEnter?.call(instance,el,card)));},
+            render(js){return js?el:{0:el};},visible(){instance.visibleCount=(instance.visibleCount||0)+1;},destroy(){el.remove();instance.destroyed=true;}};
+        madeCards.push(instance);return instance;
+    }};
+    h.madeCards=madeCards;
     window.Lampa=h.Lampa;window.appready=true;
     function enter(selector,root=document){const e=typeof selector==='string'?root.querySelector(selector):selector;assertElement(e);e.dispatchEvent(new window.Event('hover:enter',{bubbles:true}));}
     function choose(title){const select=selects.at(-1),item=select.items.find(x=>x.title===title||x.value===title||x.id===title);assertElement(item);
