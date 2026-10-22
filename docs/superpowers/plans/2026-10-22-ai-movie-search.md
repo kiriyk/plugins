@@ -108,7 +108,7 @@
 
 **Interfaces:** Produces `createTransport(Lampa, clock) -> Request` из `src/transport.js` и `createHarness()` из helpers; consumes Lampa.Reguest.native/clear. В compatibility зафиксировать исследованный commit и таблицу Browser/Android/Tizen/webOS со статусом `NOT RUN` для реальных проверок.
 
-- [ ] **Step 1: Написать тесты транспорта и fake Lampa/clock.** `test('sends one JSON POST and suppresses late reply after cancel')` проверяет сериализованное тело, заголовки и единственность вызова. Добавить тесты timeout, двойного callback, ошибки без status и отсутствия native. Основные assertions:
+- [x] **Step 1: Написать тесты транспорта и fake Lampa/clock.** `test('sends one JSON POST and suppresses late reply after cancel')` проверяет сериализованное тело, заголовки и единственность вызова. Добавить тесты timeout, двойного callback, ошибки без status и отсутствия native. Основные assertions:
 
 ```js
 assert.equal(h.nativeRequests.length, 1);
@@ -119,10 +119,10 @@ cancel(); h.nativeReply(0, {ok: true});
 assert.equal(replies.length, 0);
 ```
 
-- [ ] **Step 2: Подтвердить RED.** Создать package с `test: node --test tests/*.test.cjs`; выполнить `node --test tests/transport.test.cjs`. Ожидается FAIL из-за отсутствующего `src/transport.js`, а не из-за helper.
-- [ ] **Step 3: Реализовать createTransport.** Выделять Reguest на запрос, JSON.stringify один раз, GET без post_data, timeout через clock. Нормализовать ошибки, не логировать тело/заголовки. clear и token запуска подавляют поздние callbacks; физический abort не обещается. Сохранить в compatibility точный локальный порядок ранней проверки native и browser JSON POST с минимальным forced tool-вызовом RouterAI. Ввести ключ и модель локально в консоли/интерфейсе самой Lampa, не в чате и не в диагностическом выводе. Выполнить пробу в доступных основных средах до остальных runtime-компонентов; при отсутствии ключа/устройства оставить NOT RUN, продолжить офлайн-задачи и повторить пробу перед приёмкой. Сырой curl не заменяет эту проверку.
-- [ ] **Step 4: GREEN.** `node --test tests/transport.test.cjs`: все тесты PASS, после advance не остаются timers, один сбой POST не вызывает повторной отправки.
-- [ ] **Step 5: Коммит.** Добавить только файлы задачи; `git commit -m "feat: add isolated Lampa JSON transport"`.
+- [x] **Step 2: Подтвердить RED.** Создать package с `test: node --test tests/*.test.cjs`; выполнить `node --test tests/transport.test.cjs`. Ожидается FAIL из-за отсутствующего `src/transport.js`, а не из-за helper.
+- [x] **Step 3: Реализовать createTransport.** Выделять Reguest на запрос, JSON.stringify один раз, GET без post_data, timeout через clock. Нормализовать ошибки, не логировать тело/заголовки. clear и token запуска подавляют поздние callbacks; физический abort не обещается. Сохранить в compatibility точный локальный порядок ранней проверки native и browser JSON POST с минимальным forced tool-вызовом RouterAI. Ввести ключ и модель локально в консоли/интерфейсе самой Lampa, не в чате и не в диагностическом выводе. Выполнить пробу в доступных основных средах до остальных runtime-компонентов; при отсутствии ключа/устройства оставить NOT RUN, продолжить офлайн-задачи и повторить пробу перед приёмкой. Сырой curl не заменяет эту проверку.
+- [x] **Step 4: GREEN.** `node --test tests/transport.test.cjs`: все тесты PASS, после advance не остаются timers, один сбой POST не вызывает повторной отправки.
+- [x] **Step 5: Коммит.** Добавить только файлы задачи; `git commit -m "feat: add isolated Lampa JSON transport"`.
 
 ### Task 2: Нормализация, обязательные условия и сессия
 
@@ -130,7 +130,7 @@ assert.equal(replies.length, 0);
 
 **Interfaces:** Produces `normalizeTitle(raw,type)->Candidate`, `resolveIntent(current,patch,formFilters,dictionaries)->{status:'ready'|'clarify',intent,issues}`, `validateCandidate(candidate,filters)->{ok,reason}`, `createCandidateStore(limit)->{add(candidate),get(key),all()}`, `createSession()->{reset(intent),getIntent(),getShown(),size(),commit(items)}`. `commit(items)` возвращает принятые items с учётом остатка 200 и не забывает старые ID.
 
-- [ ] **Step 1: Написать тесты domain/session.** Тест `rejects unknown runtime and preserves movie-tv identity` использует fixtures:
+- [x] **Step 1: Написать тесты domain/session.** Тест `rejects unknown runtime and preserves movie-tv identity` использует fixtures:
 
 ```js
 assert.notEqual(movie().key, tv().key);
@@ -140,10 +140,10 @@ assert.equal(validateCandidate(movie({runtimeMinutes: 121}), filters({maxRuntime
 ```
 
 Проверить конфликт текста/формы, minYear > maxYear, пустые метаданные против известных пустых массивов, страну производства против original_language, несовместимые жанры movie/tv, merge только явно изменённых полей. Store сохраняет 80 уникальных ключей, детали дополняют существующую запись без потери известных значений. Сессия с 195 показанными принимает только 5 новых из 10; с 200 не принимает новых и не удаляет старые.
-- [ ] **Step 2: RED.** `node --test tests/domain.test.cjs tests/session.test.cjs`: отсутствуют domain/session exports.
-- [ ] **Step 3: Реализовать объявленные функции.** Пределы и null-семантика — из спецификации. resolveIntent возвращает clarification вместо угадывания при конфликте или непредставимом в словаре ограничении. При формате «Всё» запрет жанра, не представленного для одного типа, нельзя молча считать проверенным для этого типа: требуется уточнение формата/условия. Сессия хранит только намерение и показанные ключи, без истории просмотров и ключа API.
-- [ ] **Step 4: GREEN.** `node --test tests/domain.test.cjs tests/session.test.cjs`: PASS, граничные 80/200 и явные конфликты проверены.
-- [ ] **Step 5: Коммит.** `git commit -m "feat: add validated search intent and selection session"`.
+- [x] **Step 2: RED.** `node --test tests/domain.test.cjs tests/session.test.cjs`: отсутствуют domain/session exports.
+- [x] **Step 3: Реализовать объявленные функции.** Пределы и null-семантика — из спецификации. resolveIntent возвращает clarification вместо угадывания при конфликте или непредставимом в словаре ограничении. При формате «Всё» запрет жанра, не представленного для одного типа, нельзя молча считать проверенным для этого типа: требуется уточнение формата/условия. Сессия хранит только намерение и показанные ключи, без истории просмотров и ключа API.
+- [x] **Step 4: GREEN.** `node --test tests/domain.test.cjs tests/session.test.cjs`: PASS, граничные 80/200 и явные конфликты проверены.
+- [x] **Step 5: Коммит.** `git commit -m "feat: add validated search intent and selection session"`.
 
 ### Task 3: Каталог TMDB через доступ Lampa
 
@@ -151,7 +151,7 @@ assert.equal(validateCandidate(movie({runtimeMinutes: 121}), filters({maxRuntime
 
 **Interfaces:** `createCatalog({request:Request,Lampa,language}) -> {getDictionaries(done),searchTitles({query,year,type,page},done),resolveKeywords({query,page},done),discoverTitles({type,filters,keywordIds,page},done),getRelated({key,relation:'recommendations'|'similar',page},done),getTitleDetails({keys},done)}`. Листы возвращают `{items:Candidate[],hasMore:boolean}`; словари `{genres:{movie:Array<{id,name}>,tv:Array<{id,name}>},countries:Array<{code,name}>}`; keywords — `{items:Array<{id,name}>}`; details — Candidate[]. Каждый внутренний HTTP проходит только через внедрённый request.
 
-- [ ] **Step 1: Написать тесты запросов и ответов.** Тест `preserves configured TMDB route and rejects malformed title types`:
+- [x] **Step 1: Написать тесты запросов и ответов.** Тест `preserves configured TMDB route and rejects malformed title types`:
 
 ```js
 assert.match(h.requests[0].url, /^https:\/\/configured-tmdb\.example\//);
@@ -162,10 +162,10 @@ assert.equal(result.items[0].card.source, 'tmdb');
 ```
 
 Добавить тесты без original_name у tv, multitype поиска и смешанных ID, фильтров discover, реальных словарей, неизвестных/нулевых runtime, tv episode_run_time=[40,60] → 60, production_countries вместо языка, частичных details. Проверить: ошибка сети не становится пустым успешным ответом; произвольный URL/тип/path в метод не проходит; каждый details-запрос виден в h.requests.
-- [ ] **Step 2: RED.** `node --test tests/catalog.test.cjs`: отсутствует createCatalog.
-- [ ] **Step 3: Реализовать адаптер.** Строить allowlist путей `search/movie`, `search/tv`, `search/keyword`, `discover/movie`, `discover/tv`, `{type}/{id}/{relation}`, `{type}/{id}`, `genre/{type}/list`, `configuration/countries`. URL — через Lampa.TMDB.api и key(), язык — Storage tmdb_lang, query — encodeURIComponent. Оба типа запрашиваются отдельно, page ограничивается положительным целым. include_adult=false. Обогащение runtime/countries — явными details-запросами, не скрытым full/get Lampa. Нельзя вводить новый фиксированный минимум рейтинга или числа голосов: пользователь его не задавал.
-- [ ] **Step 4: GREEN.** `node --test tests/catalog.test.cjs`: PASS. Пока проверка реальной Lampa не выполнена, compatibility сохраняет NOT RUN, а не PASS.
-- [ ] **Step 5: Коммит.** `git commit -m "feat: add TMDB candidate search adapter"`.
+- [x] **Step 2: RED.** `node --test tests/catalog.test.cjs`: отсутствует createCatalog.
+- [x] **Step 3: Реализовать адаптер.** Строить allowlist путей `search/movie`, `search/tv`, `search/keyword`, `discover/movie`, `discover/tv`, `{type}/{id}/{relation}`, `{type}/{id}`, `genre/{type}/list`, `configuration/countries`. URL — через Lampa.TMDB.api и key(), язык — Storage tmdb_lang, query — encodeURIComponent. Оба типа запрашиваются отдельно, page ограничивается положительным целым. include_adult=false. Обогащение runtime/countries — явными details-запросами, не скрытым full/get Lampa. Нельзя вводить новый фиксированный минимум рейтинга или числа голосов: пользователь его не задавал.
+- [x] **Step 4: GREEN.** `node --test tests/catalog.test.cjs`: PASS. Пока проверка реальной Lampa не выполнена, compatibility сохраняет NOT RUN, а не PASS.
+- [x] **Step 5: Коммит.** `git commit -m "feat: add TMDB candidate search adapter"`.
 
 ### Task 4: RouterAI и реальная проверка tool calling
 
@@ -173,7 +173,7 @@ assert.equal(result.items[0].card.source, 'tmdb');
 
 **Interfaces:** `createRouterAI({request:Request})->{listModels(key,done),chat({key,model,messages,tools,toolChoice,timeoutMs},done),probe({key,model},done)}`. listModels возвращает `{id,name,supportsTools}[]` только текстовых моделей. chat возвращает нормализованное сообщение `{role:'assistant',content:string|null,tool_calls:Array<{id,name,arguments:string}>}`. probe принимает только ожидаемый вызов `connection_check` с аргументом `{ok:true}`.
 
-- [ ] **Step 1: Написать тесты формата и ошибок.** Тест `probe requires actual tool call and never retries a paid POST`:
+- [x] **Step 1: Написать тесты формата и ошибок.** Тест `probe requires actual tool call and never retries a paid POST`:
 
 ```js
 assert.equal(h.requests[0].url, 'https://routerai.ru/api/v1/chat/completions');
@@ -186,10 +186,10 @@ assert.equal(resultError.code, 'rate_limit');
 ```
 
 Отдельно проверить probe: обычный текст вместо tool call — несовместимость, ожидаемый вызов — успех; каталог моделей с/без tools; пустой choices, invalid arguments JSON, HTTP 401/402/403/429/5xx, timeout; ключ отсутствует в logs и контролируемом тексте ошибки.
-- [ ] **Step 2: RED.** `node --test tests/routerai.test.cjs`: отсутствует createRouterAI.
-- [ ] **Step 3: Реализовать adapter.** GET `/models`, POST `/chat/completions`, Bearer. Строить параметры OpenAI tools/function, не включать response_format json_schema, пока выбранный endpoint его не подтверждает; финальный JSON всё равно валидируется локально. Для probe использовать один минимальный запрос с forced connection_check и тем же пределом ответа, без второго платного запроса. Не делать автоматической подмены модели и повторного POST.
-- [ ] **Step 4: GREEN.** `node --test tests/routerai.test.cjs`: PASS. Реальный ключ здесь не нужен и в тесты не добавляется.
-- [ ] **Step 5: Коммит.** `git commit -m "feat: add RouterAI chat and tool capability probe"`.
+- [x] **Step 2: RED.** `node --test tests/routerai.test.cjs`: отсутствует createRouterAI.
+- [x] **Step 3: Реализовать adapter.** GET `/models`, POST `/chat/completions`, Bearer. Строить параметры OpenAI tools/function, не включать response_format json_schema, пока выбранный endpoint его не подтверждает; финальный JSON всё равно валидируется локально. Для probe использовать один минимальный запрос с forced connection_check и тем же пределом ответа, без второго платного запроса. Не делать автоматической подмены модели и повторного POST.
+- [x] **Step 4: GREEN.** `node --test tests/routerai.test.cjs`: PASS. Реальный ключ здесь не нужен и в тесты не добавляется.
+- [x] **Step 5: Коммит.** `git commit -m "feat: add RouterAI chat and tool capability probe"`.
 
 ### Task 5: Контракты инструментов, намерение и ограниченный контекст
 
@@ -197,7 +197,7 @@ assert.equal(resultError.code, 'rate_limit');
 
 **Interfaces:** `createTools({catalog,store,formFilters,dictionaries,intent,onClarification})->{definitions(),execute(call,done),getIntent()}`; call из Task 4. `buildMessages({query,intent,formFilters,examples,shown,candidates,trace})->Message[]`; trace — завершённые assistant tool_calls и ответы tool с tool_call_id. `parseFinal(content,store,filters,shown)->Result` принимает JSON `{picks:[{key,reason}]}` и возвращает не больше 10 валидных рекомендаций.
 
-- [ ] **Step 1: Написать тесты инструментов и контекста.** `does not execute invented ids and limits details to ten known ids`:
+- [x] **Step 1: Написать тесты инструментов и контекста.** `does not execute invented ids and limits details to ten known ids`:
 
 ```js
 assert.equal(unknownIdError.code, 'unknown_title');
@@ -207,10 +207,10 @@ assert.equal(parseFinal(JSON.stringify({picks:[{key:'tmdb:movie:999',reason:'x'}
 ```
 
 Проверить все шесть инструментов, invalid JSON/unknown name, повтор call.id без повторного запроса, keyword ID без resolveKeywords, поиск до set_search_intent, ambiguous example, ограничение 20 items, overview 501 → 500 символов. В prompts проверить отсутствие ключа, сохранение пар tool_call/result при сокращении, ≤60 000 символов каталожных данных, кириллицу, описания с инструкциями как данные. В final проверить дубли, tv/movie, runtime, HTML, пустой список, отсутствие reason и ограничение двух коротких предложений.
-- [ ] **Step 2: RED.** `node --test tests/tools.test.cjs tests/prompts.test.cjs`: отсутствуют exports.
-- [ ] **Step 3: Реализовать инструменты и prompt.** Аргументы строго соответствуют Task 3; set_search_intent принимает patch Intent. search_titles дополнительно имеет purpose:'candidate'|'example'; неоднозначность example вызывает onClarification с найденными карточками. До подтверждённого намерения каталожные вызовы отклоняются. details и related принимают только известные store/examples ключи; keywords — только полученные ранее ID. Лимитировать результат до передачи модели. Сокращать trace только целыми закрытыми парами, оставляя системные условия и текущие кандидаты; незакрытые вызовы не терять. parseFinal повторно проверяет обязательные условия и shown, сохраняет порядок модели, отвергает некорректный JSON целиком и отбрасывает отдельные неизвестные ID. Причину отображать текстом; слишком длинную ограничить 300 символами без добавления новых фактов.
-- [ ] **Step 4: GREEN.** `node --test tests/tools.test.cjs tests/prompts.test.cjs`: PASS; никаких HTTP для отклонённых аргументов.
-- [ ] **Step 5: Коммит.** `git commit -m "feat: add bounded movie search tools and grounded prompts"`.
+- [x] **Step 2: RED.** `node --test tests/tools.test.cjs tests/prompts.test.cjs`: отсутствуют exports.
+- [x] **Step 3: Реализовать инструменты и prompt.** Аргументы строго соответствуют Task 3; set_search_intent принимает patch Intent. search_titles дополнительно имеет purpose:'candidate'|'example'; неоднозначность example вызывает onClarification с найденными карточками. До подтверждённого намерения каталожные вызовы отклоняются. details и related принимают только известные store/examples ключи; keywords — только полученные ранее ID. Лимитировать результат до передачи модели. Сокращать trace только целыми закрытыми парами, оставляя системные условия и текущие кандидаты; незакрытые вызовы не терять. parseFinal повторно проверяет обязательные условия и shown, сохраняет порядок модели, отвергает некорректный JSON целиком и отбрасывает отдельные неизвестные ID. Причину отображать текстом; слишком длинную ограничить 300 символами без добавления новых фактов.
+- [x] **Step 4: GREEN.** `node --test tests/tools.test.cjs tests/prompts.test.cjs`: PASS; никаких HTTP для отклонённых аргументов.
+- [x] **Step 5: Коммит.** `git commit -m "feat: add bounded movie search tools and grounded prompts"`.
 
 ### Task 6: Цикл поиска, бюджет и отмена
 
@@ -218,7 +218,7 @@ assert.equal(parseFinal(JSON.stringify({picks:[{key:'tmdb:movie:999',reason:'x'}
 
 **Interfaces:** `createBudget({clock,request:Request})->{catalogRequest:Request,remainingMs(),consumeModel(),consumeTool(),snapshot(),cancel()}`; remainingMs возвращает number ≥0, consumeModel/consumeTool — boolean разрешения, snapshot — `{modelCalls,toolCalls,catalogRequests,activeCatalog}`. Количество кандидатов проверяется контроллером через store; сетевые и tool-счётчики увеличиваются до отправки/валидации. `createController({Lampa,request,routerai,session,clock,onEvent})->{start({query,formFilters,examples,key,model,mode:'new'|'more'|'refine'}),resolveClarification(choice),cancel(),getState()}`. start и resolveClarification возвращают новый числовой runId (или null при отказе запуска), cancel — void; getState возвращает `{runId,stage}`. onEvent принимает `{type:'stage'|'clarification'|'result'|'error',runId,data}`; key остаётся только в закрытом состоянии запуска.
 
-- [ ] **Step 1: Написать state-machine тесты с fake clock.** `reserves the fifth model call for finalization and never exceeds catalog budget`:
+- [x] **Step 1: Написать state-machine тесты с fake clock.** `reserves the fifth model call for finalization and never exceeds catalog budget`:
 
 ```js
 assert.ok(h.modelCalls.length <= 5);
@@ -230,10 +230,10 @@ assert.ok(h.candidateCount <= 80);
 ```
 
 Добавить границы: 4 инструмента за раунд, invalid/unknown calls расходуют лимит, обработка лишних calls без выполнения, повторённый call.id возвращает прежний ответ без сети, таймауты 90 000/25 000/10 000 с учётом остатка. Проверить финал раньше пятого, исправление финального JSON внутри общего лимита, каталог с частичным сбоем, пустой пул без бессмысленного final, HTTP 402/429, отмену queued и in-flight, смену модели и поздний ответ. Вся готовая подборка коммитится в session один раз; ошибка или отмена не добавляют shown.
-- [ ] **Step 2: RED.** `node --test tests/budget.test.cjs tests/controller.test.cjs`: отсутствуют budget/controller.
-- [ ] **Step 3: Реализовать очередь и контроллер.** Создавать per-run catalog с request=budget.catalogRequest и tools из Task 5. Первый модельный вызов требует set_search_intent; далее разрешены инструменты до предела четырёх раундов, затем toolChoice=none. Дать tool-ответ каждому call.id, включая отклонённые, прежде чем продолжать диалог. Не выполнять >12 calls и >4/раунд; переполнение возвращает контролируемую ошибку. Финал после раннего завершения проверяется тем же parseFinal. При clarification приостановить/завершить активный бюджет; ответ пользователя начинает новый бюджет с сохранённым запросом и выбранным примером, без повторной публикации старого runId. Уточнение сохраняет неизменённые поля; more включает все shown. При timeout без готового финала не показывать сырые кандидаты как ИИ-выбор.
-- [ ] **Step 4: GREEN.** `node --test tests/budget.test.cjs tests/controller.test.cjs`: PASS; отдельная проверка с fake clock на 90 001 мс не запускает новой сети. `npm test`: PASS всех написанных задач.
-- [ ] **Step 5: Коммит.** `git commit -m "feat: orchestrate bounded AI catalog search"`.
+- [x] **Step 2: RED.** `node --test tests/budget.test.cjs tests/controller.test.cjs`: отсутствуют budget/controller.
+- [x] **Step 3: Реализовать очередь и контроллер.** Создавать per-run catalog с request=budget.catalogRequest и tools из Task 5. Первый модельный вызов требует set_search_intent; далее разрешены инструменты до предела четырёх раундов, затем toolChoice=none. Дать tool-ответ каждому call.id, включая отклонённые, прежде чем продолжать диалог. Не выполнять >12 calls и >4/раунд; переполнение возвращает контролируемую ошибку. Финал после раннего завершения проверяется тем же parseFinal. При clarification приостановить/завершить активный бюджет; ответ пользователя начинает новый бюджет с сохранённым запросом и выбранным примером, без повторной публикации старого runId. Уточнение сохраняет неизменённые поля; more включает все shown. При timeout без готового финала не показывать сырые кандидаты как ИИ-выбор.
+- [x] **Step 4: GREEN.** `node --test tests/budget.test.cjs tests/controller.test.cjs`: PASS; отдельная проверка с fake clock на 90 001 мс не запускает новой сети. `npm test`: PASS всех написанных задач.
+- [x] **Step 5: Коммит.** `git commit -m "feat: orchestrate bounded AI catalog search"`.
 
 ### Task 7: Настройки RouterAI, регистрация и конструктор Lampa
 
@@ -241,7 +241,7 @@ assert.ok(h.candidateCount <= 80);
 
 **Interfaces:** `registerSettings({Lampa,routerai,onChange})->{getConfig(),open(),destroy()}`, config `{key,model}`; Storage keys `aip_api_key`, `aip_model`. `createScreen({Lampa,catalog,onSubmit,onCancel,onSettings})->LampaComponent`; onSubmit получает `{query,formFilters,examples,mode}`. `registerPlugin({Lampa,window,$})` регистрирует один `aip_picks` компонент и один пункт меню. На этом этапе результаты заменяются тестовым onSubmit, реальная связь — Task 8.
 
-- [ ] **Step 1: Установить dev-инструменты и написать тесты.** `npm install --save-dev --save-exact esbuild acorn@8.15.0 linkedom@0.18.14`; это локальные инструменты, не runtime-зависимости. Создать DOM-harness без сети. `test('registers once and accepts filters-only requests with keyboard focus')`:
+- [x] **Step 1: Установить dev-инструменты и написать тесты.** `npm install --save-dev --save-exact esbuild acorn@8.15.0 linkedom@0.18.14`; это локальные инструменты, не runtime-зависимости. Создать DOM-harness без сети. `test('registers once and accepts filters-only requests with keyboard focus')`:
 
 ```js
 assert.equal(menuItems.length, 1);
@@ -252,10 +252,10 @@ assert.equal(submissions[0].formFilters.maxRuntimeMinutes, 120);
 ```
 
 Дополнительно: пустой запрос блокируется, пример без текста запускается, четвёртый пример не добавляется, раскрытие фильтров и Back возвращают фокус, сериал подписывает длительность серии. Settings: список tools-моделей и ручной ID, скрытый ввод ключа, запись Storage может бросить исключение — значение не объявляется сохранённым и экран остаётся доступным. probe не запускается при каждом открытии настроек. Повторный appready не дублирует меню и listeners.
-- [ ] **Step 2: RED.** `node --test tests/settings.test.cjs tests/ui.test.cjs tests/bundle.test.cjs`: FAIL для отсутствующих компонентов/артефакта, не для зависимостей.
-- [ ] **Step 3: Реализовать настройки и экран.** Нативная визуальная система Lampa, .selector и hover:enter; Text/Select/Modal для ввода. Использовать методы create/start/stop/destroy/render, закрытие отменяет подбор, навигация временно к карточке сохраняет сессию. Сначала API key/model, затем конструктор. Статусы: «Разбираем запрос», «Ищем фильмы», «Выбираем варианты». CSS ограничить `.aip-picks`. build.cjs собирает ES5/CommonJS index в IIFE `ai-picks.js`, CSS встраивается строкой; target=es5, platform=browser, bundle=true. check.cjs проверяет Acorn ecmaVersion:5 и `node --check`, bundle.test загружает файл в VM без require/module/Promise/fetch/Map/Set/AbortController. Добавить scripts build/check и pretest build. Не использовать esbuild для понижения ES2015 classes/const/let: runtime-исходники уже ES5.
-- [ ] **Step 4: GREEN.** `npm run build`, `npm run check`, `node --test tests/settings.test.cjs tests/ui.test.cjs tests/bundle.test.cjs`: PASS; bundle не требует npm на устройстве. Проверить фокус вручную в локальном DOM-preview; поведение настоящей Lampa подтверждается отдельно.
-- [ ] **Step 5: Коммит.** `git commit -m "feat: add Lampa AI picks settings and request constructor"`.
+- [x] **Step 2: RED.** `node --test tests/settings.test.cjs tests/ui.test.cjs tests/bundle.test.cjs`: FAIL для отсутствующих компонентов/артефакта, не для зависимостей.
+- [x] **Step 3: Реализовать настройки и экран.** Нативная визуальная система Lampa, .selector и hover:enter; Text/Select/Modal для ввода. Использовать методы create/start/stop/destroy/render, закрытие отменяет подбор, навигация временно к карточке сохраняет сессию. Сначала API key/model, затем конструктор. Статусы: «Разбираем запрос», «Ищем фильмы», «Выбираем варианты». CSS ограничить `.aip-picks`. build.cjs собирает ES5/CommonJS index в IIFE `ai-picks.js`, CSS встраивается строкой; target=es5, platform=browser, bundle=true. check.cjs проверяет Acorn ecmaVersion:5 и `node --check`, bundle.test загружает файл в VM без require/module/Promise/fetch/Map/Set/AbortController. Добавить scripts build/check и pretest build. Не использовать esbuild для понижения ES2015 classes/const/let: runtime-исходники уже ES5.
+- [x] **Step 4: GREEN.** `npm run build`, `npm run check`, `node --test tests/settings.test.cjs tests/ui.test.cjs tests/bundle.test.cjs`: PASS; bundle не требует npm на устройстве. Проверить фокус вручную в локальном DOM-preview; поведение настоящей Lampa подтверждается отдельно.
+- [x] **Step 5: Коммит.** `git commit -m "feat: add Lampa AI picks settings and request constructor"`.
 
 ### Task 8: Карточки, объяснения и уточнения в работающем потоке
 
@@ -263,7 +263,7 @@ assert.equal(submissions[0].formFilters.maxRuntimeMinutes, 120);
 
 **Interfaces:** `createResults({Lampa,onMore,onRefine,onOpen})->{render(result,intent),element(),destroy()}`; onOpen получает Candidate. index связывает settings, session, catalog, RouterAI и controller. На фокусе карточки отдельная доступная клавиатурой/пультом кнопка «Почему предложен» открывает Modal. Для карточек использовать штатный контракт Lampa 3.3.8: `Lampa.Maker.make('Card', clonedCard)`, `instance.use({onEnter, onFocus})`, `instance.create()`, `instance.render()` (jQuery) или `render(true)` (DOM), после добавления вызвать visible(), при удалении destroy(). Эти методы подтверждены `src/interaction/maker.js`, `src/interaction/card/base.js` и `src/core/module/callback.js` на указанном commit; зафиксировать именно их в helper. В обработчике onEnter использовать Candidate из замыкания и явный type.
 
-- [ ] **Step 1: Написать тесты полного потока на fake API.** `test('refinement preserves year and late previous run never changes results')`:
+- [x] **Step 1: Написать тесты полного потока на fake API.** `test('refinement preserves year and late previous run never changes results')`:
 
 ```js
 assert.equal(currentIntent.filters.yearMin, 2000);
@@ -275,10 +275,10 @@ assert.equal(openParams.source, 'tmdb');
 ```
 
 Проверить текст-only, фильтры-only и пример-only; показать до 10 результатов, modal explanation без hover, HTML в reason остаётся текстом. More исключает movie/tv по составному ключу, старые карточки сохраняются до успеха уточнения. Back/stop/destroy, открытие карточки и возвращение, повторный appready, ошибки 401/402/429, clarification выбора примера и конфликт условий, достижение 200 shown. Сбой API не очищает старую подборку и ввод.
-- [ ] **Step 2: RED.** `node --test tests/results.test.cjs tests/integration.test.cjs`: отсутствует renderer/связь onEvent с экраном.
-- [ ] **Step 3: Реализовать результаты и wiring.** Использовать настоящие catalog card и явный type при Activity.push(full). Сохранять текущий фокус перед модалом и восстанавливать после закрытия. Объяснение — plain text, максимум два коротких предложения/300 символов. onMore/onRefine запускают controller с новым runId и соответствующим mode; settings onChange отменяет старый запуск. Формулировки состояния не показывают tool JSON, токены и внутренние ID. При 0 — предложение изменить условия, при частичном результате — понятное сообщение. Не добавлять UI для истории.
-- [ ] **Step 4: GREEN.** `npm test`, `npm run check`: PASS; bundle и DOM-integration проверяют связанный поток и реальные структурные контракты Lampa, без внешней сети.
-- [ ] **Step 5: Коммит.** `git commit -m "feat: show grounded AI picks and refine selections"`.
+- [x] **Step 2: RED.** `node --test tests/results.test.cjs tests/integration.test.cjs`: отсутствует renderer/связь onEvent с экраном.
+- [x] **Step 3: Реализовать результаты и wiring.** Использовать настоящие catalog card и явный type при Activity.push(full). Сохранять текущий фокус перед модалом и восстанавливать после закрытия. Объяснение — plain text, максимум два коротких предложения/300 символов. onMore/onRefine запускают controller с новым runId и соответствующим mode; settings onChange отменяет старый запуск. Формулировки состояния не показывают tool JSON, токены и внутренние ID. При 0 — предложение изменить условия, при частичном результате — понятное сообщение. Не добавлять UI для истории.
+- [x] **Step 4: GREEN.** `npm test`, `npm run check`: PASS; bundle и DOM-integration проверяют связанный поток и реальные структурные контракты Lampa, без внешней сети.
+- [x] **Step 5: Коммит.** `git commit -m "feat: show grounded AI picks and refine selections"`.
 
 ### Task 9: Приёмка, инструкция установки и готовность артефакта
 
@@ -286,11 +286,11 @@ assert.equal(openParams.source, 'tmdb');
 
 **Interfaces:** Один устанавливаемый `lampa-ai-picks/ai-picks.js`; README описывает локальный ключ, выбор tools-модели, тест подключения, формат длительности серии, ограничения подбора и обычную установку по URL JS. Публикация/деплой отдельной командой сюда не входят.
 
-- [ ] **Step 1: Зафиксировать checklist приёмки.** Пять сценариев из spec §9 плюс тест реального tool-вызова и discovery через настроенный TMDB. Для каждого записать среду, Manifest, app/browser version, модель, результат PASS/FAIL/NOT RUN и причину. Никогда не записывать ключ. Нет устройства или ключа — NOT RUN, а не предполагаемый PASS.
-- [ ] **Step 2: Выполнить чистую локальную проверку.** Из `lampa-ai-picks/`: `npm ci`, `npm test`, `npm run check`. Из корня: `git diff --check`. PASS — все автоматические тесты, Acorn ES5 и синтаксис; ai-picks.js воспроизводится той же сборкой без diff. Из `lampa-catalog-ratings/` один раз `npm ci`, `npm test`, `npm run check` как итоговая проверка сосуществования; при провале установить, является ли он исходной проблемой или регрессией, а не менять чужой плагин автоматически.
-- [ ] **Step 3: Проверить настоящую Lampa в браузере.** Ключ пользователь вводит локально в настройки; выполнить probe и все приёмочные сценарии с клавиатурой, открытием карточки и отменой. Сетевую доступность оценивать с origin самой Lampa; успешный curl не доказывает browser CORS. Не подменять эту проверку fake API/локальным DOM-preview.
-- [ ] **Step 4: Проверить Android TV с пультом.** Те же сценарии и native JSON/tool вызов, навигация Back и восстановление фокуса. Tizen/webOS — отдельные необязательные строки. Если Android недоступен исполнителю, подготовить воспроизводимые шаги для пользователя и явно оставить аппаратную проверку NOT RUN; техническую реализацию можно завершить, подтверждённую готовность Android заявлять нельзя.
-- [ ] **Step 5: Сохранить результаты и выполнить финальную проверку.** `npm test`, `npm run check`, `git diff --check` после исправлений; проверить отсутствие случайного ключа и runtime-зависимостей. `git commit -m "docs: document AI picks setup and acceptance results"`. Итоговый отчёт различает готовый JS, автоматические проверки и реальные платформы. Не публиковать сайт, не пушить и не сливать ветку в рамках этого плана.
+- [x] **Step 1: Зафиксировать checklist приёмки.** Пять сценариев из spec §9 плюс тест реального tool-вызова и discovery через настроенный TMDB. Для каждого записать среду, Manifest, app/browser version, модель, результат PASS/FAIL/NOT RUN и причину. Никогда не записывать ключ. Нет устройства или ключа — NOT RUN, а не предполагаемый PASS.
+- [x] **Step 2: Выполнить чистую локальную проверку.** Из `lampa-ai-picks/`: `npm ci`, `npm test`, `npm run check`. Из корня: `git diff --check`. PASS — все автоматические тесты, Acorn ES5 и синтаксис; ai-picks.js воспроизводится той же сборкой без diff. Из `lampa-catalog-ratings/` один раз `npm ci`, `npm test`, `npm run check` как итоговая проверка сосуществования; при провале установить, является ли он исходной проблемой или регрессией, а не менять чужой плагин автоматически.
+- [ ] **Step 3: Проверить настоящую Lampa в браузере.** NOT RUN: рабочего ключа и целевой Lampa в среде нет. Ключ пользователь вводит локально в настройки; выполнить probe и все приёмочные сценарии с клавиатурой, открытием карточки и отменой. Сетевую доступность оценивать с origin самой Lampa; успешный curl не доказывает browser CORS. Не подменять эту проверку fake API/локальным DOM-preview.
+- [ ] **Step 4: Проверить Android TV с пультом.** NOT RUN: устройство не подключено. Те же сценарии и native JSON/tool вызов, навигация Back и восстановление фокуса. Tizen/webOS — отдельные необязательные строки. Если Android недоступен исполнителю, подготовить воспроизводимые шаги для пользователя и явно оставить аппаратную проверку NOT RUN; техническую реализацию можно завершить, подтверждённую готовность Android заявлять нельзя.
+- [x] **Step 5: Сохранить результаты и выполнить финальную проверку.** `npm test`, `npm run check`, `git diff --check` после исправлений; проверить отсутствие случайного ключа и runtime-зависимостей. `git commit -m "docs: document AI picks setup and acceptance results"`. Итоговый отчёт различает готовый JS, автоматические проверки и реальные платформы. Не публиковать сайт, не пушить и не сливать ветку в рамках этого плана.
 
 ## Проверка покрытия спецификации
 
