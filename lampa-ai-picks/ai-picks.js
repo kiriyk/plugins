@@ -395,13 +395,13 @@
       function noop() {
       }
       function createCatalog(options) {
-        var request = options.request, L = options.Lampa, language = options.language || "ru-RU";
+        var request = options.request, L = options.Lampa, language = options.language;
         function invalid(done) {
           done(appError("invalid_arguments"));
           return noop;
         }
         function get(path, params, done) {
-          var query = { api_key: L.TMDB && L.TMDB.key ? L.TMDB.key() : "", language: language, include_adult: false };
+          var query = { api_key: L.TMDB && L.TMDB.key ? L.TMDB.key() : "", language: language || L.Storage && L.Storage.field && L.Storage.field("tmdb_lang") || "ru", include_adult: false };
           if (!L.TMDB || !L.TMDB.api || !L.TMDB.key) {
             done(appError("unsupported"));
             return noop;

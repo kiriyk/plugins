@@ -61,3 +61,15 @@ test('rejects arbitrary type, ID, relation, page and malformed response',()=>{
     assert.equal(h.requests.length,0);
     h.catalog.searchTitles({query:'x',type:'movie'},e=>error=e);h.reply(0,{wrong:[]});assert.equal(error.code,'invalid_response');
 });
+
+test('catalog follows the current Lampa TMDB language and preserves explicit overrides',()=>{
+    const h=createHarness();let language='ru';
+    h.Lampa.Storage.field=key=>key==='tmdb_lang'?language:'other-setting';
+    const catalog=createCatalog({request:h.request,Lampa:h.Lampa});
+    const search=api=>api.searchTitles({query:'Остров проклятых',type:'movie'},()=>{});
+    search(catalog);assert.equal(new URL(h.requests.at(-1).url).searchParams.get('language'),'ru');
+    language='en';search(catalog);assert.equal(new URL(h.requests.at(-1).url).searchParams.get('language'),'en');
+    search(createCatalog({request:h.request,Lampa:h.Lampa,language:'fr-FR'}));
+    assert.equal(new URL(h.requests.at(-1).url).searchParams.get('language'),'fr-FR');
+    language='';search(catalog);assert.equal(new URL(h.requests.at(-1).url).searchParams.get('language'),'ru');
+});
