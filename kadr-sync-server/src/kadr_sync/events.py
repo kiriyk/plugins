@@ -8,7 +8,7 @@ from typing import Callable, Optional
 
 from . import changes, profiles
 from .items import Item, item_json, load_item, save_item
-from .models import ProgressEvent
+from .models import DeleteEvent, NextEvent, PrefsEvent, ProgressEvent, StatusEvent
 
 SAME_POSITION_MS = 5000
 TOKEN_TYPES = {"progress", "next_requested"}
@@ -111,7 +111,65 @@ def apply_progress(conn: sqlite3.Connection, profile_id: int, event: ProgressEve
     return {"status": "conflict", "conflict_id": _branch(conn, profile_id, pb, proposed, now_ms)}
 
 
-HANDLERS: dict[str, Callable] = {"progress": apply_progress}
+def apply_status(conn: sqlite3.Connection, profile_id: int, event: StatusEvent, now_ms: int, threshold: int) -> dict:
+    current = load_item(conn, profile_id, event.item_key)
+    if current is None:
+        return {"status": "unknown_item"}
+    old = current.revision
+    current.status = "watched" if event.status == "watched" else "in_progress"
+    current.manual_ms = now_ms
+    current.completed_before = current.completed_before or event.status == "watched"
+    current.deleted = False
+    current.device_id = event.device_id
+    current.client_ms = event.client_ms
+    current.server_ms = now_ms
+    current.revision = old + 1
+    save_item(conn, profile_id, current)
+    advance_heads(conn, profile_id, current.item_key, old, current.revision)
+    changes.record(conn, profile_id, "item", current.item_key)
+    return {"status": "applied", "revision": current.revision}
+
+
+def apply_delete(conn: sqlite3.Connection, profile_id: int, event: DeleteEvent, now_ms: int, threshold: int) -> dict:
+    current = load_item(conn, profile_id, event.item_key)
+    if current is None:
+        return {"status": "unknown_item"}
+    current.deleted = True
+    current.device_id = event.device_id
+    current.client_ms = event.client_ms
+    current.server_ms = now_ms
+    current.revision += 1
+    save_item(conn, profile_id, current)
+    changes.record(conn, profile_id, "item", current.item_key)
+    return {"status": "applied", "revision": current.revision}
+
+
+def apply_prefs(conn: sqlite3.Connection, profile_id: int, event: PrefsEvent, now_ms: int, threshold: int) -> dict:
+    row = conn.execute("SELECT revision FROM prefs WHERE profile_id=? AND content_id=?",
+                       (profile_id, event.content_id)).fetchone()
+    revision = (row["revision"] if row else 0) + 1
+    conn.execute("INSERT OR REPLACE INTO prefs(profile_id, content_id, prefs_json, revision) VALUES (?, ?, ?, ?)",
+                 (profile_id, event.content_id, json.dumps(event.prefs.model_dump(), ensure_ascii=False), revision))
+    changes.record(conn, profile_id, "prefs", event.content_id)
+    return {"status": "applied", "revision": revision}
+
+
+def apply_next(conn: sqlite3.Connection, profile_id: int, event: NextEvent, now_ms: int, threshold: int) -> dict:
+    pb = playback_row(conn, profile_id, event.playback_id)
+    if pb is None:
+        return {"status": "unknown_playback"}
+    conn.execute("UPDATE playbacks SET next_requested=1 WHERE playback_id=?", (event.playback_id,))
+    changes.record(conn, profile_id, "playback", event.playback_id)
+    return {"status": "applied"}
+
+
+HANDLERS: dict[str, Callable] = {
+    "progress": apply_progress,
+    "status": apply_status,
+    "delete": apply_delete,
+    "prefs": apply_prefs,
+    "next_requested": apply_next,
+}
 
 
 def apply_events(conn: sqlite3.Connection, profile_id: int, events: list, token_playback_id: Optional[str],
