@@ -103,7 +103,8 @@ def apply_progress(conn: sqlite3.Connection, profile_id: int, event: ProgressEve
         return {"status": "ignored", "reason": "deleted"}
     proposed = _proposed(current, pb, event, now_ms, threshold)
     current_revision = current.revision if current else 0
-    if current_revision == pb["head_revision"] or (current is not None and current.deleted):
+    # head ahead of the server: the server was restored from an older backup, the client knows best.
+    if current_revision <= pb["head_revision"] or (current is not None and current.deleted):
         return _write(conn, profile_id, pb, current, proposed)
     if current is not None and _same_state(current, proposed):
         conn.execute("UPDATE playbacks SET head_revision=? WHERE playback_id=?", (current.revision, pb["playback_id"]))

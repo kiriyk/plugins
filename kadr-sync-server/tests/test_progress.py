@@ -104,3 +104,14 @@ def test_identical_state_from_another_branch_merges_silently(server):
     send(client, keys["a"], progress(tv, 1, 600_000))
     result = send(client, keys["a"], progress(tablet, 1, 603_000, device_id="tablet-00001"))[0]
     assert result["status"] == "merged" and result["revision"] == 1
+
+
+def test_client_ahead_of_server_after_backup_restore_applies_without_conflict(server):
+    client, keys, path = server
+    pb1, _ = start(client, keys["a"])
+    send(client, keys["a"], progress(pb1, 1, 600_000))  # server revision 1
+    pb2, _ = start(client, keys["a"], base_revision=7)  # client cache newer than restored server
+    assert statuses(send(client, keys["a"], progress(pb2, 1, 650_000))) == ["applied"]
+    other, _ = start(client, keys["a"], episode_id="s1e5", base_revision=3)  # record missing on server
+    assert statuses(send(client, keys["a"], progress(other, 1, 10_000))) == ["applied"]
+    assert item_state(path, KEY).position_ms == 650_000
