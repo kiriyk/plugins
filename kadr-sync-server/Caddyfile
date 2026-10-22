@@ -1,0 +1,7 @@
+{$KADR_DOMAIN} {
+	encode gzip
+	request_body {
+		max_size 256KB
+	}
+	reverse_proxy kadr-sync:8080
+}

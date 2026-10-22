@@ -1,0 +1,23 @@
+services:
+  kadr-sync:
+    build: .
+    restart: unless-stopped
+    volumes:
+      - kadr-data:/data
+  caddy:
+    image: caddy:2.8.4
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      KADR_DOMAIN: ${KADR_DOMAIN:?set KADR_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - kadr-sync
+
+volumes:
+  kadr-data:
+  caddy-data:
