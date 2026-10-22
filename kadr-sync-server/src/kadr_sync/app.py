@@ -6,11 +6,11 @@ import sqlite3
 from dataclasses import dataclass
 from typing import Callable, Iterator, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from . import conflicts, db, playbacks, profiles
+from . import conflicts, db, playbacks, profiles, queries
 from .events import apply_events
 from .models import EventsIn, PlaybackIn, ResolveIn
 
@@ -113,6 +113,22 @@ def create_app(db_path: str, clock: Callable[[], int] = db.now_ms) -> FastAPI:
             raise HTTPException(status_code=404, detail="not_found")
         except conflicts.ConflictChanged as changed:
             return JSONResponse({"error": "conflict_changed", "conflict": changed.current}, status_code=409)
+
+    @app.get("/v1/history")
+    def get_history(mode: str = Query("all", alias="filter", pattern="^(continue|all)$"),
+                    limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0),
+                    who: Principal = Depends(profile_principal),
+                    conn: sqlite3.Connection = Depends(connection)):
+        return queries.history(conn, who.profile_id, mode, limit, offset)
+
+    @app.get("/v1/changes")
+    def get_changes(cursor: Optional[str] = Query(None, max_length=24),
+                    who: Principal = Depends(profile_principal),
+                    conn: sqlite3.Connection = Depends(connection)):
+        try:
+            return queries.changes_since(conn, who.profile_id, cursor)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="bad_cursor")
 
     return app
 
