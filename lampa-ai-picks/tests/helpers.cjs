@@ -27,7 +27,7 @@ function createDOMHarness(options={}) {
     const {parseHTML}=require('linkedom');
     const {window:domWindow,document}=parseHTML('<html><head></head><body><nav class="menu"><ul class="menu__list"></ul></nav><main id="content"></main></body></html>');
     const window={document,Event:domWindow.Event,setTimeout,clearTimeout};
-    const h=createHarness(),selects=[],inputs=[],modals=[],notices=[],registrations=[],params=[],pushes=[],focuses=[],controllers={};
+    const h=createHarness(),selects=[],inputs=[],modals=[],notices=[],registrations=[],params=[],pushes=[],focuses=[],scrollUpdates=[],controllers={};
     const storage={...options.storage};let enabled='aip_picks',focused=null;
     h.Lampa.Storage={get:(k,f)=>k in storage?storage[k]:f,field:()=> 'ru-RU',set(k,v){if(options.storageError)throw Error('storage unavailable');storage[k]=v;}};
     h.Lampa.Select={show:p=>selects.push(p),close(){}};
@@ -36,18 +36,18 @@ function createDOMHarness(options={}) {
     h.Lampa.Noty={show:m=>notices.push(m)};
     h.Lampa.SettingsApi={addComponent:p=>registrations.push(p),addParam:p=>params.push(p),removeComponent(){}};
     h.Lampa.Controller={add:(n,c)=>controllers[n]=c,toggle(n){enabled=n;if(controllers[n]?.toggle)controllers[n].toggle();},
-        enabled:()=>({name:enabled}),collectionSet(){},collectionFocus(e,root){focused=e||root?.querySelector('.selector');focuses.push(focused);},focus:e=>{focused=e;focuses.push(e);}};
+        enabled:()=>({name:enabled}),collectionSet(){},collectionFocus(e,root){focused=e||root?.querySelector('.selector');focuses.push(focused);if(focused)focused.dispatchEvent(new window.Event('hover:focus'));},focus:e=>{focused=e;focuses.push(e);}};
     h.Lampa.Navigator={move(){}};
     h.Lampa.Component={add:(n,c)=>{registrations.push({name:n,constructor:c});},get:()=>null};
     h.Lampa.Activity={push:p=>pushes.push(p),backward(){}};
     h.Lampa.Listener={follow:(n,cb)=>{h.appListener=cb;}};
     h.Lampa.Scroll=function(){const root=document.createElement('div');root.className='scroll';
-        this.append=e=>root.appendChild(e);this.render=()=>root;this.update=()=>{};this.destroy=()=>root.remove();};
+        this.append=e=>root.appendChild(e);this.render=()=>root;this.update=(element,center)=>scrollUpdates.push({element,center});this.destroy=()=>root.remove();};
     const madeCards=[];
     h.Lampa.Maker={make(name,card){
         if(name!=='Card')throw Error('unsupported Maker type');
         const modules=[],el=document.createElement('div');el.className='card selector';el.setAttribute('data-title',card.title||card.name);
-        const instance={data:card,use(m){modules.push(m);},create(){el.textContent=card.title||card.name;el.addEventListener('hover:enter',()=>modules.forEach(m=>m.onEnter?.call(instance,el,card)));},
+        const instance={data:card,use(m){modules.push(m);},create(){el.textContent=card.title||card.name;el.addEventListener('hover:enter',()=>modules.forEach(m=>m.onEnter?.call(instance,el,card)));el.addEventListener('hover:focus',()=>modules.forEach(m=>m.onFocus?.call(instance,{0:el},card)));},
             render(js){return js?el:{0:el};},visible(){instance.visibleCount=(instance.visibleCount||0)+1;},destroy(){el.remove();instance.destroyed=true;}};
         madeCards.push(instance);return instance;
     }};
@@ -57,6 +57,6 @@ function createDOMHarness(options={}) {
     function choose(title){const select=selects.at(-1),item=select.items.find(x=>x.title===title||x.value===title||x.id===title);assertElement(item);
         if(item.checkbox){item.checked=!item.checked;(item.onCheck||select.onCheck)?.(item);}else(item.onSelect||select.onSelect)?.(item);}
     function assertElement(e){if(!e)throw Error('Test target not found');}
-    return {...h,window,document,storage,selects,inputs,modals,notices,registrations,params,pushes,focuses,controllers,enter,choose};
+    return {...h,window,document,storage,selects,inputs,modals,notices,registrations,params,pushes,focuses,scrollUpdates,controllers,enter,choose};
 }
 module.exports.createDOMHarness=createDOMHarness;

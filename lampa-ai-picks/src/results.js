@@ -12,6 +12,7 @@ function createResults(options) {
     }
     function button(action, title, callback) {
         var b = doc.createElement('button');b.type = 'button';b.className = 'selector aip-control';b.textContent = title;b.setAttribute('data-action',action);
+        b.addEventListener('hover:focus',function () { if (alive && options.onFocus) options.onFocus(b); });
         b.addEventListener('hover:enter',function () { if (alive && !b.disabled) callback(b); });
         return b;
     }
@@ -25,7 +26,8 @@ function createResults(options) {
         result.items.slice(0,10).forEach(function (item) {
             var wrapper = doc.createElement('article');wrapper.className = 'aip-pick';wrapper.setAttribute('data-key',item.candidate.key);
             var card = L.Maker.make('Card',clone(item.candidate.card));
-            card.use({onEnter:function () { if (alive) options.onOpen(item.candidate); }});
+            card.use({onEnter:function () { if (alive) options.onOpen(item.candidate); },
+                onFocus:function () { if (alive && options.onFocus) options.onFocus(card.render(true)); }});
             card.create();wrapper.appendChild(card.render(true));
             wrapper.appendChild(button('why','Почему предложен',function (target) {
                 var html = doc.createElement('div'), title = doc.createElement('h3'), reason = doc.createElement('p');

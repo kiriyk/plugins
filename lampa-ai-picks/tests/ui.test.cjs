@@ -45,3 +45,15 @@ test('checking then clearing a genre does not turn empty input into a valid requ
 test('search stage disables editable controls so old results cannot overwrite new edits',()=>{
     const h=setup();h.screen.setStage('searching');h.enter('[data-action="query"]');assert.equal(h.inputs.length,0);
 });
+
+test('form genre selection leaves textual exclusions and other media unlocked',()=>{
+    const h=setup(), d=require('../src/domain');
+    h.enter('[data-action="movie-genres"]');h.choose(18);h.selects.at(-1).onBack();
+    const locks=h.screen.getRequest('new').formFilters;
+    assert.deepEqual(locks,{genres:{movie:{include:[18]}}});
+    const result=d.resolveIntent(d.emptyIntent(),{filters:{genres:{movie:{exclude:[27]}}}},locks,dictionaries);
+    assert.equal(result.status,'ready');
+    assert.deepEqual(result.intent.filters.genres.movie,{include:[18],exclude:[27]});
+    h.enter('[data-action="movie-exclude"]');h.choose(27);
+    assert.deepEqual(h.screen.getRequest('new').formFilters.genres.movie,{include:[18],exclude:[27]});
+});

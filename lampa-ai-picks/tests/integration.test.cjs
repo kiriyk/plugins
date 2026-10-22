@@ -77,3 +77,17 @@ test('parsed text conditions are displayed without becoming explicit form locks'
     assert.equal(h.screen.getRequest('new').formFilters.maxRuntimeMinutes,undefined);
     assert.ok(h.screen.element().textContent.includes('120'));
 });
+
+test('pult focus scrolls to result cards and actions and survives full-card return',t=>{
+    const h=setup(t);h.text('Кино');h.submit();h.finish(2);
+    const card=h.screen.element().querySelector('.card'), more=h.screen.element().querySelector('[data-action="more"]');
+    assert.ok(h.scrollUpdates.at(-1).element===card,'card focus must scroll its DOM element');
+    more.dispatchEvent(new h.window.Event('hover:focus'));
+    assert.ok(h.scrollUpdates.at(-1).element===more,'result action must scroll');
+    h.screen.stop();h.screen.start();assert.ok(h.focuses.at(-1)===more,'return must restore result action');
+    card.dispatchEvent(new h.window.Event('hover:focus'));h.enter(card);
+    h.screen.stop();h.screen.start();
+    assert.ok(h.focuses.at(-1)===card,'return must restore card');assert.ok(h.scrollUpdates.at(-1).element===card,'card focus must scroll its DOM element');
+    h.enter('[data-action="why"]');h.modals.at(-1).onBack();
+    assert.equal(h.scrollUpdates.at(-1).element.getAttribute('data-action'),'why');
+});

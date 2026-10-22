@@ -718,13 +718,17 @@
           L.Controller.collectionSet(root, false, true);
           L.Controller.collectionFocus(lastFocus, root, true);
         }
+        function focusElement(element) {
+          if (!alive) return;
+          lastFocus = element;
+          scroll.update(element, true);
+        }
         function button(action, label, fn, cls) {
           var e = elem("button", "selector aip-control" + (cls ? " " + cls : ""), label);
           e.type = "button";
           e.setAttribute("data-action", action);
           e.addEventListener("hover:focus", function() {
-            lastFocus = e;
-            scroll.update(e, true);
+            focusElement(e);
           });
           e.addEventListener("hover:enter", function() {
             if (!alive || e.disabled) return;
@@ -942,9 +946,15 @@
         function cleanForm() {
           var copy = d.clone(form);
           if (copy.countries && !copy.countries.length) delete copy.countries;
-          if (copy.genres && !["movie", "tv"].some(function(type) {
-            return copy.genres[type].include.length + copy.genres[type].exclude.length;
-          })) delete copy.genres;
+          if (copy.genres) {
+            ["movie", "tv"].forEach(function(type) {
+              ["include", "exclude"].forEach(function(kind) {
+                if (!copy.genres[type][kind].length) delete copy.genres[type][kind];
+              });
+              if (!Object.keys(copy.genres[type]).length) delete copy.genres[type];
+            });
+            if (!Object.keys(copy.genres).length) delete copy.genres;
+          }
           return copy;
         }
         function getRequest(mode) {
@@ -984,6 +994,7 @@
             return resultHost;
           },
           getRequest: getRequest,
+          focusElement: focusElement,
           setStage: setStage,
           setMessage: function(text) {
             status.textContent = text;
@@ -1787,6 +1798,9 @@
           b.className = "selector aip-control";
           b.textContent = title;
           b.setAttribute("data-action", action);
+          b.addEventListener("hover:focus", function() {
+            if (alive && options.onFocus) options.onFocus(b);
+          });
           b.addEventListener("hover:enter", function() {
             if (alive && !b.disabled) callback(b);
           });
@@ -1813,9 +1827,14 @@
             wrapper.className = "aip-pick";
             wrapper.setAttribute("data-key", item.candidate.key);
             var card = L.Maker.make("Card", clone(item.candidate.card));
-            card.use({ onEnter: function() {
-              if (alive) options.onOpen(item.candidate);
-            } });
+            card.use({
+              onEnter: function() {
+                if (alive) options.onOpen(item.candidate);
+              },
+              onFocus: function() {
+                if (alive && options.onFocus) options.onFocus(card.render(true));
+              }
+            });
             card.create();
             wrapper.appendChild(card.render(true));
             wrapper.appendChild(button("why", "Почему предложен", function(target) {
@@ -1910,7 +1929,7 @@
           screen = createScreen({ Lampa: L, document: doc, navigator: win.Navigator, catalog: catalog, onSubmit: launch, onCancel: function() {
             if (controller) controller.cancel();
           }, onSettings: settings.open });
-          renderer = createResults({ Lampa: L, document: doc, onMore: function() {
+          renderer = createResults({ Lampa: L, document: doc, onFocus: screen.focusElement, onMore: function() {
             launch(screen.getRequest("more"));
           }, onRefine: function() {
             L.Input.edit({ title: "Как изменить подборку?", value: "", free: true, nosave: true }, function(text2) {

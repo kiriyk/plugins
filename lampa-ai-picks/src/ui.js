@@ -12,10 +12,14 @@ function createScreen(options) {
         L.Controller.collectionSet(root,false,true);
         L.Controller.collectionFocus(lastFocus,root,true);
     }
+    function focusElement(element) {
+        if (!alive) return;
+        lastFocus = element;scroll.update(element,true);
+    }
     function button(action, label, fn, cls) {
         var e = elem('button','selector aip-control' + (cls ? ' ' + cls : ''),label);
         e.type = 'button'; e.setAttribute('data-action',action);
-        e.addEventListener('hover:focus',function () { lastFocus = e; scroll.update(e,true); });
+        e.addEventListener('hover:focus',function () { focusElement(e); });
         e.addEventListener('hover:enter',function () { if (!alive || e.disabled) return; lastFocus = e; fn(); });
         return e;
     }
@@ -135,7 +139,13 @@ function createScreen(options) {
     function cleanForm() {
         var copy = d.clone(form);
         if (copy.countries && !copy.countries.length) delete copy.countries;
-        if (copy.genres && !['movie','tv'].some(function (type) { return copy.genres[type].include.length + copy.genres[type].exclude.length; })) delete copy.genres;
+        if (copy.genres) {
+            ['movie','tv'].forEach(function (type) {
+                ['include','exclude'].forEach(function (kind) { if (!copy.genres[type][kind].length) delete copy.genres[type][kind]; });
+                if (!Object.keys(copy.genres[type]).length) delete copy.genres[type];
+            });
+            if (!Object.keys(copy.genres).length) delete copy.genres;
+        }
         return copy;
     }
     function getRequest(mode) { return {query:query,formFilters:cleanForm(),examples:d.clone(examples),mode:mode || 'new'}; }
@@ -155,7 +165,7 @@ function createScreen(options) {
     return {
         create:function () { if (!created) { created = true; } return scroll.render(); },
         render:function () { return scroll.render(); },element:function () { return root; },resultsHost:function () { return resultHost; },
-        getRequest:getRequest,setStage:setStage,setMessage:function (text) { status.textContent = text; },
+        getRequest:getRequest,focusElement:focusElement,setStage:setStage,setMessage:function (text) { status.textContent = text; },
         applyIntent:function (intent, values) {
             recognized = d.clone(intent);if (values) dictionaries = values;update();
             var f = recognized.filters, parts = [{movie:'Фильмы',tv:'Сериалы',all:'Фильмы и сериалы'}[f.media]];

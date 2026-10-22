@@ -27,7 +27,7 @@ function registerPlugin(options) {
             payload.key = config.key;payload.model = config.model;controller.start(payload);
         }
         screen = createScreen({Lampa:L,document:doc,navigator:win.Navigator,catalog:catalog,onSubmit:launch,onCancel:function () { if (controller) controller.cancel(); },onSettings:settings.open});
-        renderer = createResults({Lampa:L,document:doc,onMore:function () { launch(screen.getRequest('more')); },onRefine:function () {
+        renderer = createResults({Lampa:L,document:doc,onFocus:screen.focusElement,onMore:function () { launch(screen.getRequest('more')); },onRefine:function () {
             L.Input.edit({title:'Как изменить подборку?',value:'',free:true,nosave:true},function (text) {
                 if (destroyed) return;
                 L.Controller.toggle('aip_picks');
