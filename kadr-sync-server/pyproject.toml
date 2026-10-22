@@ -1,0 +1,23 @@
+[project]
+name = "kadr-sync"
+version = "0.1.0"
+description = "Watch history sync server for KADR and Lampa"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.32,<1",
+    "pydantic>=2.9,<3",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "httpx>=0.27"]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kadr_sync"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
