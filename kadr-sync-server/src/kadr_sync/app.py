@@ -10,9 +10,9 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from . import db, playbacks, profiles
+from . import conflicts, db, playbacks, profiles
 from .events import apply_events
-from .models import EventsIn, PlaybackIn
+from .models import EventsIn, PlaybackIn, ResolveIn
 
 MAX_BODY_BYTES = 256 * 1024
 
@@ -94,6 +94,25 @@ def create_app(db_path: str, clock: Callable[[], int] = db.now_ms) -> FastAPI:
                     conn: sqlite3.Connection = Depends(connection)):
         with db.write(conn):
             return {"results": apply_events(conn, who.profile_id, body.events, who.playback_id, clock())}
+
+    @app.get("/v1/conflicts/{conflict_id}")
+    def get_conflict(conflict_id: str, who: Principal = Depends(profile_principal),
+                     conn: sqlite3.Connection = Depends(connection)):
+        found = conflicts.conflict_json(conn, who.profile_id, conflict_id)
+        if found is None:
+            raise HTTPException(status_code=404, detail="not_found")
+        return found
+
+    @app.post("/v1/conflicts/{conflict_id}/resolve")
+    def resolve_conflict(conflict_id: str, body: ResolveIn, who: Principal = Depends(profile_principal),
+                         conn: sqlite3.Connection = Depends(connection)):
+        try:
+            with db.write(conn):
+                return conflicts.resolve(conn, who.profile_id, conflict_id, body.version, body.choice, clock())
+        except conflicts.ConflictNotFound:
+            raise HTTPException(status_code=404, detail="not_found")
+        except conflicts.ConflictChanged as changed:
+            return JSONResponse({"error": "conflict_changed", "conflict": changed.current}, status_code=409)
 
     return app
 
