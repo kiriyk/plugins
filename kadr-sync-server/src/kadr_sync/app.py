@@ -10,7 +10,8 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from . import db, profiles
+from . import db, playbacks, profiles
+from .models import PlaybackIn
 
 MAX_BODY_BYTES = 256 * 1024
 
@@ -55,6 +56,9 @@ def create_app(db_path: str, clock: Callable[[], int] = db.now_ms) -> FastAPI:
         profile_id = profiles.profile_for_key(conn, secret)
         if profile_id is not None:
             return Principal(profile_id)
+        found = playbacks.playback_for_token(conn, secret, clock())
+        if found is not None:
+            return Principal(found[0], found[1])
         raise HTTPException(status_code=401, detail="unauthorized")
 
     def profile_principal(who: Principal = Depends(principal)) -> Principal:
@@ -66,6 +70,23 @@ def create_app(db_path: str, clock: Callable[[], int] = db.now_ms) -> FastAPI:
     def get_profile(who: Principal = Depends(profile_principal),
                     conn: sqlite3.Connection = Depends(connection)):
         return profiles.profile_json(conn, who.profile_id)
+
+    @app.post("/v1/playbacks")
+    def post_playback(body: PlaybackIn, who: Principal = Depends(profile_principal),
+                      conn: sqlite3.Connection = Depends(connection)):
+        try:
+            with db.write(conn):
+                return playbacks.register_playback(conn, who.profile_id, body, clock())
+        except playbacks.PlaybackTaken:
+            raise HTTPException(status_code=409, detail="playback_id_taken")
+
+    @app.get("/v1/playbacks/{playback_id}")
+    def get_playback(playback_id: str, who: Principal = Depends(profile_principal),
+                     conn: sqlite3.Connection = Depends(connection)):
+        found = playbacks.get_playback(conn, who.profile_id, playback_id)
+        if found is None:
+            raise HTTPException(status_code=404, detail="not_found")
+        return found
 
     return app
 
