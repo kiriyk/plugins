@@ -42,3 +42,12 @@ test('final results have at most ten entries with reasons bounded to 300 charact
     const result=parseFinal(JSON.stringify({picks}),store,filters(),[]);
     assert.equal(result.items.length,10);assert.ok(result.items.every(p=>p.reason.length<=300));
 });
+
+
+test('final validation reports rejected candidate filters without leaking the reason text',()=>{
+ const {createCandidateStore,emptyFilters}=require('../src/domain'),store=createCandidateStore(80),rejected=[];
+ store.add(movie({key:'tmdb:movie:1',id:1,runtimeMinutes:138}));store.add(movie({key:'tmdb:movie:2',id:2,runtimeMinutes:100}));
+ const filters=emptyFilters();filters.maxRuntimeMinutes=120;
+ const result=parseFinal('{"picks":[{"key":"tmdb:movie:1","reason":"PRIVATE-REASON"},{"key":"tmdb:movie:2","reason":"Подходит."}]}',store,filters,[],{onReject:r=>rejected.push(r)});
+ assert.equal(result.items.length,1);assert.deepEqual(rejected,[{key:'tmdb:movie:1',reason:'runtime'}]);
+});

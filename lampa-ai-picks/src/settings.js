@@ -1,5 +1,5 @@
 'use strict';
-var limits = require('./limits');
+var limits = require('./limits'), openText = require('./dialog').openText;
 function escapeText(value) { return String(value).replace(/[&<>"']/g,function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function registerSettings(options) {
     var L = options.Lampa, alive = true, revision = 0, cancels = [];
@@ -77,6 +77,55 @@ function registerSettings(options) {
             notify(error ? error.message || 'Не удалось проверить подключение.' : 'Подключение работает. Модель поддерживает поиск через инструменты.');
         }));
     }
+    function diagnostics(previous) {
+        var journal = options.diagnostics, doc = options.document || (typeof document !== 'undefined' ? document : null);
+        var win = options.window || (typeof window !== 'undefined' ? window : {});
+        if (!journal) { notify('Журнал диагностики недоступен.');restore(previous);return; }
+        function copy() {
+            function success() { notify('Журнал скопирован.'); }
+            function fallback() {
+                var input;
+                try {
+                    input = doc.createElement('textarea');input.value = journal.exportText();input.style.position = 'fixed';input.style.opacity = '0';
+                    doc.body.appendChild(input);input.focus();if (input.select) input.select();
+                    if (!doc.execCommand || !doc.execCommand('copy')) throw new Error('copy');
+                    success();
+                } catch (ignore) { notify('Копирование недоступно. Используйте консоль Lampa или скачивание журнала.'); }
+                if (input) input.remove();
+            }
+            if (win.navigator && win.navigator.clipboard && win.navigator.clipboard.writeText) {
+                try { win.navigator.clipboard.writeText(journal.exportText()).then(success,fallback); } catch (ignore) { fallback(); }
+            } else fallback();
+        }
+        function download() {
+            if (!doc || !win.Blob || !win.URL || !win.URL.createObjectURL) { notify('Скачивание недоступно. Используйте копирование или консоль Lampa.');return; }
+            var url;
+            try {
+                url = win.URL.createObjectURL(new win.Blob([journal.exportText()],{type:'application/json'}));
+                var link = doc.createElement('a');link.href = url;link.download = 'ai-picks-diagnostics.json';
+                doc.body.appendChild(link);link.click();link.remove();
+                win.setTimeout(function () { win.URL.revokeObjectURL(url); },1000);
+            } catch (ignore) {
+                if (url) win.URL.revokeObjectURL(url);
+                notify('Не удалось скачать журнал. Используйте консоль Lampa.');
+            }
+        }
+        L.Select.show({title:'Диагностика ИИ-подборок',items:[
+            {title:journal.isEnabled() ? 'Диагностика: включена' : 'Диагностика: выключена',subtitle:'Включите перед повторением ошибки',value:'toggle'},
+            {title:'Показать журнал',subtitle:'Фильтры, запросы, время и причины отказа',value:'view'},
+            {title:'Скопировать журнал',value:'copy'},
+            {title:'Скачать журнал JSON',subtitle:'Если скачивание поддерживается устройством',value:'download'},
+            {title:'Открыть консоль Lampa',subtitle:'Записи с меткой AIPicks',value:'console'},
+            {title:'Очистить журнал',value:'clear'}
+        ],onSelect:function (item) {
+            if (item.value === 'toggle') { save('aip_diagnostics',String(!getConfig().diagnostics));journal.setEnabled(getConfig().diagnostics);restore(previous); }
+            else if (item.value === 'view') openText({Lampa:L,document:doc,$:options.$,title:'Журнал · ↑↓ прокрутка, Назад — закрыть',buttons:[],text:journal.exportText(),onBack:function () { restore(previous); }});
+            else if (item.value === 'copy') { copy();restore(previous); }
+            else if (item.value === 'download') { download();restore(previous); }
+            else if (item.value === 'console') L.Controller.toggle('console');
+            else if (item.value === 'clear') { journal.clear();notify('Журнал очищен.');restore(previous); }
+        },onBack:function () { restore(previous); }});
+    }
     function open() {
         if (!alive) return;
         var config = getConfig(), previous = origin();
@@ -84,11 +133,13 @@ function registerSettings(options) {
             {title:'Ключ RouterAI',subtitle:config.key ? 'Задан на этом устройстве' : 'Не задан',value:'key'},
             {title:'Модель',subtitle:escapeText(config.model || 'Выберите модель с инструментами'),value:'model'},
             {title:'Проверить подключение',subtitle:'Короткий платный запрос к выбранной модели',value:'probe'},
-            {title:'Параметры поиска',subtitle:'Шаги, запросы, тайм-ауты и число карточек',value:'limits'}
+            {title:'Параметры поиска',subtitle:'Шаги, запросы, тайм-ауты и число карточек',value:'limits'},
+            {title:'Диагностика',subtitle:config.diagnostics ? 'Включена' : 'Выключена',value:'diagnostics'}
         ],onSelect:function (item) {
             if (item.value === 'key') input('Ключ RouterAI','aip_api_key',true,previous);
             else if (item.value === 'model') models(previous);
             else if (item.value === 'limits') advanced(previous);
+            else if (item.value === 'diagnostics') diagnostics(previous);
             else probe();
         },onBack:function () { restore(previous); }});
     }
@@ -101,6 +152,7 @@ function registerSettings(options) {
         addButton('key','Ключ RouterAI','Сохраняется только на этом устройстве',function (previous) { input('Ключ RouterAI','aip_api_key',true,previous); });
         addButton('model','Модель','Поиск по названию и ID, ручной ввод',models);
         addButton('probe','Проверить подключение','Короткий платный запрос к выбранной модели',probe);
+        addButton('diagnostics','Диагностика и журнал','Включение, просмотр, копирование и скачивание',diagnostics);
         limits.definitions.forEach(function (def) { addButton(def.key,def.title,'От ' + def.min / def.unit + ' до ' + def.max / def.unit,function (previous) { number(def,previous); }); });
     }
     return {getConfig:getConfig,open:open,destroy:function () { alive = false;revision++;cancels.forEach(function (cancel) { if (cancel) cancel(); }); }};

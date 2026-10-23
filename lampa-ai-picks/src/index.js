@@ -1,6 +1,7 @@
-/* AI Picks 0.1.0 | Lampa 3.3.8 */
+/* AI Picks 0.2.0 | Lampa 3.3.8 */
 'use strict';
 var openText = require('./dialog').openText;
+var createDiagnostics = require('./diagnostics').createDiagnostics;
 var createTransport = require('./transport').createTransport;
 var createRouterAI = require('./routerai').createRouterAI, createCatalog = require('./catalog').createCatalog;
 var registerSettings = require('./settings').registerSettings, escapeText = require('./settings').escapeText, createScreen = require('./ui').createScreen;
@@ -10,9 +11,11 @@ function registerPlugin(options) {
     if (win.__aipPicksPlugin) return win.__aipPicksPlugin;
     if (!L || !L.Component || !L.Storage || !L.Controller || !L.Scroll) return null;
     var clock = options.clock || {now:function () { return Date.now(); },setTimeout:function (fn,ms) { return win.setTimeout(fn,ms); },clearTimeout:function (id) { win.clearTimeout(id); }};
-    var request = createTransport(L,clock), routerai = createRouterAI({request:request}), catalog = createCatalog({request:request,Lampa:L,getTimeoutMs:function () { return settings.getConfig().limits.catalogTimeoutMs; }});
+    var transport = createTransport(L,clock), diagnostics = createDiagnostics({Storage:L.Storage,clock:clock,console:win.console,request:transport});
+    var request = diagnostics.request, routerai = createRouterAI({request:request}), catalog = createCatalog({request:request,Lampa:L,getTimeoutMs:function () { return settings.getConfig().limits.catalogTimeoutMs; }});
     var contexts = [];
-    var settings = registerSettings({Lampa:L,routerai:routerai,onChange:function () {
+    var settings = registerSettings({Lampa:L,routerai:routerai,window:win,document:doc,$:win.jQuery || win.$,diagnostics:diagnostics,onChange:function (config) {
+        diagnostics.setEnabled(config.diagnostics);
         contexts.forEach(function (ctx) { ctx.controller.cancel();ctx.screen.setStage('cancelled');ctx.screen.setMessage('Настройки ИИ изменены. Можно запустить новую подборку.'); });
     }});
     function open() { L.Activity.push({url:'',component:'aip_picks',title:'ИИ-подборки',source:'tmdb',page:1}); }
@@ -25,6 +28,7 @@ function registerPlugin(options) {
         function launch(payload) {
             var config = settings.getConfig();
             if (!config.key || !config.model) { screen.setMessage('Введите ключ RouterAI и выберите модель.');settings.open();return; }
+            diagnostics.setEnabled(config.diagnostics);
             payload.key = config.key;payload.model = config.model;payload.limits = config.limits;controller.start(payload);
         }
         screen = createScreen({Lampa:L,document:doc,window:win,navigator:win.Navigator,catalog:catalog,onSubmit:launch,onCancel:function () { if (controller) controller.cancel(); },onSettings:settings.open});
@@ -40,7 +44,7 @@ function registerPlugin(options) {
             L.Activity.push({url:'',component:'full',id:candidate.id,method:candidate.type,card:candidate.card,source:'tmdb',page:1});
         }});
         screen.resultsHost().appendChild(renderer.element());
-        controller = createController({Lampa:L,request:request,routerai:routerai,session:createSession(),clock:clock,onEvent:function (event) {
+        controller = createController({Lampa:L,request:request,routerai:routerai,session:createSession(),clock:clock,diagnostics:diagnostics,onEvent:function (event) {
             if (destroyed) return;
             if (event.type === 'stage') screen.setStage(event.data.stage);
             else if (event.type === 'error') { screen.setStage('error');screen.setMessage(event.data.message); }
@@ -84,7 +88,7 @@ function registerPlugin(options) {
         var style = doc.createElement('style');style.id = 'aip-style';
         style.textContent = typeof __AIP_CSS__ !== 'undefined' ? __AIP_CSS__ : '';doc.head.appendChild(style);
     }
-    win.__aipPicksPlugin = {open:open,settings:settings};
+    win.__aipPicksPlugin = {open:open,settings:settings,diagnostics:diagnostics};
     return win.__aipPicksPlugin;
 }
 function boot(win) {

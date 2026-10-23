@@ -6,20 +6,22 @@ var createTools = require('./tools').createTools, prompts = require('./prompts')
 function createController(options) {
     var active = null, next = 0, stage = 'idle', pending = null, rememberedExamples = [], rememberedQuery = '';
     function emit(run, type, data) { if (options.onEvent) options.onEvent({type:type,runId:run.id,data:data}); }
-    function change(run, value) { stage = value; emit(run,'stage',{stage:value}); }
+    function log(run, event, data) { if (options.diagnostics) { data = data || {};data.runId = run.traceId;options.diagnostics.record(event,data); } }
+    function change(run, value) { stage = value;log(run,'stage',{stage:value});emit(run,'stage',{stage:value}); }
     function alive(run) { return active === run && run.alive; }
-    function stop(run) {
+    function stop(run, reason) {
         if (!run) return;
         run.alive = false;
         options.clock.clearTimeout(run.deadline);
         if (run.modelTimer) options.clock.clearTimeout(run.modelTimer);
-        run.budget.cancel();
-        run.cancels.forEach(function (cancel) { if (cancel) cancel(); });
+        run.budget.cancel(reason);
+        run.cancels.forEach(function (cancel) { if (cancel) cancel(reason); });
         run.key = '';
     }
-    function fail(run, error) {
+    function fail(run, error, scope) {
         if (!alive(run)) return;
-        stop(run); stage = 'error'; emit(run,'error',error);
+        log(run,'run_error',{stage:stage,code:error.code,status:error.status,scope:scope,budget:run.budget.snapshot()});
+        stop(run,error.code === 'timeout' ? scope === 'search' ? 'search_timeout' : 'timeout' : undefined);stage = 'error';emit(run,'error',error);
     }
     function complete(run, result) {
         if (!alive(run)) return;
@@ -30,10 +32,12 @@ function createController(options) {
         if (options.session.size() >= 200) { result.partial = true; result.notice = 'Показано 200 вариантов. Начните новую подборку.'; }
         rememberedExamples = intent.examples.map(function (key) { return run.store.get(key); }).filter(Boolean);
         rememberedQuery = run.query;
-        stop(run); stage = 'done'; emit(run,'result',{result:result,intent:intent,mode:run.args.mode,dictionaries:run.dictionaries});
+        log(run,'run_done',{count:result.items.length,candidates:run.store.all().length,budget:run.budget.snapshot()});
+        stop(run);stage = 'done'; emit(run,'result',{result:result,intent:intent,mode:run.args.mode,dictionaries:run.dictionaries});
     }
     function pause(run, clarification) {
         if (!alive(run)) return;
+        log(run,'clarification',{kind:clarification.kind,count:clarification.options && clarification.options.length});
         pending = {value:clarification,args:d.clone(run.args),examples:run.tools.getIntent().examples.map(function (key) { return run.store.get(key); }).filter(Boolean)};
         stop(run); stage = 'clarification'; emit(run,'clarification',clarification);
     }
@@ -42,7 +46,7 @@ function createController(options) {
         change(run,'ranking');
         try {
             var intent = run.tools.getIntent();
-            complete(run,prompts.parseFinal(content,run.store,intent.filters,run.shown.concat(intent.examples),{limit:run.limits.resultCount}));
+            complete(run,prompts.parseFinal(content,run.store,intent.filters,run.shown.concat(intent.examples),{limit:run.limits.resultCount,onReject:function (value) { var c = run.store.get(value.key);if (c) value.facts = {type:c.type,year:c.year,runtimeMinutes:c.runtimeMinutes,genreIds:c.genreIds,countries:c.countries};log(run,'candidate_rejected',value); }}));
         } catch (error) {
             if (run.budget.snapshot().modelCalls < run.limits.modelCalls && run.budget.remainingMs() > 0) {
                 run.trace.push({role:'assistant',content:String(content).slice(0,3000)});
@@ -64,11 +68,11 @@ function createController(options) {
         if (repair) messages.push({role:'user',content:'Предыдущий итоговый ответ некорректен. Верни только JSON {"picks":[{"key":"...","reason":"..."}]} с известными кандидатами.'});
         var choice = finalOnly ? 'none' : count.modelCalls === 0 ? {type:'function',function:{name:'set_search_intent'}} : 'auto';
         var settled = false;
-        run.modelTimer = options.clock.setTimeout(function () { if (!settled && alive(run)) { settled = true; fail(run,appError('timeout')); } },timeout);
-        var cancel = options.routerai.chat({key:run.key,model:run.args.model,messages:messages,tools:run.tools.definitions(),toolChoice:choice,timeoutMs:timeout},function (error, message) {
+        run.modelTimer = options.clock.setTimeout(function () { if (!settled && alive(run)) { settled = true; fail(run,appError('timeout'),'model'); } },timeout);
+        var cancel = options.routerai.chat({key:run.key,model:run.args.model,messages:messages,tools:run.tools.definitions(),toolChoice:choice,timeoutMs:timeout,traceId:run.traceId},function (error, message) {
             if (settled || !alive(run)) return;
             settled = true; options.clock.clearTimeout(run.modelTimer); run.modelTimer = null;
-            if (error) return fail(run,error);
+            if (error) return fail(run,error,'model');
             if (!message.tool_calls.length) {
                 if (count.modelCalls === 0) return fail(run,appError('incompatible_model'));
                 return finalResult(run,message.content);
@@ -82,12 +86,15 @@ function createController(options) {
                 if (!alive(run)) return;
                 function received(toolError, data) {
                     if (!alive(run)) return;
+                    log(run,'tool_result',{tool:call.name,code:toolError && toolError.code,ok:!toolError,count:data && data.items && data.items.length});
+                    if (!toolError && call.name === 'set_search_intent') log(run,'filters',{filters:run.tools.getIntent().filters});
                     replies[index] = {role:'tool',tool_call_id:call.id,content:JSON.stringify(toolError ? {error:{code:toolError.code,message:toolError.message}} : data)};
                     if (!--left) {
                         run.trace = run.trace.concat(replies);
                         takeStep(run,false,false);
                     }
                 }
+                log(run,'tool_start',{tool:call.name});
                 var permitted = run.budget.consumeTool();
                 if (!permitted || index >= 4) received(appError('tool_limit'));
                 else if (count.modelCalls === 0 && call.name !== 'set_search_intent') received(appError('intent_required'));
@@ -111,18 +118,19 @@ function createController(options) {
         var run = {id:id,alive:true,args:d.clone(args),query:query,key:String(args.key).trim(),cancels:[],trace:[],store:d.createCandidateStore(80),
             shown:mode === 'new' ? [] : options.session.getShown()};
         run.args.mode = mode;run.limits = normalizeLimits(args.limits);
-        run.budget = createBudget({clock:options.clock,request:options.request,limits:run.limits});
+        if (options.diagnostics) run.traceId = options.diagnostics.begin({mode:mode,limits:run.limits,filters:args.formFilters || {},queryLength:query.length});
+        run.budget = createBudget({clock:options.clock,request:options.request,limits:run.limits,traceId:run.traceId});
         active = run;
         var seeds = examples.length ? examples : mode !== 'new' ? rememberedExamples : [];
         seeds.slice(0,3).forEach(function (c) { run.store.add(c); });
         base.examples = seeds.slice(0,3).map(function (c) { return c.key; });
         run.base = base;
-        run.deadline = options.clock.setTimeout(function () { fail(run,appError('timeout')); },run.limits.totalTimeoutMs);
+        run.deadline = options.clock.setTimeout(function () { fail(run,appError('timeout'),'search'); },run.limits.totalTimeoutMs);
         change(run,'parsing');
         var catalog = createCatalog({request:run.budget.catalogRequest,Lampa:options.Lampa,timeoutMs:run.limits.catalogTimeoutMs});
         run.cancels.push(catalog.getDictionaries(function (error, dictionaries) {
             if (!alive(run)) return;
-            if (error) return fail(run,error);
+            if (error) return fail(run,error,'catalog');
             run.dictionaries = dictionaries;
             run.tools = createTools({catalog:catalog,store:run.store,formFilters:run.args.formFilters || {},dictionaries:dictionaries,intent:base,
                 onClarification:function (value) { pause(run,value); }});
@@ -142,7 +150,7 @@ function createController(options) {
         return start(args);
     }
     return {start:start,resolveClarification:resolveClarification,
-        cancel:function () { pending = null; if (active && active.alive) { stop(active); change(active,'cancelled'); } },
+        cancel:function () { pending = null; if (active && active.alive) { log(active,'run_cancel',{budget:active.budget.snapshot()});stop(active);change(active,'cancelled'); } },
         getState:function () { return {runId:active ? active.id : next,stage:stage}; }};
 }
 module.exports = {createController:createController};

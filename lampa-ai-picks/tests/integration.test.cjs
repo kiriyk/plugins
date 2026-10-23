@@ -101,3 +101,37 @@ test('stored search limits are passed from app settings into the live screen con
     h.model([], '{"picks":[{"key":"tmdb:movie:2","reason":"Подходит."}]}');
     assert.equal(h.screen.element().querySelectorAll('.aip-pick').length,1);
 });
+
+
+test('opt-in journal traces real filters endpoints timeouts and final rejection reasons',t=>{
+ const h=setup(t);h.storage.aip_diagnostics='true';h.text('PRIVATE-QUERY');h.enter('[data-action="runtime"]');h.inputs.at(-1).done('120');
+ h.submit();h.model([{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);
+ const i=h.nativeRequests.findIndex(r=>r.url.includes('discover/')&&!r.answered);h.nativeRequests[i].answered=true;
+ h.nativeReply(i,{results:[{id:2,title:'Длинный',runtime:138},{id:3,title:'Короткий',runtime:100}]});
+ h.model([], '{"picks":[{"key":"tmdb:movie:2","reason":"PRIVATE-REASON"},{"key":"tmdb:movie:3","reason":"Подходит."}]}');
+ const journal=h.window.__aipPicksPlugin.diagnostics,records=JSON.parse(journal.exportText()).records;
+ assert.ok(records.some(r=>r.event==='filters'&&r.filters.maxRuntimeMinutes===120));
+ assert.ok(records.some(r=>r.event==='request_start'&&r.endpoint==='discover/movie'&&r.params['with_runtime.lte']==='120'));
+ assert.ok(records.some(r=>r.event==='candidate_rejected'&&r.key==='tmdb:movie:2'&&r.reason==='runtime'));
+ assert.equal(records.find(r=>r.event==='candidate_rejected').facts.runtimeMinutes,138);
+ assert.ok(records.some(r=>r.event==='run_done'&&r.count===1));
+ for(const secret of ['test-key','PRIVATE-QUERY','PRIVATE-REASON'])assert.equal(journal.exportText().includes(secret),false);
+ h.enter('[data-action="more"]');h.boot();h.advance(25000);
+ assert.ok(JSON.parse(journal.exportText()).records.some(r=>r.event==='run_error'&&r.code==='timeout'));
+});
+
+test('journal distinguishes a catalog timeout from the whole-search deadline',t=>{
+ const h=setup(t);h.storage.aip_diagnostics='true';h.text('Кино');h.submit();
+ h.model([{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);h.advance(10000);
+ const rows=JSON.parse(h.window.__aipPicksPlugin.diagnostics.exportText()).records;
+ const start=rows.find(r=>r.event==='request_start'&&r.endpoint==='discover/movie');
+ const end=rows.find(r=>r.event==='request_end'&&r.requestId===start.requestId);
+ assert.equal(end.code,'timeout');assert.equal(end.scope,'catalog');assert.equal(end.elapsedMs,10000);
+});
+test('journal labels cancellation caused by the overall deadline as search timeout',t=>{
+ const h=setup(t);h.storage.aip_diagnostics='true';h.storage.aip_model_timeout_seconds='60';h.storage.aip_search_timeout_seconds='30';
+ h.text('Кино');h.submit();h.advance(30000);
+ const rows=JSON.parse(h.window.__aipPicksPlugin.diagnostics.exportText()).records;
+ assert.ok(rows.some(r=>r.event==='run_error'&&r.code==='timeout'&&r.scope==='search'));
+ assert.ok(rows.some(r=>r.event==='request_end'&&r.code==='timeout'&&r.scope==='search'));
+});

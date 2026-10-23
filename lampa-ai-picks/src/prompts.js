@@ -42,11 +42,16 @@ function parseFinal(content, store, filters, shown, options) {
     try { value = JSON.parse(content); } catch (ignore) { throw appError('invalid_response'); }
     if (!value || !Array.isArray(value.picks)) throw appError('invalid_response');
     var items = [], accepted = Object.create(null);
+    function reject(pick, reason) { if (options && options.onReject) options.onReject({key:pick && typeof pick.key === 'string' ? pick.key : undefined,reason:reason}); }
     value.picks.forEach(function (pick) {
-        if (items.length >= limit || !pick || typeof pick.key !== 'string' || typeof pick.reason !== 'string' || !pick.reason.trim() ||
-            accepted[pick.key] || (shown || []).indexOf(pick.key) >= 0) return;
+        if (!pick || typeof pick.key !== 'string' || typeof pick.reason !== 'string' || !pick.reason.trim()) { reject(pick,'invalid_pick');return; }
+        if (items.length >= limit) { reject(pick,'count_limit');return; }
+        if (accepted[pick.key]) { reject(pick,'duplicate');return; }
+        if ((shown || []).indexOf(pick.key) >= 0) { reject(pick,'already_shown');return; }
         var c = store.get(pick.key);
-        if (!c || !d.validateCandidate(c,filters).ok) return;
+        if (!c) { reject(pick,'unknown_key');return; }
+        var verdict = d.validateCandidate(c,filters);
+        if (!verdict.ok) { reject(pick,verdict.reason);return; }
         var sentences = pick.reason.trim().match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [];
         var reason = sentences.slice(0,2).join('').trim().slice(0,300);
         if (!reason) return;

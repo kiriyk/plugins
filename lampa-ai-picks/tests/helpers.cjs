@@ -26,7 +26,8 @@ module.exports={createHarness};
 function createDOMHarness(options={}) {
     const {parseHTML}=require('linkedom');
     const {window:domWindow,document}=parseHTML('<html><head></head><body><nav class="menu"><ul class="menu__list"></ul></nav><main id="content"></main></body></html>');
-    const window={document,Event:domWindow.Event,setTimeout,clearTimeout};
+    const consoleLines=[];
+    const window={document,Event:domWindow.Event,setTimeout,clearTimeout,console:{log:(...args)=>consoleLines.push(args)}};
     const h=createHarness(),selects=[],inputs=[],modals=[],notices=[],registrations=[],params=[],pushes=[],focuses=[],scrollUpdates=[],controllers={};
     const storage={...options.storage};let enabled='aip_picks',focused=null;
     h.Lampa.Storage={get:(k,f)=>k in storage?storage[k]:f,field:()=> 'ru-RU',set(k,v){if(options.storageError)throw Error('storage unavailable');storage[k]=v;}};
@@ -65,6 +66,6 @@ function createDOMHarness(options={}) {
     function choose(title){const select=selects.at(-1),item=select.items.find(x=>x.title===title||x.value===title||x.id===title);assertElement(item);
         if(item.checkbox){item.checked=!item.checked;(item.onCheck||select.onCheck)?.(item);}else(item.onSelect||select.onSelect)?.(item);}
     function assertElement(e){if(!e)throw Error('Test target not found');}
-    return {...h,$:jq,window,document,storage,selects,inputs,modals,notices,registrations,params,pushes,focuses,scrollUpdates,controllers,enter,choose};
+    return {...h,$:jq,window,document,consoleLines,storage,selects,inputs,modals,notices,registrations,params,pushes,focuses,scrollUpdates,controllers,enter,choose};
 }
 module.exports.createDOMHarness=createDOMHarness;

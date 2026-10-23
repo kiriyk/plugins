@@ -17,3 +17,5 @@
 Автоматическая приёмка и Chrome-стенд выполнены 2026-10-23; подробности в acceptance.md. Это не меняет NOT RUN для настоящей Lampa и Android TV.
 
 Живая проверка адаптера TMDB из среды разработки: PARTIAL, 2026-10-23. Поиск названий подтверждён, фильтрованный discovery фильмов завершался тайм-аутом. [Подробный отчёт](tmdb-live-check.md). Это не проверка Reguest.native или CORS самой Lampa.
+
+Доработки 0.2.0: проверены настоящие Scroll/Modal/Define Lampa в локальном Chrome; физический TV остаётся NOT RUN. [Отчёт](controls-validation.md).

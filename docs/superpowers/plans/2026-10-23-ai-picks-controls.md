@@ -37,12 +37,13 @@ Interfaces: limits.definitions (key, storage, title, min, max, value, unit), nor
 
 ### Task 3: Bounded safe diagnostics
 Files: new src/diagnostics.js; src/settings.js, controller.js, transport integration, prompts.js, index.js; tests diagnostics/controller/integration.
-Interfaces: createDiagnostics({Storage,clock,console}) returns setEnabled/isEnabled/record/request/exportText/clear; record accepts known event schemas only; request(spec,done,runId) wraps existing transport.
-- [ ] Add failing tests: real network success/timeout traces, resolved filters and rejection reasons, persistent cap/clear/disabled mode and hostile URL/error/fields cannot reveal credentials/email/query/prompt.
-- [ ] Run tests: missing diagnostics expected failure.
-- [ ] Add module, run/tool/filter/final instrumentation; settings view/download/copy/native console, safe DOM.
-- [ ] Run full npm test + check + realistic browser interactions; expect green.
-- [ ] Document settings and how to obtain logs, update acceptance, commit.
+Interfaces: createDiagnostics({Storage,clock,console,request}) returns begin/setEnabled/isEnabled/record/request/exportText/clear; begin(data) returns runId; request(spec,done,runId) wraps transport. record accepts known schemas only.
+
+- [x] Add failing tests: real network success/timeout traces, resolved filters and rejection reasons, persistent cap/clear/disabled mode and hostile URL/error/fields cannot reveal credentials/email/query/prompt.
+- [x] Run tests: missing diagnostics expected failure.
+- [x] Add module, run/tool/filter/final instrumentation; settings view/download/copy/native console, safe DOM.
+- [x] Run full npm test + check + realistic browser interactions; expect green.
+- [x] Document settings and how to obtain logs, update acceptance, commit.
 
 ### Task 4: Final integration and review
 - [ ] Clean dependency install, full suite, ES5, reproducible build, diff check, no credentials.

@@ -58,3 +58,34 @@ test('app settings validate numeric changes and corrupt stored limits fall back 
     enter();h.inputs.at(-1).done('0');assert.equal(h.settings.getConfig().limits.modelCalls,8);
     assert.ok(h.notices.at(-1).includes('3'));assert.equal(h.changes.length,1);
 });
+
+test('diagnostics can be enabled viewed and cleared from plugin settings without exposing the key',()=>{
+ const h=createDOMHarness({storage:{aip_api_key:'PRIVATE-KEY'}}),{createDiagnostics}=require('../src/diagnostics');
+ const journal=createDiagnostics({Storage:h.Lampa.Storage,clock:h.clock});
+ const s=registerSettings({Lampa:h.Lampa,routerai:{},diagnostics:journal,window:h.window,document:h.document,$:h.$});
+ s.open();h.choose('Диагностика');h.choose('toggle');assert.equal(journal.isEnabled(),true);
+ journal.record('stage',{stage:'searching'});
+ s.open();h.choose('Диагностика');h.choose('view');
+ assert.equal(h.modals.at(-1).buttons.length,0,'journal arrows must scroll text rather than focus a footer button');
+ assert.ok(h.modals.at(-1).html[0].textContent.includes('"records"'));assert.equal(h.modals.at(-1).html[0].textContent.includes('PRIVATE-KEY'),false);
+ h.modals.at(-1).onBack();
+ s.open();h.choose('Диагностика');h.choose('clear');assert.equal(JSON.parse(journal.exportText()).records.length,0);
+ assert.ok(h.params.some(p=>p.field.name==='Диагностика и журнал'));
+});
+test('download and copy export only sanitized journal data and remain user actions',()=>{
+ const h=createDOMHarness({storage:{aip_api_key:'PRIVATE-KEY'}}),{createDiagnostics}=require('../src/diagnostics');
+ const journal=createDiagnostics({Storage:h.Lampa.Storage,clock:h.clock});journal.setEnabled(true);journal.record('stage',{stage:'searching',message:'PRIVATE-KEY'});
+ let file='',clicked=0,copied='',revoked=0;
+ h.window.Blob=class{constructor(parts){file=parts.join('');}};
+ h.window.URL={createObjectURL:()=> 'blob:test',revokeObjectURL:()=>revoked++};
+ h.window.setTimeout=h.clock.setTimeout;
+ const original=h.document.createElement.bind(h.document);
+ h.document.createElement=name=>{const node=original(name);if(name==='a')node.click=()=>clicked++;return node;};
+ h.document.execCommand=()=>{copied=h.document.querySelector('textarea').value;return true;};
+ const s=registerSettings({Lampa:h.Lampa,routerai:{},diagnostics:journal,window:h.window,document:h.document,$:h.$});
+ assert.equal(clicked,0);
+ s.open();h.choose('Диагностика');h.choose('download');assert.equal(clicked,1);assert.ok(file.includes('"records"'));assert.equal(file.includes('PRIVATE-KEY'),false);
+ h.advance(1000);assert.equal(revoked,1);
+ s.open();h.choose('Диагностика');h.choose('copy');assert.equal(copied,journal.exportText());
+ assert.equal(h.document.querySelector('textarea'),null);
+});

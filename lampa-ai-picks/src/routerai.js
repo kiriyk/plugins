@@ -14,7 +14,7 @@ function createRouterAI(options) {
         if (args.tools && args.tools.length) json.tools = args.tools;
         if (args.toolChoice) json.tool_choice = args.toolChoice;
         return send({url:BASE + '/chat/completions',method:'POST',json:json,
-            headers:{Authorization:'Bearer ' + args.key.trim()},timeoutMs:Math.min(args.timeoutMs || 25000,120000)},function (error, body) {
+            headers:{Authorization:'Bearer ' + args.key.trim()},traceId:args.traceId,timeoutMs:Math.min(args.timeoutMs || 25000,120000)},function (error, body) {
             if (error) return done(error);
             var raw = body && Array.isArray(body.choices) && body.choices[0] && body.choices[0].message;
             if (!raw || raw.content !== null && raw.content !== undefined && typeof raw.content !== 'string') return done(appError('invalid_response'));
