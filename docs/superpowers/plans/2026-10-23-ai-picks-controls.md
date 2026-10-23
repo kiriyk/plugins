@@ -46,6 +46,6 @@ Interfaces: createDiagnostics({Storage,clock,console,request}) returns begin/set
 - [x] Document settings and how to obtain logs, update acceptance, commit.
 
 ### Task 4: Final integration and review
-- [ ] Clean dependency install, full suite, ES5, reproducible build, diff check, no credentials.
-- [ ] One fresh review of complete branch; Important/Critical fixes RED→GREEN once.
-- [ ] Record device/API limits honestly; preserve branch/worktree and report changes and test evidence.
+- [x] Clean dependency install, full suite, ES5, reproducible build, diff check, no credentials.
+- [x] One fresh review of complete branch; Important/Critical fixes RED→GREEN once.
+- [x] Record device/API limits honestly; preserve branch/worktree and report changes and test evidence.

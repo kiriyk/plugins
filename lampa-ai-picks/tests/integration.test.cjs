@@ -2,8 +2,8 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createDOMHarness}=require('./helpers.cjs'),{assistant,dictionaries}=require('./fixtures.cjs');
 const {registerPlugin}=require('../src/index');
-function setup(t){
-    const h=createDOMHarness({storage:{aip_api_key:'test-key',aip_model:'test/model'}});
+function setup(t,options={}){
+    const h=createDOMHarness({...options,storage:{aip_api_key:'test-key',aip_model:'test/model',...options.storage}});
     registerPlugin({window:h.window,Lampa:h.Lampa,clock:h.clock});
     const factory=h.registrations.find(x=>x.name==='aip_picks').constructor;
     const screen=new factory();h.document.getElementById('content').appendChild(screen.render());screen.create();screen.start();
@@ -134,4 +134,17 @@ test('journal labels cancellation caused by the overall deadline as search timeo
  const rows=JSON.parse(h.window.__aipPicksPlugin.diagnostics.exportText()).records;
  assert.ok(rows.some(r=>r.event==='run_error'&&r.code==='timeout'&&r.scope==='search'));
  assert.ok(rows.some(r=>r.event==='request_end'&&r.code==='timeout'&&r.scope==='search'));
+});
+test('app can enable diagnostics in memory under storage failure and keep its choice across searches',t=>{
+ const h=setup(t,{storageError:true}),journal=h.window.__aipPicksPlugin.diagnostics;
+ h.enter('[data-action="settings"]');h.choose('Диагностика');h.choose('toggle');
+ assert.equal(journal.isEnabled(),true,'explicit toggle must work without persistent writes');
+ h.text('Кино');h.submit();h.finish(2);
+ const first=JSON.parse(journal.exportText());assert.equal(first.persistence,'memory');assert.ok(first.records.some(r=>r.event==='run_done'));
+ h.enter('[data-action="settings"]');h.choose('Диагностика');h.choose('view');
+ assert.ok(JSON.parse(h.modals.at(-1).html[0].textContent).records.length>0);h.modals.at(-1).onBack();
+ h.enter('[data-action="settings"]');h.choose('Диагностика');h.choose('toggle');assert.equal(journal.isEnabled(),false);
+ const count=JSON.parse(journal.exportText()).records.length;
+ h.text('Другое кино');h.submit();h.finish(3);
+ assert.equal(journal.isEnabled(),false);assert.equal(JSON.parse(journal.exportText()).records.length,count);
 });

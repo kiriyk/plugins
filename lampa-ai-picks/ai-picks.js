@@ -890,7 +890,7 @@
         });
       }
       function registerSettings(options) {
-        var L = options.Lampa, alive = true, revision = 0, cancels = [];
+        var L = options.Lampa, alive = true, revision = 0, cancels = [], diagnosticChoice = null;
         function notify(message) {
           if (L.Noty) L.Noty.show(message);
         }
@@ -903,10 +903,11 @@
             config.diagnostics = enabled === true || enabled === "true";
           } catch (ignore) {
           }
+          if (diagnosticChoice !== null) config.diagnostics = diagnosticChoice;
           return config;
         }
         function save(name, value) {
-          if (!alive) return;
+          if (!alive) return false;
           try {
             L.Storage.set(name, String(value).trim());
             revision++;
@@ -915,8 +916,10 @@
             });
             cancels = [];
             if (options.onChange) options.onChange(getConfig());
+            return true;
           } catch (ignore) {
             notify("Не удалось сохранить настройки. Проверьте свободное место в хранилище Lampa.");
+            return false;
           }
         }
         function restore(name) {
@@ -1074,8 +1077,15 @@
             { title: "Очистить журнал", value: "clear" }
           ], onSelect: function(item) {
             if (item.value === "toggle") {
-              save("aip_diagnostics", String(!getConfig().diagnostics));
-              journal.setEnabled(getConfig().diagnostics);
+              var wanted = !journal.isEnabled();
+              diagnosticChoice = wanted;
+              var saved = save("aip_diagnostics", String(wanted));
+              journal.setEnabled(wanted);
+              if (saved) diagnosticChoice = null;
+              else {
+                notify("Состояние диагностики изменено только в памяти до перезапуска Lampa.");
+                if (options.onChange) options.onChange(getConfig());
+              }
               restore(previous);
             } else if (item.value === "view") openText({ Lampa: L, document: doc, $: options.$, title: "Журнал · ↑↓ прокрутка, Назад — закрыть", buttons: [], text: journal.exportText(), onBack: function() {
               restore(previous);
