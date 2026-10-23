@@ -52,12 +52,17 @@ function createDOMHarness(options={}) {
     h.Lampa.Listener={follow:(n,cb)=>{h.appListener=cb;}};
     h.Lampa.Scroll=function(){const root=document.createElement('div');root.className='scroll';
         this.minus=()=>root.classList.add('layer--wheight');this.append=e=>root.appendChild(e);this.render=()=>root;this.update=(element,center)=>scrollUpdates.push({element,center});this.destroy=()=>root.remove();};
+    h.Lampa.Layer={visible(root){
+        const nodes=Array.from(root.querySelectorAll('.layer--visible'));
+        if(root.classList.contains('layer--visible'))nodes.unshift(root);
+        for(const element of nodes)if(!element.called_visible){element.visible=true;element.called_visible=true;element.dispatchEvent(new window.Event('visible'));}
+    }};
     const madeCards=[];
     h.Lampa.Maker={make(name,card){
         if(name!=='Card')throw Error('unsupported Maker type');
-        const modules=[],el=document.createElement('div');el.className='card selector';el.setAttribute('data-title',card.title||card.name);
-        const instance={data:card,use(m){modules.push(m);},create(){el.textContent=card.title||card.name;el.addEventListener('hover:enter',()=>modules.forEach(m=>m.onEnter?.call(instance,el,card)));el.addEventListener('hover:focus',()=>modules.forEach(m=>m.onFocus?.call(instance,{0:el},card)));},
-            render(js){return js?el:{0:el};},visible(){instance.visibleCount=(instance.visibleCount||0)+1;},destroy(){el.remove();instance.destroyed=true;}};
+        const modules=[],el=document.createElement('div');el.className='card selector layer--visible';el.setAttribute('data-title',card.title||card.name);
+        const instance={data:card,use(m){modules.push(m);},create(){el.textContent=card.title||card.name;el.addEventListener('visible',()=>instance.visible());el.addEventListener('hover:enter',()=>modules.forEach(m=>m.onEnter?.call(instance,el,card)));el.addEventListener('hover:focus',()=>modules.forEach(m=>m.onFocus?.call(instance,{0:el},card)));},
+            render(js){return js?el:{0:el};},visible(){instance.visibleCount=(instance.visibleCount||0)+1;modules.forEach(m=>m.onVisible?.call(instance,el,card));},destroy(){el.remove();instance.destroyed=true;}};
         madeCards.push(instance);return instance;
     }};
     h.madeCards=madeCards;

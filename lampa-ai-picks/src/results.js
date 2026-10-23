@@ -34,12 +34,13 @@ function createResults(options) {
                     onBack:function () { modalOpen = false;restore(target); }});
                 modalOpen = true;
             }));
-            grid.appendChild(wrapper);cards.push(card);card.visible();
+            grid.appendChild(wrapper);cards.push(card);
         });
         var actions = doc.createElement('div');actions.className = 'aip-result-actions';
         if (result.items.length) actions.appendChild(button('more','Ещё варианты',options.onMore));
         actions.appendChild(button('refine',result.items.length ? 'Уточнить' : 'Изменить условия',options.onRefine));
         root.appendChild(actions);
+        L.Layer.visible(root);
     }
     return {render:render,element:function () { return root; },destroy:function () { alive = false;if (modalOpen) L.Modal.close();clear();root.remove(); }};
 }
