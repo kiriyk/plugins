@@ -1,4 +1,4 @@
-/* AI Picks 0.1.0 | Lampa 3.3.8 | Configure RouterAI in Lampa settings. */
+/* AI Picks 0.2.0 | Lampa 3.3.8 | Configure RouterAI in Lampa settings. */
 "use strict";
 (function() {
   var __getOwnPropNames = Object.getOwnPropertyNames;
