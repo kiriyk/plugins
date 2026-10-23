@@ -77,7 +77,7 @@ function createCatalog(options) {
         if (!Array.isArray(args.keys) || args.keys.length > 10 || !args.keys.every(domain.parseKey)) return invalid(done);
         return batch(args.keys.map(function (key) { return function (next) {
             var parsed = domain.parseKey(key);
-            return get(parsed.type + '/' + parsed.id,{},function (error, raw) {
+            return get(parsed.type + '/' + parsed.id,{append_to_response:'external_ids'},function (error, raw) {
                 if (error) return next(error);
                 var c = domain.normalizeTitle(raw,parsed.type);
                 if (!c || c.key !== key) return next(appError('invalid_response'));
@@ -91,6 +91,11 @@ function createCatalog(options) {
             done(null,result);
         });
     }
+    function getExternalIds(key, done) {
+        var parsed = domain.parseKey(key);
+        if (!parsed) return invalid(done);
+        return get(parsed.type + '/' + parsed.id + '/external_ids',{},done);
+    }
     function getDictionaries(done) {
         var paths = ['genre/movie/list','genre/tv/list','configuration/countries'];
         return batch(paths.map(function (path) { return function (next) { return get(path,{},next); }; }),function (unused, rows) {
@@ -101,6 +106,6 @@ function createCatalog(options) {
             done(null,{genres:{movie:genres(rows[0].value),tv:genres(rows[1].value)},countries:rows[2].value.filter(function (x) { return /^[A-Z]{2}$/.test(x.iso_3166_1); }).map(function (x) { return {code:x.iso_3166_1,name:x.native_name || x.english_name || x.iso_3166_1}; })});
         });
     }
-    return {getDictionaries:getDictionaries,searchTitles:searchTitles,resolveKeywords:resolveKeywords,discoverTitles:discoverTitles,getRelated:getRelated,getTitleDetails:getTitleDetails};
+    return {getExternalIds:getExternalIds,getDictionaries:getDictionaries,searchTitles:searchTitles,resolveKeywords:resolveKeywords,discoverTitles:discoverTitles,getRelated:getRelated,getTitleDetails:getTitleDetails};
 }
 module.exports = {createCatalog:createCatalog};

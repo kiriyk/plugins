@@ -145,7 +145,7 @@
         return match && positive(Number(match[2])) ? { type: match[1], id: Number(match[2]) } : null;
       }
       function emptyFilters() {
-        return { media: "movie", genres: { movie: { include: [], exclude: [] }, tv: { include: [], exclude: [] } }, yearMin: null, yearMax: null, countries: [], maxRuntimeMinutes: null };
+        return { media: "movie", genres: { movie: { include: [], exclude: [] }, tv: { include: [], exclude: [] } }, yearMin: null, yearMax: null, countries: [], maxRuntimeMinutes: null, ratingSource: "imdb", ratingMin: null };
       }
       function emptyIntent() {
         return { filters: emptyFilters(), preferences: [], examples: [] };
@@ -192,6 +192,8 @@
       }
       function resolveIntent(current, patch, form, dictionaries) {
         var next = merge(current || emptyIntent(), patch || {}), issues = [], f = next.filters;
+        var rawMinimum = patch && patch.filters && patch.filters.ratingMin;
+        if (rawMinimum !== void 0 && rawMinimum !== null && (typeof rawMinimum !== "number" || !isFinite(rawMinimum))) issues.push("Некорректный рейтинг.");
         form = form || {};
         function conflict(value, locked, path) {
           Object.keys(locked).forEach(function(key) {
@@ -201,6 +203,10 @@
         }
         conflict(patch && patch.filters || {}, form, "");
         next.filters = f = merge(f, form);
+        if (f.ratingSource === void 0) f.ratingSource = "imdb";
+        if (f.ratingMin === void 0) f.ratingMin = null;
+        if (["imdb", "kp", "tmdb"].indexOf(f.ratingSource) < 0) issues.push("Выберите источник рейтинга: IMDb, Кинопоиск или TMDB.");
+        if (f.ratingMin !== null && (typeof f.ratingMin !== "number" || !isFinite(f.ratingMin) || f.ratingMin < 0 || f.ratingMin > 10)) issues.push("Рейтинг должен быть числом от 0 до 10.");
         if (["movie", "tv", "all"].indexOf(f.media) < 0) issues.push("Выберите фильмы, сериалы или всё.");
         ["yearMin", "yearMax", "maxRuntimeMinutes"].forEach(function(k) {
           if (f[k] !== null && !positive(f[k])) issues.push("Некорректное числовое ограничение: " + k);
@@ -260,6 +266,11 @@
           return c.countries.indexOf(code) >= 0;
         }))) return bad("country");
         if (f.maxRuntimeMinutes !== null && (!positive(c.runtimeMinutes) || c.runtimeMinutes > f.maxRuntimeMinutes)) return bad("runtime");
+        if (typeof f.ratingMin === "number") {
+          var score = c.ratings && c.ratings[f.ratingSource || "imdb"];
+          if (typeof score !== "number" || !isFinite(score) || score <= 0 || score > 10) return bad("unknown_rating");
+          if (score < f.ratingMin) return bad("rating");
+        }
         return { ok: true, reason: null };
       }
       function createCandidateStore(limit) {
@@ -313,6 +324,7 @@
       var definitions = [
         { key: "modelCalls", storage: "aip_model_steps", title: "Шагов ИИ (включая итог)", min: 3, max: 12, value: 5, unit: 1 },
         { key: "toolCalls", storage: "aip_tool_calls", title: "Действий ИИ в каталоге", min: 4, max: 48, value: 12, unit: 1 },
+        { key: "kpRequests", storage: "aip_kp_requests", title: "Запросов рейтинга КП за поиск", min: 1, max: 80, value: 10, unit: 1 },
         { key: "catalogRequests", storage: "aip_catalog_requests", title: "Запросов к каталогу", min: 10, max: 120, value: 40, unit: 1 },
         { key: "modelTimeoutMs", storage: "aip_model_timeout_seconds", title: "Ожидание ответа ИИ, секунд", min: 5e3, max: 12e4, value: 25e3, unit: 1e3 },
         { key: "catalogTimeoutMs", storage: "aip_catalog_timeout_seconds", title: "Ожидание каталога, секунд", min: 3e3, max: 6e4, value: 1e4, unit: 1e3 },
@@ -828,7 +840,7 @@
           return batch(args.keys.map(function(key) {
             return function(next) {
               var parsed = domain.parseKey(key);
-              return get(parsed.type + "/" + parsed.id, {}, function(error, raw) {
+              return get(parsed.type + "/" + parsed.id, { append_to_response: "external_ids" }, function(error, raw) {
                 if (error) return next(error);
                 var c = domain.normalizeTitle(raw, parsed.type);
                 if (!c || c.key !== key) return next(appError("invalid_response"));
@@ -845,6 +857,11 @@
             result.errors = errors;
             done(null, result);
           });
+        }
+        function getExternalIds(key, done) {
+          var parsed = domain.parseKey(key);
+          if (!parsed) return invalid(done);
+          return get(parsed.type + "/" + parsed.id + "/external_ids", {}, done);
         }
         function getDictionaries(done) {
           var paths = ["genre/movie/list", "genre/tv/list", "configuration/countries"];
@@ -872,7 +889,7 @@
             }) });
           });
         }
-        return { getDictionaries: getDictionaries, searchTitles: searchTitles, resolveKeywords: resolveKeywords, discoverTitles: discoverTitles, getRelated: getRelated, getTitleDetails: getTitleDetails };
+        return { getExternalIds: getExternalIds, getDictionaries: getDictionaries, searchTitles: searchTitles, resolveKeywords: resolveKeywords, discoverTitles: discoverTitles, getRelated: getRelated, getTitleDetails: getTitleDetails };
       }
       module.exports = { createCatalog: createCatalog };
     }
@@ -1844,6 +1861,8 @@
       var key = { type: "string", pattern: "^tmdb:(movie|tv):[1-9][0-9]*$" };
       var genre = object({ include: array(integer, 40), exclude: array(integer, 40) });
       var filtersSchema = object({
+        ratingSource: { type: "string", enum: ["imdb", "kp", "tmdb"] },
+        ratingMin: { type: ["number", "null"], minimum: 0, maximum: 10 },
         media: { type: "string", enum: ["movie", "tv", "all"] },
         genres: object({ movie: genre, tv: genre }),
         yearMin: { type: ["integer", "null"], minimum: 1 },
@@ -1888,8 +1907,9 @@
           return valid(item, schema.items);
         });
         if (schema.type === "integer" && !d.positive(value)) return false;
+        if (schema.type === "number" && (typeof value !== "number" || !isFinite(value))) return false;
         if (schema.type === "string" && typeof value !== "string") return false;
-        if (schema.minimum && value < schema.minimum || schema.maximum && value > schema.maximum) return false;
+        if (schema.minimum !== void 0 && value < schema.minimum || schema.maximum !== void 0 && value > schema.maximum) return false;
         if (schema.minLength && value.length < schema.minLength || schema.maxLength && value.length > schema.maxLength) return false;
         if (schema.enum && schema.enum.indexOf(value) < 0 || schema.pattern && !new RegExp(schema.pattern).test(value)) return false;
         return true;

@@ -7,7 +7,7 @@ function array(items, max) { return {type:'array',items:items,maxItems:max}; }
 var text = {type:'string',maxLength:500,minLength:1};
 var key = {type:'string',pattern:'^tmdb:(movie|tv):[1-9][0-9]*$'};
 var genre = object({include:array(integer,40),exclude:array(integer,40)});
-var filtersSchema = object({media:{type:'string',enum:['movie','tv','all']},genres:object({movie:genre,tv:genre}),
+var filtersSchema = object({ratingSource:{type:'string',enum:['imdb','kp','tmdb']},ratingMin:{type:['number','null'],minimum:0,maximum:10},media:{type:'string',enum:['movie','tv','all']},genres:object({movie:genre,tv:genre}),
     yearMin:{type:['integer','null'],minimum:1},yearMax:{type:['integer','null'],minimum:1},
     countries:array({type:'string',pattern:'^[A-Z]{2}$'},50),maxRuntimeMinutes:{type:['integer','null'],minimum:1}});
 var schemas = {
@@ -38,8 +38,9 @@ function valid(value, schema) {
     }
     if (schema.type === 'array') return Array.isArray(value) && value.length <= schema.maxItems && value.every(function (item) { return valid(item,schema.items); });
     if (schema.type === 'integer' && !d.positive(value)) return false;
+    if (schema.type === 'number' && (typeof value !== 'number' || !isFinite(value))) return false;
     if (schema.type === 'string' && typeof value !== 'string') return false;
-    if (schema.minimum && value < schema.minimum || schema.maximum && value > schema.maximum) return false;
+    if (schema.minimum !== undefined && value < schema.minimum || schema.maximum !== undefined && value > schema.maximum) return false;
     if (schema.minLength && value.length < schema.minLength || schema.maxLength && value.length > schema.maxLength) return false;
     if (schema.enum && schema.enum.indexOf(value) < 0 || schema.pattern && !new RegExp(schema.pattern).test(value)) return false;
     return true;

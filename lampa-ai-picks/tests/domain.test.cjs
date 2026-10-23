@@ -53,3 +53,19 @@ test('candidate store keeps eighty unique identities and enriches without erasin
     assert.equal(store.add(movie({runtimeMinutes:null,overview:''})),true);
     assert.equal(store.get('tmdb:movie:1').runtimeMinutes,110);assert.equal(store.get('tmdb:movie:1').overview,'Описание фильма.');
 });
+
+test('rating intent accepts decimals, defaults IMDb and preserves explicit source locks',()=>{
+    const result=d.resolveIntent(d.emptyIntent(),{filters:{ratingMin:7.5}},{},dictionaries);
+    assert.equal(result.status,'ready');assert.equal(result.intent.filters.ratingSource,'imdb');
+    for(const source of ['imdb','kp','tmdb']) assert.equal(d.resolveIntent(d.emptyIntent(),{filters:{ratingSource:source,ratingMin:7}},{},dictionaries).status,'ready');
+    for(const value of [-1,10.1,'7',NaN]) assert.equal(d.resolveIntent(d.emptyIntent(),{filters:{ratingMin:value}},{},dictionaries).status,'clarify');
+    assert.equal(d.resolveIntent(d.emptyIntent(),{filters:{ratingSource:'other'}},{},dictionaries).status,'clarify');
+    assert.equal(d.resolveIntent(d.emptyIntent(),{filters:{ratingSource:'kp'}},{ratingSource:'imdb'},dictionaries).status,'clarify');
+});
+test('rating gate uses only the chosen source and never accepts unknown or fabricated TMDB fallback',()=>{
+    const f=filters({ratingSource:'imdb',ratingMin:7.5});
+    assert.equal(d.validateCandidate(movie({ratings:{imdb:7.5,tmdb:9}}),f).ok,true);
+    assert.equal(d.validateCandidate(movie({ratings:{imdb:7.4,tmdb:9}}),f).reason,'rating');
+    assert.equal(d.validateCandidate(movie({ratings:{tmdb:9}}),f).reason,'unknown_rating');
+    assert.equal(d.validateCandidate(movie(),filters({ratingMin:null})).ok,true);
+});

@@ -7,7 +7,7 @@ function parseKey(key) {
     var match = /^tmdb:(movie|tv):([1-9]\d*)$/.exec(String(key || ''));
     return match && positive(Number(match[2])) ? {type: match[1], id: Number(match[2])} : null;
 }
-function emptyFilters() { return {media:'movie', genres:{movie:{include:[],exclude:[]},tv:{include:[],exclude:[]}}, yearMin:null,yearMax:null,countries:[],maxRuntimeMinutes:null}; }
+function emptyFilters() { return {media:'movie', genres:{movie:{include:[],exclude:[]},tv:{include:[],exclude:[]}}, yearMin:null,yearMax:null,countries:[],maxRuntimeMinutes:null,ratingSource:'imdb',ratingMin:null}; }
 function emptyIntent() { return {filters:emptyFilters(),preferences:[],examples:[]}; }
 function merge(base, patch) {
     var out = clone(base), key;
@@ -35,6 +35,8 @@ function normalizeTitle(raw, type) {
 }
 function resolveIntent(current, patch, form, dictionaries) {
     var next = merge(current || emptyIntent(),patch || {}), issues = [], f = next.filters;
+    var rawMinimum = patch && patch.filters && patch.filters.ratingMin;
+    if (rawMinimum !== undefined && rawMinimum !== null && (typeof rawMinimum !== 'number' || !isFinite(rawMinimum))) issues.push('Некорректный рейтинг.');
     form = form || {};
     function conflict(value, locked, path) {
         Object.keys(locked).forEach(function (key) {
@@ -44,6 +46,10 @@ function resolveIntent(current, patch, form, dictionaries) {
     }
     conflict(patch && patch.filters || {},form,'');
     next.filters = f = merge(f,form);
+    if (f.ratingSource === undefined) f.ratingSource = 'imdb';
+    if (f.ratingMin === undefined) f.ratingMin = null;
+    if (['imdb','kp','tmdb'].indexOf(f.ratingSource) < 0) issues.push('Выберите источник рейтинга: IMDb, Кинопоиск или TMDB.');
+    if (f.ratingMin !== null && (typeof f.ratingMin !== 'number' || !isFinite(f.ratingMin) || f.ratingMin < 0 || f.ratingMin > 10)) issues.push('Рейтинг должен быть числом от 0 до 10.');
     if (['movie','tv','all'].indexOf(f.media) < 0) issues.push('Выберите фильмы, сериалы или всё.');
     ['yearMin','yearMax','maxRuntimeMinutes'].forEach(function (k) { if (f[k] !== null && !positive(f[k])) issues.push('Некорректное числовое ограничение: ' + k); });
     if (f.yearMin !== null && f.yearMax !== null && f.yearMin > f.yearMax) issues.push('Начальный год больше конечного.');
@@ -82,6 +88,11 @@ function validateCandidate(c, f) {
     if (f.yearMax !== null && (c.year === null || c.year > f.yearMax)) return bad('year');
     if (f.countries.length && (!c.countries || !f.countries.some(function (code) { return c.countries.indexOf(code) >= 0; }))) return bad('country');
     if (f.maxRuntimeMinutes !== null && (!positive(c.runtimeMinutes) || c.runtimeMinutes > f.maxRuntimeMinutes)) return bad('runtime');
+    if (typeof f.ratingMin === 'number') {
+        var score = c.ratings && c.ratings[f.ratingSource || 'imdb'];
+        if (typeof score !== 'number' || !isFinite(score) || score <= 0 || score > 10) return bad('unknown_rating');
+        if (score < f.ratingMin) return bad('rating');
+    }
     return {ok:true,reason:null};
 }
 function createCandidateStore(limit) {
