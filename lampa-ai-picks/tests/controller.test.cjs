@@ -116,3 +116,26 @@ test('requested card count limits accepted picks without a false partial warning
     h.model([], '{"picks":[{"key":"tmdb:movie:2","reason":"Первый."},{"key":"tmdb:movie:3","reason":"Второй."}]}');
     const result=h.events.at(-1).data.result;assert.equal(result.items.length,1);assert.equal(result.partial,false);assert.equal(result.notice,null);
 });
+
+test('all candidates are screened before final AI selection; IMDb rating failures cannot enter results',()=>{
+ const h=setup();h.boot({formFilters:{yearMin:2000,ratingMin:7.5,ratingSource:'imdb'}});h.intent();
+ h.model([{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);
+ const i=h.requests.findIndex(r=>r.url.includes('discover/'));h.reply(i,{results:[
+  {id:1,title:'A',release_date:'2010-01-01',imdb_id:'tt0000001'},
+  {id:2,title:'B',release_date:'2010-01-01',imdb_id:'tt0000002'},
+  {id:3,title:'C',release_date:'1990-01-01',imdb_id:'tt0000003'}]});
+ const rating=h.requests.findIndex(r=>r.url.includes('agregarr'));assert.ok(rating>=0);
+ assert.equal(h.posts().length,2,'model must wait for all eligible candidates to be rated');
+ assert.equal(new URL(h.requests[rating].url).searchParams.getAll('id').length,2);
+ h.reply(rating,[{imdbId:'tt0000001',rating:8},{imdbId:'tt0000002',rating:6}]);
+ const state=JSON.parse(h.posts().at(-1).json.messages[1].content);assert.deepEqual(state.candidates.map(c=>c.key),['tmdb:movie:1']);
+ h.model([],JSON.stringify({picks:[{key:'tmdb:movie:2',reason:'bad'},{key:'tmdb:movie:1',reason:'good'}]}));
+ const result=h.events.at(-1).data.result;assert.equal(result.items.length,1);assert.equal(result.stats.candidates,3);assert.equal(result.stats.checked,3);assert.equal(result.stats.conditionsPassed,2);assert.equal(result.stats.ratingPassed,1);assert.equal(result.stats.selected,1);
+ assert.equal(h.events.some(e=>e.type==='progress'&&e.data.candidates===3),true);assert.equal(h.timers.size,0);
+});
+test('global timeout preserves incomplete verification progress and never commits unverified films',()=>{
+ const h=setup();h.boot({formFilters:{ratingMin:7,ratingSource:'imdb'},limits:{totalTimeoutMs:30000,catalogTimeoutMs:60000}});h.intent();
+ h.model([{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);h.found();
+ h.advance(30000);assert.equal(h.c.getState().stage,'error');assert.equal(h.session.size(),0);
+ assert.ok(h.events.some(e=>e.type==='progress'&&e.data.candidates===1&&e.data.unverified===1));
+});

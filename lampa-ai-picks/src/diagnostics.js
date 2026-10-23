@@ -1,9 +1,9 @@
 'use strict';
 var appError = require('./transport').appError, domain = require('./domain'), normalizeLimits = require('./limits').normalizeLimits;
 var STORAGE = 'aip_diagnostic_journal';
-var events = ['run_start','stage','filters','tool_start','tool_result','request_start','request_end','request_cancel','candidate_rejected','run_done','run_error','run_cancel','clarification'];
-var codes = ['timeout','network','auth','balance','rate_limit','server','unsupported','invalid_arguments','invalid_response','catalog_limit','tool_limit','search_limit','context_limit','incompatible_model','unknown_title','unknown_keyword','intent_required','clarification','session_limit','cancelled','unknown'];
-var reasons = ['invalid_pick','unknown_key','already_shown','duplicate','count_limit','invalid','type','unknown_genres','genres','excluded_genres','year','country','runtime'];
+var events = ['run_start','screening','stage','filters','tool_start','tool_result','request_start','request_end','request_cancel','candidate_rejected','run_done','run_error','run_cancel','clarification'];
+var codes = ['timeout','network','auth','balance','rate_limit','server','unsupported','invalid_arguments','invalid_response','catalog_limit','tool_limit','search_limit','context_limit','incompatible_model','unknown_title','unknown_keyword','intent_required','clarification','session_limit','cancelled','kp_key','kp_limit','unknown'];
+var reasons = ['invalid_pick','unknown_key','already_shown','duplicate','count_limit','invalid','type','unknown_genres','genres','excluded_genres','year','country','runtime','rating','unknown_rating','not_verified'];
 var tools = ['set_search_intent','search_titles','resolve_keywords','discover_titles','get_related','get_title_details','unknown'];
 var endpointPattern = /^(genre\/(movie|tv)\/list|configuration\/countries|search\/(movie|tv|keyword)|discover\/(movie|tv)|(movie|tv)\/[1-9][0-9]*(\/(recommendations|similar))?|chat\/completions|models)$/;
 var paramPatterns = {
@@ -32,6 +32,8 @@ function safeFilters(source) {
     ['yearMin','yearMax','maxRuntimeMinutes'].forEach(function (key) {
         if (source[key] === null || integer(source[key],10000)) result[key] = source[key];
     });
+    if (['imdb','kp','tmdb'].indexOf(source.ratingSource) >= 0) result.ratingSource = source.ratingSource;
+    if (source.ratingMin === null || typeof source.ratingMin === 'number' && isFinite(source.ratingMin) && source.ratingMin >= 0 && source.ratingMin <= 10) result.ratingMin = source.ratingMin;
     if (Array.isArray(source.countries)) result.countries = source.countries.filter(function (value) { return typeof value === 'string' && /^[A-Z]{2}$/.test(value); }).slice(0,50);
     if (source.genres) {
         result.genres = {};
@@ -71,6 +73,12 @@ function safeRecord(event, source, at) {
         ['year','runtimeMinutes'].forEach(function (key) { if (source.facts[key] === null || integer(source.facts[key],10000)) row.facts[key] = source.facts[key]; });
         if (Array.isArray(source.facts.genreIds)) row.facts.genreIds = source.facts.genreIds.filter(function (id) { return integer(id) && id > 0; }).slice(0,40);
         if (Array.isArray(source.facts.countries)) row.facts.countries = source.facts.countries.filter(function (code) { return typeof code === 'string' && /^[A-Z]{2}$/.test(code); }).slice(0,50);
+    }
+    if (source.stats) {
+        row.stats = {};
+        ['candidates','checked','conditionsPassed','ratingChecked','ratingPassed','missingRatings','ratingErrors','metadataErrors','metadataMissing','unverified','selected'].forEach(function (key) { if (integer(source.stats[key])) row.stats[key] = source.stats[key]; });
+        if (['imdb','kp','tmdb'].indexOf(source.stats.ratingSource) >= 0) row.stats.ratingSource = source.stats.ratingSource;
+        if (codes.indexOf(source.stats.stopReason) >= 0) row.stats.stopReason = source.stats.stopReason;
     }
     if (source.limits) row.limits = normalizeLimits(source.limits);
     if (source.budget) {

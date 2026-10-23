@@ -3,6 +3,7 @@ var d = require('./domain'), appError = require('./transport').appError;
 var normalizeLimits = require('./limits').normalizeLimits;
 var createBudget = require('./budget').createBudget, createCatalog = require('./catalog').createCatalog;
 var createTools = require('./tools').createTools, prompts = require('./prompts');
+var createRatings = require('./ratings').createRatings, createScreening = require('./screening').createScreening;
 function createController(options) {
     var active = null, next = 0, stage = 'idle', pending = null, rememberedExamples = [], rememberedQuery = '';
     function emit(run, type, data) { if (options.onEvent) options.onEvent({type:type,runId:run.id,data:data}); }
@@ -20,6 +21,7 @@ function createController(options) {
     }
     function fail(run, error, scope) {
         if (!alive(run)) return;
+        if (run.screening) { var progress = run.screening.snapshot();progress.stopReason = error.code;emit(run,'progress',progress); }
         log(run,'run_error',{stage:stage,code:error.code,status:error.status,scope:scope,budget:run.budget.snapshot()});
         stop(run,error.code === 'timeout' ? scope === 'search' ? 'search_timeout' : 'timeout' : undefined);stage = 'error';emit(run,'error',error);
     }
@@ -32,6 +34,9 @@ function createController(options) {
         if (options.session.size() >= 200) { result.partial = true; result.notice = 'Показано 200 вариантов. Начните новую подборку.'; }
         rememberedExamples = intent.examples.map(function (key) { return run.store.get(key); }).filter(Boolean);
         rememberedQuery = run.query;
+        result.stats = run.screening.snapshot();result.stats.selected = result.items.length;
+        if (result.stats.unverified) result.notice = (result.notice ? result.notice + ' ' : '') + 'Не проверено кандидатов: ' + result.stats.unverified + '. См. счётчик поиска.';
+        emit(run,'progress',result.stats);
         log(run,'run_done',{count:result.items.length,candidates:run.store.all().length,budget:run.budget.snapshot()});
         stop(run);stage = 'done'; emit(run,'result',{result:result,intent:intent,mode:run.args.mode,dictionaries:run.dictionaries});
     }
@@ -46,7 +51,7 @@ function createController(options) {
         change(run,'ranking');
         try {
             var intent = run.tools.getIntent();
-            complete(run,prompts.parseFinal(content,run.store,intent.filters,run.shown.concat(intent.examples),{limit:run.limits.resultCount,onReject:function (value) { var c = run.store.get(value.key);if (c) value.facts = {type:c.type,year:c.year,runtimeMinutes:c.runtimeMinutes,genreIds:c.genreIds,countries:c.countries};log(run,'candidate_rejected',value); }}));
+            complete(run,prompts.parseFinal(content,run.store,intent.filters,run.shown.concat(intent.examples),{limit:run.limits.resultCount,eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),onReject:function (value) { var c = run.store.get(value.key);if (c) value.facts = {type:c.type,year:c.year,runtimeMinutes:c.runtimeMinutes,genreIds:c.genreIds,countries:c.countries};log(run,'candidate_rejected',value); }}));
         } catch (error) {
             if (run.budget.snapshot().modelCalls < run.limits.modelCalls && run.budget.remainingMs() > 0) {
                 run.trace.push({role:'assistant',content:String(content).slice(0,3000)});
@@ -54,8 +59,14 @@ function createController(options) {
             } else fail(run,appError('invalid_response'));
         }
     }
-    function takeStep(run, finalOnly, repair) {
+    function takeStep(run, finalOnly, repair, screened) {
         if (!alive(run)) return;
+        if (!screened) {
+            change(run,'checking');
+            var intent = run.tools.getIntent();
+            run.cancels.push(run.screening.check(intent.filters,run.shown.concat(intent.examples),function () { if (alive(run)) takeStep(run,finalOnly,repair,true); }));
+            return;
+        }
         var count = run.budget.snapshot();
         finalOnly = finalOnly || count.modelCalls >= run.limits.modelCalls - 1 || count.toolCalls >= run.limits.toolCalls;
         if (finalOnly && !repair && !run.store.all().length) return complete(run,{items:[],partial:true,notice:'Подходящие варианты не найдены. Попробуйте изменить условия.'});
@@ -63,7 +74,7 @@ function createController(options) {
         change(run,finalOnly ? 'ranking' : count.modelCalls ? 'searching' : 'parsing');
         var timeout = Math.min(run.limits.modelTimeoutMs,run.budget.remainingMs()), messages;
         try { messages = prompts.buildMessages({query:run.query,intent:run.tools.getIntent(),formFilters:run.args.formFilters,examples:run.tools.getIntent().examples,
-            shown:run.shown,candidates:run.store.all(),trace:run.trace,dictionaries:run.dictionaries,resultCount:run.limits.resultCount}); }
+            shown:run.shown,candidates:run.screening.eligible(),eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),trace:run.trace,dictionaries:run.dictionaries,resultCount:run.limits.resultCount}); }
         catch (error) { return fail(run,error); }
         if (repair) messages.push({role:'user',content:'Предыдущий итоговый ответ некорректен. Верни только JSON {"picks":[{"key":"...","reason":"..."}]} с известными кандидатами.'});
         var choice = finalOnly ? 'none' : count.modelCalls === 0 ? {type:'function',function:{name:'set_search_intent'}} : 'auto';
@@ -128,6 +139,9 @@ function createController(options) {
         run.deadline = options.clock.setTimeout(function () { fail(run,appError('timeout'),'search'); },run.limits.totalTimeoutMs);
         change(run,'parsing');
         var catalog = createCatalog({request:run.budget.catalogRequest,Lampa:options.Lampa,timeoutMs:run.limits.catalogTimeoutMs});
+        var ratings = createRatings({request:run.budget.catalogRequest,catalog:catalog,Lampa:options.Lampa,clock:options.clock,maxKpRequests:run.limits.kpRequests});
+        run.screening = createScreening({store:run.store,catalog:catalog,ratings:ratings,onProgress:function (stats) { if (alive(run)) { log(run,'screening',{stats:stats});emit(run,'progress',stats); } }});
+        run.cancels.push(run.screening.cancel);
         run.cancels.push(catalog.getDictionaries(function (error, dictionaries) {
             if (!alive(run)) return;
             if (error) return fail(run,error,'catalog');
