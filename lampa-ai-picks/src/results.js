@@ -1,5 +1,5 @@
 'use strict';
-var clone = require('./domain').clone;
+var clone = require('./domain').clone, openText = require('./dialog').openText;
 function createResults(options) {
     var L = options.Lampa, doc = options.document || document, root = doc.createElement('section'), cards = [], alive = true, modalOpen = false;
     root.className = 'aip-results';root.setAttribute('aria-label','Результаты подбора');
@@ -30,10 +30,9 @@ function createResults(options) {
                 onFocus:function () { if (alive && options.onFocus) options.onFocus(card.render(true)); }});
             card.create();wrapper.appendChild(card.render(true));
             wrapper.appendChild(button('why','Почему предложен',function (target) {
-                var html = doc.createElement('div'), title = doc.createElement('h3'), reason = doc.createElement('p');
-                title.textContent = item.candidate.title;reason.textContent = item.reason.slice(0,300);
-                html.appendChild(title);html.appendChild(reason);modalOpen = true;
-                L.Modal.open({title:'Почему предложен',html:html,onBack:function () { modalOpen = false;L.Modal.close();restore(target); }});
+                openText({Lampa:L,document:doc,$:options.$,title:'Почему предложен',text:item.candidate.title + '\n\n' + item.reason.slice(0,300),
+                    onBack:function () { modalOpen = false;restore(target); }});
+                modalOpen = true;
             }));
             grid.appendChild(wrapper);cards.push(card);card.visible();
         });

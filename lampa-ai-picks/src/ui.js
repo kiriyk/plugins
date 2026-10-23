@@ -2,6 +2,7 @@
 var d = require('./domain'), escapeText = require('./settings').escapeText;
 function createScreen(options) {
     var L = options.Lampa, doc = options.document || document, nav = options.navigator || L.Navigator;
+    var viewport = options.window || (typeof window !== 'undefined' ? window : null);
     var root = doc.createElement('section'), scroll = new L.Scroll({mask:true,over:true});
     var query = '', form = {}, recognized = null, examples = [], dictionaries = null, busy = false, alive = true, lastFocus = null, cancels = [], created = false;
     root.className = 'aip-picks'; root.setAttribute('aria-label','ИИ-подборки');
@@ -16,6 +17,20 @@ function createScreen(options) {
         if (!alive) return;
         lastFocus = element;scroll.update(element,true);
     }
+    function layout() {
+        if (!alive || !viewport || !viewport.innerHeight) return;
+        var frame = scroll.render(true);frame = frame && frame.jquery ? frame[0] : frame;
+        if (!frame || typeof frame.getBoundingClientRect !== 'function') return;
+        var top = frame.getBoundingClientRect().top, bottom = viewport.innerHeight;
+        var navigation = doc.querySelector('.navigation-bar');
+        if (navigation) {
+            var rect = navigation.getBoundingClientRect();
+            if (rect.height && rect.top > top) bottom = Math.min(bottom,rect.top);
+        }
+        frame.style.height = Math.max(1,bottom - top) + 'px';
+    }
+    function resize() { layout();if (lastFocus && root.contains(lastFocus)) scroll.update(lastFocus,true); }
+    if (viewport && viewport.addEventListener) viewport.addEventListener('resize',resize);
     function button(action, label, fn, cls) {
         var e = elem('button','selector aip-control' + (cls ? ' ' + cls : ''),label);
         e.type = 'button'; e.setAttribute('data-action',action);
@@ -163,7 +178,7 @@ function createScreen(options) {
     }
     scroll.append(root);update();
     return {
-        create:function () { if (!created) { created = true; } return scroll.render(); },
+        create:function () { if (!created) { scroll.minus();created = true; } return scroll.render(); },
         render:function () { return scroll.render(); },element:function () { return root; },resultsHost:function () { return resultHost; },
         getRequest:getRequest,focusElement:focusElement,setStage:setStage,setMessage:function (text) { status.textContent = text; },
         applyIntent:function (intent, values) {
@@ -183,7 +198,9 @@ function createScreen(options) {
             if (f.countries.length) parts.push('Страны: ' + f.countries.map(function (code) { var match = (dictionaries && dictionaries.countries || []).filter(function (c) { return c.code === code; })[0];return match ? match.name : code; }).join(', '));
             summary.textContent = 'Учтено: ' + parts.join(' · ');
         },
+        resize:resize,
         start:function () {
+            layout();
             L.Controller.add('aip_picks',{toggle:function () { L.Controller.collectionSet(root,false,true);L.Controller.collectionFocus(lastFocus,root,true); },
                 up:function () { if (nav) nav.move('up'); },down:function () { if (nav) nav.move('down'); },
                 left:function () { if (nav) nav.move('left'); },right:function () { if (nav) nav.move('right'); },
@@ -191,7 +208,7 @@ function createScreen(options) {
             focus();
         },
         stop:function () { options.onCancel(); },
-        destroy:function () { alive = false; options.onCancel();cancels.forEach(function (cancelRequest) { if (cancelRequest) cancelRequest(); });scroll.destroy(); }
+        destroy:function () { alive = false; options.onCancel();cancels.forEach(function (cancelRequest) { if (cancelRequest) cancelRequest(); });if (viewport && viewport.removeEventListener) viewport.removeEventListener('resize',resize);scroll.destroy(); }
     };
 }
 module.exports = {createScreen:createScreen};

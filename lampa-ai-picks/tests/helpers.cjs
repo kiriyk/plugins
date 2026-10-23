@@ -32,7 +32,15 @@ function createDOMHarness(options={}) {
     h.Lampa.Storage={get:(k,f)=>k in storage?storage[k]:f,field:()=> 'ru-RU',set(k,v){if(options.storageError)throw Error('storage unavailable');storage[k]=v;}};
     h.Lampa.Select={show:p=>selects.push(p),close(){}};
     h.Lampa.Input={edit:(p,done)=>inputs.push({params:p,done})};
-    h.Lampa.Modal={open:p=>modals.push(p),close(){}};
+    function jq(element){
+        const nodes=Array.isArray(element)?element:[element];
+        const wrapper={jquery:'fixture',length:nodes.filter(Boolean).length,0:nodes[0],
+            find(selector){return jq(nodes.flatMap(n=>n?Array.from(n.querySelectorAll(selector)):[]));},
+            on(event,fn){nodes.filter(Boolean).forEach(n=>event.split(' ').forEach(name=>n.addEventListener(name,fn)));return wrapper;}};
+        return wrapper;
+    }
+    window.jQuery=window.$=jq;
+    h.Lampa.Modal={open:p=>{p.html.find('.selector').on('hover:focus',()=>{});modals.push(p);},close(){}};
     h.Lampa.Noty={show:m=>notices.push(m)};
     h.Lampa.SettingsApi={addComponent:p=>registrations.push(p),addParam:p=>params.push(p),removeComponent(){}};
     h.Lampa.Controller={add:(n,c)=>controllers[n]=c,toggle(n){enabled=n;if(controllers[n]?.toggle)controllers[n].toggle();},
@@ -42,7 +50,7 @@ function createDOMHarness(options={}) {
     h.Lampa.Activity={push:p=>pushes.push(p),backward(){}};
     h.Lampa.Listener={follow:(n,cb)=>{h.appListener=cb;}};
     h.Lampa.Scroll=function(){const root=document.createElement('div');root.className='scroll';
-        this.append=e=>root.appendChild(e);this.render=()=>root;this.update=(element,center)=>scrollUpdates.push({element,center});this.destroy=()=>root.remove();};
+        this.minus=()=>root.classList.add('layer--wheight');this.append=e=>root.appendChild(e);this.render=()=>root;this.update=(element,center)=>scrollUpdates.push({element,center});this.destroy=()=>root.remove();};
     const madeCards=[];
     h.Lampa.Maker={make(name,card){
         if(name!=='Card')throw Error('unsupported Maker type');
@@ -57,6 +65,6 @@ function createDOMHarness(options={}) {
     function choose(title){const select=selects.at(-1),item=select.items.find(x=>x.title===title||x.value===title||x.id===title);assertElement(item);
         if(item.checkbox){item.checked=!item.checked;(item.onCheck||select.onCheck)?.(item);}else(item.onSelect||select.onSelect)?.(item);}
     function assertElement(e){if(!e)throw Error('Test target not found');}
-    return {...h,window,document,storage,selects,inputs,modals,notices,registrations,params,pushes,focuses,scrollUpdates,controllers,enter,choose};
+    return {...h,$:jq,window,document,storage,selects,inputs,modals,notices,registrations,params,pushes,focuses,scrollUpdates,controllers,enter,choose};
 }
 module.exports.createDOMHarness=createDOMHarness;

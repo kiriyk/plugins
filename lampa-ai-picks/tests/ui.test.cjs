@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {createDOMHarness}=require('./helpers.cjs'),{createScreen}=require('../src/ui'),{movie,dictionaries}=require('./fixtures.cjs');
-function setup(){const h=createDOMHarness(),submissions=[];let cancelled=0;
+function setup(options={}){const h=createDOMHarness(),submissions=[];let cancelled=0;
     const catalog={getDictionaries:done=>{done(null,dictionaries);return ()=>{};},searchTitles:(args,done)=>{done(null,{items:[movie()],hasMore:false});return ()=>{};}};
-    const screen=createScreen({Lampa:h.Lampa,document:h.document,catalog,onSubmit:q=>submissions.push(q),onCancel:()=>cancelled++,onSettings(){}});
+    const screen=createScreen({Lampa:h.Lampa,document:h.document,catalog,onSubmit:q=>submissions.push(q),onCancel:()=>cancelled++,onSettings(){},...options});
     h.document.getElementById('content').appendChild(screen.render());screen.create();screen.start();
     return {...h,screen,catalog,submissions,cancelled:()=>cancelled};}
 test('empty query is blocked but filters-only submission works',()=>{
@@ -56,4 +56,18 @@ test('form genre selection leaves textual exclusions and other media unlocked',(
     assert.deepEqual(result.intent.filters.genres.movie,{include:[18],exclude:[27]});
     h.enter('[data-action="movie-exclude"]');h.choose(27);
     assert.deepEqual(h.screen.getRequest('new').formFilters.genres.movie,{include:[18],exclude:[27]});
+});
+
+test('activity scroll participates in native Lampa viewport sizing',()=>{
+    const h=setup();assert.ok(h.screen.render().classList.contains('layer--wheight'));
+});
+
+test('viewport resize keeps lower controls inside the available activity height',()=>{
+    const listeners={},removed=[];
+    const viewport={innerHeight:720,addEventListener:(name,fn)=>listeners[name]=fn,removeEventListener:(name,fn)=>removed.push([name,fn])};
+    const h=setup({window:viewport}),frame=h.screen.render();
+    frame.getBoundingClientRect=()=>({top:70});
+    h.screen.start();assert.equal(frame.style.height,'650px');
+    viewport.innerHeight=1080;listeners.resize();assert.equal(frame.style.height,'1010px');
+    h.screen.destroy();assert.ok(removed.some(([name,fn])=>name==='resize'&&fn===listeners.resize));
 });

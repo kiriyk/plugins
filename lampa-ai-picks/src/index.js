@@ -1,5 +1,6 @@
 /* AI Picks 0.1.0 | Lampa 3.3.8 */
 'use strict';
+var openText = require('./dialog').openText;
 var createTransport = require('./transport').createTransport;
 var createRouterAI = require('./routerai').createRouterAI, createCatalog = require('./catalog').createCatalog;
 var registerSettings = require('./settings').registerSettings, escapeText = require('./settings').escapeText, createScreen = require('./ui').createScreen;
@@ -26,8 +27,8 @@ function registerPlugin(options) {
             if (!config.key || !config.model) { screen.setMessage('Введите ключ RouterAI и выберите модель.');settings.open();return; }
             payload.key = config.key;payload.model = config.model;controller.start(payload);
         }
-        screen = createScreen({Lampa:L,document:doc,navigator:win.Navigator,catalog:catalog,onSubmit:launch,onCancel:function () { if (controller) controller.cancel(); },onSettings:settings.open});
-        renderer = createResults({Lampa:L,document:doc,onFocus:screen.focusElement,onMore:function () { launch(screen.getRequest('more')); },onRefine:function () {
+        screen = createScreen({Lampa:L,document:doc,window:win,navigator:win.Navigator,catalog:catalog,onSubmit:launch,onCancel:function () { if (controller) controller.cancel(); },onSettings:settings.open});
+        renderer = createResults({Lampa:L,document:doc,$:win.jQuery || win.$,onFocus:screen.focusElement,onMore:function () { launch(screen.getRequest('more')); },onRefine:function () {
             L.Input.edit({title:'Как изменить подборку?',value:'',free:true,nosave:true},function (text) {
                 if (destroyed) return;
                 L.Controller.toggle('aip_picks');
@@ -55,8 +56,7 @@ function registerPlugin(options) {
                     return {title:escapeText(candidate.title),subtitle:escapeText((candidate.year || 'Год неизвестен') + ' · ' + (candidate.type === 'tv' ? 'Сериал' : 'Фильм')),value:candidate.key};
                 }),onSelect:function (item) { controller.resolveClarification({kind:'example',key:item.value}); },onBack:function () { controller.cancel();screen.start(); }});
                 else {
-                    var html = doc.createElement('div');html.textContent = event.data.issues.join(' ') + ' Вернитесь к запросу и исправьте текст или фильтры.';
-                    L.Modal.open({title:'Уточните условия',html:html,onBack:function () { L.Modal.close();controller.cancel();screen.start(); }});
+                    openText({Lampa:L,document:doc,$:win.jQuery || win.$,title:'Уточните условия',text:event.data.issues.join(' ') + ' Вернитесь к запросу и исправьте текст или фильтры.',onBack:function () { controller.cancel();screen.start(); }});
                 }
             }
         }});

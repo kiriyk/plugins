@@ -12,6 +12,32 @@
     };
   };
 
+  // src/dialog.js
+  var require_dialog = __commonJS({
+    "src/dialog.js": function(exports, module) {
+      "use strict";
+      function openText(options) {
+        var doc = options.document || document, L = options.Lampa, html = doc.createElement("div");
+        var wrap = options.$ || typeof window !== "undefined" && (window.jQuery || window.$);
+        if (typeof wrap !== "function") throw new Error("Lampa jQuery is unavailable");
+        html.textContent = String(options.text || "");
+        html.style.whiteSpace = "pre-wrap";
+        function close() {
+          L.Modal.close();
+          if (options.onBack) options.onBack();
+        }
+        L.Modal.open({
+          title: options.title,
+          html: wrap(html),
+          size: options.size || "large",
+          onBack: close,
+          buttons: options.buttons || [{ name: "Назад", onSelect: close }]
+        });
+      }
+      module.exports = { openText: openText };
+    }
+  });
+
   // src/transport.js
   var require_transport = __commonJS({
     "src/transport.js": function(exports, module) {
@@ -702,6 +728,7 @@
       var escapeText = require_settings().escapeText;
       function createScreen(options) {
         var L = options.Lampa, doc = options.document || document, nav = options.navigator || L.Navigator;
+        var viewport = options.window || (typeof window !== "undefined" ? window : null);
         var root = doc.createElement("section"), scroll = new L.Scroll({ mask: true, over: true });
         var query = "", form = {}, recognized = null, examples = [], dictionaries = null, busy = false, alive = true, lastFocus = null, cancels = [], created = false;
         root.className = "aip-picks";
@@ -723,6 +750,24 @@
           lastFocus = element;
           scroll.update(element, true);
         }
+        function layout() {
+          if (!alive || !viewport || !viewport.innerHeight) return;
+          var frame = scroll.render(true);
+          frame = frame && frame.jquery ? frame[0] : frame;
+          if (!frame || typeof frame.getBoundingClientRect !== "function") return;
+          var top = frame.getBoundingClientRect().top, bottom = viewport.innerHeight;
+          var navigation = doc.querySelector(".navigation-bar");
+          if (navigation) {
+            var rect = navigation.getBoundingClientRect();
+            if (rect.height && rect.top > top) bottom = Math.min(bottom, rect.top);
+          }
+          frame.style.height = Math.max(1, bottom - top) + "px";
+        }
+        function resize() {
+          layout();
+          if (lastFocus && root.contains(lastFocus)) scroll.update(lastFocus, true);
+        }
+        if (viewport && viewport.addEventListener) viewport.addEventListener("resize", resize);
         function button(action, label, fn, cls) {
           var e = elem("button", "selector aip-control" + (cls ? " " + cls : ""), label);
           e.type = "button";
@@ -980,6 +1025,7 @@
         return {
           create: function() {
             if (!created) {
+              scroll.minus();
               created = true;
             }
             return scroll.render();
@@ -1028,7 +1074,9 @@
             }).join(", "));
             summary.textContent = "Учтено: " + parts.join(" · ");
           },
+          resize: resize,
           start: function() {
+            layout();
             L.Controller.add("aip_picks", {
               toggle: function() {
                 L.Controller.collectionSet(root, false, true);
@@ -1062,6 +1110,7 @@
             cancels.forEach(function(cancelRequest) {
               if (cancelRequest) cancelRequest();
             });
+            if (viewport && viewport.removeEventListener) viewport.removeEventListener("resize", resize);
             scroll.destroy();
           }
         };
@@ -1773,6 +1822,7 @@
     "src/results.js": function(exports, module) {
       "use strict";
       var clone = require_domain().clone;
+      var openText = require_dialog().openText;
       function createResults(options) {
         var L = options.Lampa, doc = options.document || document, root = doc.createElement("section"), cards = [], alive = true, modalOpen = false;
         root.className = "aip-results";
@@ -1838,17 +1888,18 @@
             card.create();
             wrapper.appendChild(card.render(true));
             wrapper.appendChild(button("why", "Почему предложен", function(target) {
-              var html = doc.createElement("div"), title = doc.createElement("h3"), reason = doc.createElement("p");
-              title.textContent = item.candidate.title;
-              reason.textContent = item.reason.slice(0, 300);
-              html.appendChild(title);
-              html.appendChild(reason);
+              openText({
+                Lampa: L,
+                document: doc,
+                $: options.$,
+                title: "Почему предложен",
+                text: item.candidate.title + "\n\n" + item.reason.slice(0, 300),
+                onBack: function() {
+                  modalOpen = false;
+                  restore(target);
+                }
+              });
               modalOpen = true;
-              L.Modal.open({ title: "Почему предложен", html: html, onBack: function() {
-                modalOpen = false;
-                L.Modal.close();
-                restore(target);
-              } });
             }));
             grid.appendChild(wrapper);
             cards.push(card);
@@ -1876,6 +1927,7 @@
   // src/index.js
   var require_index = __commonJS({
     "src/index.js": function(exports, module) {
+      var openText = require_dialog().openText;
       var createTransport = require_transport().createTransport;
       var createRouterAI = require_routerai().createRouterAI;
       var createCatalog = require_catalog().createCatalog;
@@ -1926,10 +1978,10 @@
             payload.model = config.model;
             controller.start(payload);
           }
-          screen = createScreen({ Lampa: L, document: doc, navigator: win.Navigator, catalog: catalog, onSubmit: launch, onCancel: function() {
+          screen = createScreen({ Lampa: L, document: doc, window: win, navigator: win.Navigator, catalog: catalog, onSubmit: launch, onCancel: function() {
             if (controller) controller.cancel();
           }, onSettings: settings.open });
-          renderer = createResults({ Lampa: L, document: doc, onFocus: screen.focusElement, onMore: function() {
+          renderer = createResults({ Lampa: L, document: doc, $: win.jQuery || win.$, onFocus: screen.focusElement, onMore: function() {
             launch(screen.getRequest("more"));
           }, onRefine: function() {
             L.Input.edit({ title: "Как изменить подборку?", value: "", free: true, nosave: true }, function(text2) {
@@ -1975,10 +2027,7 @@
                 screen.start();
               } });
               else {
-                var html = doc.createElement("div");
-                html.textContent = event.data.issues.join(" ") + " Вернитесь к запросу и исправьте текст или фильтры.";
-                L.Modal.open({ title: "Уточните условия", html: html, onBack: function() {
-                  L.Modal.close();
+                openText({ Lampa: L, document: doc, $: win.jQuery || win.$, title: "Уточните условия", text: event.data.issues.join(" ") + " Вернитесь к запросу и исправьте текст или фильтры.", onBack: function() {
                   controller.cancel();
                   screen.start();
                 } });

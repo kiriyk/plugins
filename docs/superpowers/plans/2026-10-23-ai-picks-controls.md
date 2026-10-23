@@ -20,11 +20,11 @@
 ### Task 1: Native scroll and modal contracts
 Files: src/ui.js, src/results.js, src/index.js, new src/dialog.js, tests/helpers.cjs, tests/results.test.cjs, tests/integration.test.cjs, browser fixture.
 Interfaces: dialog.openText({Lampa,document,$,title,text,onBack}); jQuery factory from window.jQuery/window.$.
-- [ ] Add failing modal .find contract test and native Scroll/Layer browser geometry reproduction.
-- [ ] Run focused tests/browser: expect failure opening raw DOM modal and unbounded viewport/zero scroll.
-- [ ] Add Scroll.minus before render, shared dialog wrapper for explanations/clarifications, restore focus.
-- [ ] Run full npm test and browser: expect green and lower controls visible.
-- [ ] Commit fix.
+- [x] Add failing modal .find contract test and native Scroll/Layer browser geometry reproduction.
+- [x] Run focused tests/browser: expect failure opening raw DOM modal and unbounded viewport/zero scroll.
+- [x] Add Scroll.minus before render, shared dialog wrapper for explanations/clarifications, restore focus.
+- [x] Run full npm test and browser: expect green and lower controls visible.
+- [x] Commit fix.
 
 ### Task 2: Model search and configurable execution
 Files: new src/limits.js, src/settings.js, budget.js, controller.js, catalog.js, routerai.js, prompts.js, index.js; tests settings/budget/controller/prompts/integration.
