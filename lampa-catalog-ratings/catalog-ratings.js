@@ -1,4 +1,4 @@
-/* Catalog Ratings 1.0.0 | MIT | Lampa 3.x (target: 3.3.8).
+/* Catalog Ratings 1.1.0 | MIT | Lampa 3.x (target: 3.3.8).
  * No bundled API keys. Configure Settings > Ratings on posters.
  */
 (function () {
@@ -8,9 +8,9 @@
 
     var L, records = [], queue = [], pending = {}, active = 0;
     var cache = {}, revision = 0, blocked = false, pauseUntil = 0;
-    var CACHE_KEY = 'cr_cache_v1', MAX_CACHE = 500;
+    var CACHE_KEY = 'cr_cache_v2', MAX_CACHE = 500, MAX_FAILURES = 3, RETRY = 60000;
     var DAY = 86400000, API = 'https://kinopoiskapiunofficial.tech/api/v2.2/films';
-    var started = false, observer, resumeTimer;
+    var started = false, observer, resumeTimer, retryTimer, quotaNotified = false;
 
     function setting(name, fallback) {
         return L.Storage.get('cr_' + name, fallback);
@@ -64,7 +64,23 @@
         return {kp: kp, imdb: imdb, tmdb: tmdb, type: type,
             key: kp ? 'kp:' + kp : imdb ? 'imdb:' + imdb : tmdb ? 'tmdb:' + type + ':' + tmdb : ''};
     }
+    function normal(value) {
+        return String(value || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/g, '');
+    }
+    function year(value) {
+        var match = /^(\d{4})/.exec(String(value || ''));
+        return match ? Number(match[1]) : 0;
+    }
+    function sameType(type, film) {
+        var kind = String(film.type || '');
+        if (!kind) return true;
+        return type === 'tv' ? /^(TV_SERIES|MINI_SERIES|TV_SHOW)$/.test(kind) : /^(FILM|VIDEO)$/.test(kind);
+    }
     function loadCache() {
+        try {
+            var old = L.Storage.get('cr_cache_v1', null);
+            if (old && typeof old === 'object' && Object.keys(old).length) L.Storage.set('cr_cache_v1', {});
+        } catch (e) { /* Old cache only takes space. */ }
         try {
             var stored = L.Storage.get(CACHE_KEY, {});
             if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return;
@@ -143,9 +159,31 @@
     }
     function resolve(job, callback) {
         var id = job.id;
+        // Films without an IMDb match: strict title + year + type search, accepted only if unambiguous.
+        function search(imdb) {
+            var data = job.data || {}, when = year(data.release_date || data.first_air_date);
+            var titles = [data.title, data.name, data.original_title, data.original_name].map(normal)
+                .filter(function (title) { return title; });
+            var keyword = data.title || data.name || data.original_title || data.original_name;
+            if (!when || !titles.length || !keyword) return callback({kp: null, imdb: null}, null);
+            apiGet('?keyword=' + encodeURIComponent(keyword) + '&yearFrom=' + (when - 1) + '&yearTo=' + (when + 1),
+                job.token, function (result, error) {
+                    if (error !== null) return callback(null, error);
+                    if (!Array.isArray(result.items)) return callback(null, 0);
+                    var matches = result.items.filter(function (film) {
+                        if (!film || !sameType(id.type, film)) return false;
+                        if (imdb && film.imdbId && film.imdbId !== imdb) return false;
+                        if (Math.abs(year(film.year) - when) > 1) return false;
+                        return [film.nameRu, film.nameEn, film.nameOriginal].some(function (name) {
+                            return name && titles.indexOf(normal(name)) !== -1;
+                        });
+                    });
+                    callback(matches.length === 1 ? ratings(matches[0]) : {kp: null, imdb: null}, null);
+                });
+        }
         function find(imdb) {
             if (job.revision !== revision) return callback(null, 0);
-            if (!imdb) return callback(null, 0);
+            if (!imdb) return search('');
             apiGet('?imdbId=' + encodeURIComponent(imdb), job.token, function (data, error) {
                 if (error !== null) return callback(null, error);
                 if (!Array.isArray(data.items)) return callback(null, 0);
@@ -154,7 +192,8 @@
                     if (film && film.imdbId === imdb) { found = film; return true; }
                     return false;
                 });
-                callback(found ? ratings(found) : {kp: null, imdb: null}, null);
+                if (found) callback(ratings(found), null);
+                else search(imdb);
             });
         }
         if (id.kp) {
@@ -166,27 +205,40 @@
         } else if (id.imdb) find(id.imdb);
         else if (id.tmdb && L.Api && L.Api.sources.tmdb && L.Api.sources.tmdb.external_ids) {
             var settled = false;
-            var timer = setTimeout(function () { done(''); }, 10000);
-            function done(imdb) {
+            var timer = setTimeout(function () { done('', true); }, 10000);
+            function done(imdb, failed) {
                 if (settled) return;
-                settled = true; clearTimeout(timer); find(imdbId(imdb));
+                settled = true; clearTimeout(timer);
+                if (failed) callback(null, 0);
+                else find(imdbId(imdb));
             }
             try {
                 L.Api.sources.tmdb.external_ids({id: Number(id.tmdb), type: id.type}, function (data) {
-                    done(data && data.imdb_id);
-                }, function () { done(''); });
-            } catch (e) { done(''); }
+                    done(data && data.imdb_id, false);
+                }, function () { done('', true); });
+            } catch (e) { done('', true); }
         } else callback(null, 0);
     }
     function requestError(error) {
         if (error === 401 || error === 403) {
             if (!blocked) notify('Рейтинги: API отклонил ключ (HTTP ' + error + '). Проверьте ключ и лимит в настройках.');
             blocked = true;
-        } else if (error === 429) {
-            pauseUntil = Date.now() + 60000;
+        } else if (error === 402 || error === 429) {
+            // 402: daily quota is over, 429: per-second limit. Deferred cards return after the pause.
+            var pause = error === 402 ? DAY / 24 : RETRY;
+            if (error === 402 && !quotaNotified) notify('Рейтинги: исчерпан лимит запросов API. Повтор через час.');
+            quotaNotified = quotaNotified || error === 402;
+            pauseUntil = Date.now() + pause;
             clearTimeout(resumeTimer);
-            resumeTimer = setTimeout(function () { pump(); }, 60000);
+            resumeTimer = setTimeout(function () { pump(); }, pause);
         }
+    }
+    function retryLater(delay) {
+        if (retryTimer) return;
+        retryTimer = setTimeout(function () {
+            retryTimer = null;
+            records.slice().forEach(function (r) { if (r.deferred && r.visible && !r.loading) refresh(r); });
+        }, Math.max(delay, 1000));
     }
     function wanted(job) {
         return job.revision === revision && enabled('enabled') && job.records.some(function (r) { return !r.dead; });
@@ -210,9 +262,14 @@
                 job.records.forEach(function (record) {
                     if (record.dead) return;
                     record.loading = false;
-                    record.retryAt = error === null ? 0 : Date.now() + 60000;
+                    record.retryAt = error === null ? 0 : Math.max(Date.now() + RETRY, pauseUntil);
+                    if (error !== null && error !== 402 && error !== 429) record.failures++;
                     if (value) record.value = merge(ratings(record.data), value);
                     draw(record, record.value);
+                    if (error !== null) {
+                        record.deferred = true;
+                        if (!blocked && record.failures < MAX_FAILURES) retryLater(record.retryAt - Date.now());
+                    }
                 });
             }
             pump();
@@ -223,13 +280,16 @@
         var base = ratings(record.data), id = identity(record.data), hit = id.key && cached(id.key);
         record.value = hit ? merge(base, hit) : base;
         draw(record, record.value);
+        record.deferred = false;
         if (!enabled('enabled') || (record.value.kp && record.value.imdb) || hit || !id.key || !token() ||
-            record.loading || record.retryAt > Date.now() || blocked || pauseUntil > Date.now()) return;
+            record.loading || blocked || record.failures >= MAX_FAILURES) return;
+        var wait = Math.max(record.retryAt, pauseUntil) - Date.now();
+        if (wait > 0) { record.deferred = true; return retryLater(wait); }
         record.loading = true;
         var job = pending[id.key];
         if (job && job.revision === revision) job.records.push(record);
         else {
-            job = {id: id, token: token(), revision: revision, records: [record]};
+            job = {id: id, data: record.data, token: token(), revision: revision, records: [record]};
             pending[id.key] = job; queue.push(job);
         }
         pump();
@@ -237,7 +297,7 @@
     function attach(root, data) {
         if (!root || !root.querySelector || !data || root.__crRecord) return root && root.__crRecord;
         var record = {root: root, data: data, visible: false, dead: false, loading: false, retryAt: 0,
-            value: {kp: null, imdb: null}};
+            failures: 0, deferred: false, value: {kp: null, imdb: null}};
         root.__crRecord = record; records.push(record);
         return record;
     }
@@ -260,9 +320,9 @@
         onDestroy: function () { var root = rootNode(this.html); if (root) detach(root.__crRecord); }
     };
     function change() {
-        clearTimeout(resumeTimer);
-        revision++; blocked = false; pauseUntil = 0; pending = {}; queue = [];
-        records.forEach(function (r) { r.loading = false; r.retryAt = 0; refresh(r); });
+        clearTimeout(resumeTimer); clearTimeout(retryTimer); retryTimer = null;
+        revision++; blocked = false; pauseUntil = 0; quotaNotified = false; pending = {}; queue = [];
+        records.forEach(function (r) { r.loading = false; r.retryAt = 0; r.failures = 0; refresh(r); });
     }
     function checkApi() {
         if (!token()) return notify('Сначала введите ключ Kinopoisk API Unofficial.');
@@ -296,7 +356,7 @@
         var style = document.createElement('style'); style.id = 'catalog-ratings-style';
         style.textContent = '.card.cr-has-ratings .card__vote{display:none!important}' +
             '.cr-ratings{position:absolute;right:.35em;bottom:.35em;z-index:5;display:flex;flex-direction:column;' +
-            'align-items:flex-end;gap:.22em;pointer-events:none;font-size:.78em;line-height:1.15}' +
+            'align-items:flex-end;gap:.22em;pointer-events:none;font-size:1.17em;line-height:1.15}' +
             '.cr-rating{display:flex;align-items:center;gap:.45em;border-radius:.25em;padding:.28em .42em;' +
             'background:rgba(12,15,20,.92);color:#fff;box-shadow:0 .08em .3em rgba(0,0,0,.35)}' +
             '.cr-rating__name{font-size:.75em;font-weight:700}.cr-rating__value{font-weight:700;font-variant-numeric:tabular-nums}' +

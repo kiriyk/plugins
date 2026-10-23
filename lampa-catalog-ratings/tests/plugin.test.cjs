@@ -45,6 +45,7 @@ function setup(t, options = {}) {
                 requests.push({url, ok, fail, settings});
                 if (!options.manual) later(() => {
                     if (options.error) fail({status: options.error});
+                    else if (options.respond) ok(options.respond(url));
                     else ok(options.response === undefined ? {items: [{imdbId: 'tt0111161', ratingKinopoisk: 9.1, ratingImdb: 9.3}]} : options.response);
                 }, 0);
             };
@@ -194,7 +195,63 @@ test('rate limiting resumes the remaining queue after a minute', t => {
     [1,2,3].forEach(id => h.card({id}).emit('visible'));
     h.requests[0].fail({status: 429}); h.requests[1].ok({items: []});
     assert.equal(h.requests.length, 2);
-    h.advance(60000); assert.equal(h.requests.length, 3);
+    // Card 3 continues and the rate-limited card 1 is retried, no new card events needed.
+    h.advance(60000); assert.equal(h.requests.length, 4);
+    assert.deepEqual(h.external.map(p => p.id), [1, 2, 3, 1]);
+});
+
+test('cards shown during a rate-limit pause are fetched after it', t => {
+    const h = setup(t, {storage: {cr_api_key: 'test-token'}, manual: true});
+    const a = h.card({id: 1}); a.emit('visible'); h.requests[0].fail({status: 429});
+    const b = h.card({id: 2}); b.emit('visible'); assert.equal(h.requests.length, 1);
+    h.advance(60000); assert.equal(h.external.filter(p => p.id === 2).length, 1);
+    h.requests.at(-1).ok({items: [{imdbId: 'tt0111161', ratingKinopoisk: 7.4, ratingImdb: 7.1}]});
+    assert.ok(badges(b) || badges(a));
+});
+
+test('network errors retry by themselves, at most three times', t => {
+    const h = setup(t, {storage: {cr_api_key: 'test-token'}, manual: true});
+    const c = h.card(); c.emit('visible');
+    h.requests[0].fail({status: 500}); h.advance(60000); assert.equal(h.requests.length, 2);
+    h.requests[1].fail({status: 500}); h.advance(60000); assert.equal(h.requests.length, 3);
+    h.requests[2].fail({status: 500}); h.advance(60000); assert.equal(h.requests.length, 3);
+});
+
+test('exhausted daily quota pauses lookups and notifies once', t => {
+    const h = setup(t, {storage: {cr_api_key: 'test-token'}, manual: true});
+    [1, 2, 3].forEach(id => h.card({id}).emit('visible'));
+    h.requests[0].fail({status: 402}); h.requests[1].fail({status: 402});
+    assert.equal(h.requests.length, 2); assert.equal(h.notices.length, 1);
+    h.advance(3600000); assert.ok(h.requests.length > 2);
+});
+
+test('only IMDb rating shows a single IMDb badge', async t => {
+    const h = setup(t, {storage: {cr_api_key: 'test-token'}, response: {items: [{imdbId: 'tt0111161', ratingKinopoisk: null, ratingImdb: 6.8}]}});
+    const c = h.card(); c.emit('visible'); await tick();
+    assert.equal(badges(c).textContent, 'IMDb6.8'); assert.equal(hidden(c), true);
+});
+
+test('film without IMDb ID is matched by exact title, year and type', async t => {
+    const h = setup(t, {storage: {cr_api_key: 'test-token'}, imdb: null, respond: url => ({items: [
+        {kinopoiskId: 1, nameRu: 'Слово пацана. Кровь на асфальте', year: 2023, type: 'TV_SERIES', ratingKinopoisk: 8.3},
+        {kinopoiskId: 2, nameRu: 'Слово пацана', year: 2023, type: 'FILM', ratingKinopoisk: 5}]})});
+    const c = h.card({id: 5, name: 'Слово пацана. Кровь на асфальте', first_air_date: '2023-11-09'});
+    c.emit('visible'); await tick();
+    assert.match(h.requests[0].url, /keyword=.+&yearFrom=2022&yearTo=2024/);
+    assert.equal(badges(c).textContent, 'КП8.3');
+});
+
+test('title search is rejected when ambiguous', async t => {
+    const h = setup(t, {storage: {cr_api_key: 'test-token'}, imdb: null, respond: () => ({items: [
+        {kinopoiskId: 1, nameRu: 'Дом', year: 2011, type: 'FILM', ratingKinopoisk: 7},
+        {kinopoiskId: 2, nameRu: 'Дом', year: 2012, type: 'FILM', ratingKinopoisk: 6}]})});
+    const c = h.card({id: 6, title: 'Дом', release_date: '2011-03-01'}); c.emit('visible'); await tick();
+    assert.equal(badges(c), null); assert.equal(hidden(c), false);
+});
+
+test('rating text is 1.5x larger than before', t => {
+    const h = setup(t);
+    assert.match(h.document.getElementById('catalog-ratings-style').textContent, /\.cr-ratings\{[^}]*font-size:1\.17em/);
 });
 
 test('a hung network request releases its queue slot at the watchdog timeout', t => {
