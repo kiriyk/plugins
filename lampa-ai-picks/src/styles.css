@@ -1,0 +1,39 @@
+.aip-picks{padding:1.8em 2em 4em;color:inherit;font-family:inherit;max-width:76em}
+.aip-picks *{box-sizing:border-box}
+.aip-picks [hidden]{display:none!important}
+.aip-picks .aip-heading{position:relative;margin-bottom:1.7em;padding-right:12em}
+.aip-picks .aip-title{font-size:2.1em;line-height:1.18;font-weight:600;margin:0 0 .35em}
+.aip-picks .aip-intro{max-width:48em;line-height:1.5;opacity:.8;margin:0}
+.aip-picks .aip-control{font:inherit;color:inherit;text-align:left;cursor:pointer;line-height:1.4;border:0;border-radius:.6em;padding:.8em 1.1em;background:rgba(255,255,255,.08);min-height:2.8em;transition:background .15s ease-out,color .15s ease-out}
+.aip-picks .aip-control.focus,.aip-picks .aip-control:focus,.aip-picks .aip-control:hover{background:#fff;color:#151515;outline:2px solid #fff;outline-offset:2px}
+.aip-picks .aip-control:disabled{opacity:.45;cursor:default;outline:none}
+.aip-picks .aip-settings{position:absolute;right:0;top:0}
+.aip-picks .aip-query{width:100%;min-height:6em;padding:1.2em 1.4em;font-size:1.15em;line-height:1.5;white-space:normal;overflow-wrap:break-word;margin-bottom:1.6em}
+.aip-picks .aip-query:not(.aip-query--filled){color:#c4c4c4}
+.aip-picks .aip-query:not(.aip-query--filled).focus,.aip-picks .aip-query:not(.aip-query--filled):focus,.aip-picks .aip-query:not(.aip-query--filled):hover{color:#333}
+.aip-picks .aip-examples{margin-bottom:1.25em}
+.aip-picks .aip-label{font-size:1em;font-weight:600;margin:0 0 .65em}
+.aip-picks .aip-example-list{display:flex;flex-wrap:wrap}
+.aip-picks .aip-example{margin:0 .6em .6em 0}
+.aip-picks .aip-filters{display:flex;flex-wrap:wrap;margin-top:.8em}
+.aip-picks .aip-filters .aip-control{margin:0 .6em .6em 0}
+.aip-picks .aip-summary{font-size:.88em;line-height:1.5;opacity:.78;margin:1em 0 1.4em}
+.aip-picks .aip-actions{display:flex;flex-wrap:wrap}
+.aip-picks .aip-actions .aip-control{margin:0 .7em .7em 0}
+.aip-picks .aip-primary{background:#fff;color:#151515;font-weight:600;min-width:11em;text-align:center}
+.aip-picks .aip-status{min-height:1.5em;line-height:1.5;margin:.7em 0 0;max-width:65ch}
+.aip-picks .aip-result-host{margin-top:2em}
+@media(max-width:700px){.aip-picks{padding:1.2em 1em 3em}.aip-picks .aip-heading{padding-right:0}.aip-picks .aip-settings{position:static;margin-top:.8em}.aip-picks .aip-title{font-size:1.7em}.aip-picks .aip-query{font-size:1em}.aip-picks .aip-filters .aip-control{width:100%;margin-right:0}}
+@media(prefers-reduced-motion:reduce){.aip-picks .aip-control{transition:none}}
+
+.aip-picks .aip-results-title{font-size:1.4em;font-weight:600;margin:0 0 .75em}
+.aip-picks .aip-results-notice{opacity:.8;line-height:1.5;margin:0 0 1.2em}
+.aip-picks .aip-grid{display:flex;flex-wrap:wrap;margin:0 -.6em}
+.aip-picks .aip-pick{width:20%;padding:0 .6em;margin-bottom:1.5em;min-width:0}
+.aip-picks .aip-pick>.card{width:100%;margin:0}
+.aip-picks .aip-pick>.aip-control{width:100%;margin-top:.6em;font-size:.82em;text-align:center}
+.aip-picks .aip-result-actions{display:flex;flex-wrap:wrap;margin-top:.5em}
+.aip-picks .aip-result-actions .aip-control{margin:0 .7em .7em 0}
+@media(max-width:1100px){.aip-picks .aip-pick{width:25%}}
+@media(max-width:800px){.aip-picks .aip-pick{width:33.333%}}
+@media(max-width:500px){.aip-picks .aip-pick{width:50%}}
