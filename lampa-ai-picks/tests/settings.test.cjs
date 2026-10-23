@@ -32,3 +32,29 @@ test('manual model input is available when model catalog fails',()=>{
     const s=registerSettings({Lampa:h.Lampa,routerai:{listModels:(key,cb)=>{cb({code:'network'});return ()=>{};}},onChange(){}});
     s.open();h.choose('Модель');h.choose('Ввести ID модели');h.inputs.at(-1).done('custom/model');assert.equal(s.getConfig().model,'custom/model');
 });
+
+
+test('model search matches names and IDs locally without reloading the catalog',()=>{
+    const h=createDOMHarness({storage:{aip_api_key:'test-key'}});let requests=0;
+    const s=registerSettings({Lampa:h.Lampa,routerai:{listModels:(key,cb)=>{requests++;cb(null,[
+      {id:'vendor/alpha',name:'Fast Thinker',supportsTools:true},{id:'vendor/beta',name:'Deep Reader',supportsTools:true},{id:'vendor/plain',name:'Alpha plain',supportsTools:false}
+    ]);return ()=>{};}}});
+    s.open();h.choose('Модель');h.choose('Найти модель');h.inputs.at(-1).done('THINK');
+    assert.deepEqual(h.selects.at(-1).items.filter(x=>x.value.startsWith('vendor/')).map(x=>x.value),['vendor/alpha']);
+    h.choose('search');h.inputs.at(-1).done('BETA');
+    assert.deepEqual(h.selects.at(-1).items.filter(x=>x.value.startsWith('vendor/')).map(x=>x.value),['vendor/beta']);
+    h.choose('search');h.inputs.at(-1).done('нет такой модели');
+    assert.ok(h.selects.at(-1).items.some(x=>x.value==='manual'));assert.equal(requests,1);
+    h.choose('manual');h.inputs.at(-1).done('custom/model');assert.equal(s.getConfig().model,'custom/model');
+});
+test('app settings validate numeric changes and corrupt stored limits fall back safely',()=>{
+    const h=setup({storage:{aip_model_steps:'99999',aip_model_timeout_seconds:'60',aip_result_count:'-3'}});
+    assert.equal(h.settings.getConfig().limits.modelCalls,5);
+    assert.equal(h.settings.getConfig().limits.modelTimeoutMs,60000);
+    assert.equal(h.settings.getConfig().limits.resultCount,10);
+    const param=h.params.find(p=>p.field.name==='Шагов ИИ (включая итог)');assert.ok(param);
+    let enter;param.onRender({on:(name,fn)=>enter=fn});enter();h.inputs.at(-1).done('8');
+    assert.equal(h.settings.getConfig().limits.modelCalls,8);
+    enter();h.inputs.at(-1).done('0');assert.equal(h.settings.getConfig().limits.modelCalls,8);
+    assert.ok(h.notices.at(-1).includes('3'));assert.equal(h.changes.length,1);
+});

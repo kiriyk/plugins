@@ -91,3 +91,28 @@ test('more retains intent and excludes already shown titles without clearing it 
     const state=JSON.parse(h.posts().at(-1).json.messages[1].content);assert.deepEqual(state.shown,['tmdb:movie:2']);
     h.c.cancel();assert.deepEqual(h.session.getShown(),['tmdb:movie:2']);
 });
+
+
+test('configured step count reserves its last model request for finalization',()=>{
+    const h=setup();h.boot({examples:[movie()],limits:{modelCalls:3,toolCalls:48}});h.intent();
+    h.model([{id:'unknown',name:'unknown',arguments:{}}]);
+    assert.equal(h.posts().length,3);assert.equal(h.posts()[2].json.tool_choice,'none');
+    h.model([], '{"picks":[]}');assert.equal(h.c.getState().stage,'done');assert.equal(h.posts().length,3);
+});
+test('configured request timeouts reach catalog and model transports',()=>{
+    const h=setup();h.boot({limits:{modelTimeoutMs:60000,catalogTimeoutMs:20000}});
+    assert.equal(h.requests[0].timeoutMs,20000);assert.equal(h.posts()[0].timeoutMs,60000);
+    h.advance(25001);assert.notEqual(h.c.getState().stage,'error');h.c.cancel();
+});
+test('configured total deadline stops a model that has a longer timeout',()=>{
+    const h=setup();h.boot({limits:{modelTimeoutMs:60000,totalTimeoutMs:30000}});
+    assert.equal(h.posts()[0].timeoutMs,30000);h.advance(29999);assert.notEqual(h.c.getState().stage,'error');
+    h.advance(1);assert.equal(h.c.getState().stage,'error');assert.equal(h.events.at(-1).data.code,'timeout');
+});
+test('requested card count limits accepted picks without a false partial warning',()=>{
+    const h=setup();h.boot({limits:{resultCount:1}});h.intent();h.model([{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);
+    const i=h.requests.findIndex(r=>r.url.includes('discover/'));
+    h.reply(i,{results:[{id:2,title:'Первый'},{id:3,title:'Второй'}]});
+    h.model([], '{"picks":[{"key":"tmdb:movie:2","reason":"Первый."},{"key":"tmdb:movie:3","reason":"Второй."}]}');
+    const result=h.events.at(-1).data.result;assert.equal(result.items.length,1);assert.equal(result.partial,false);assert.equal(result.notice,null);
+});

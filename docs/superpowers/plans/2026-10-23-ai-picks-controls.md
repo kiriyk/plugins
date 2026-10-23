@@ -29,11 +29,11 @@ Interfaces: dialog.openText({Lampa,document,$,title,text,onBack}); jQuery factor
 ### Task 2: Model search and configurable execution
 Files: new src/limits.js, src/settings.js, budget.js, controller.js, catalog.js, routerai.js, prompts.js, index.js; tests settings/budget/controller/prompts/integration.
 Interfaces: limits.definitions (key, storage, title, min, max, value, unit), normalizeLimits(values); settings.getConfig returns {key,model,limits,diagnostics}; controller.start accepts limits; budget accepts limits.
-- [ ] Add failing tests: case-insensitive name/ID model search, no network reload, manual fallback; validated settings default/corrupt values; custom step/tool/HTTP/deadline/timeouts and result count enforced through real orchestration.
-- [ ] Run focused tests; expect default-only behavior to fail.
-- [ ] Implement limits module, model search, direct SettingsApi buttons, settings menu and execution propagation with final answer reserve.
-- [ ] Run full npm test + check; expect green.
-- [ ] Commit feat.
+- [x] Add failing tests: case-insensitive name/ID model search, no network reload, manual fallback; validated settings default/corrupt values; custom step/tool/HTTP/deadline/timeouts and result count enforced through real orchestration.
+- [x] Run focused tests; expect default-only behavior to fail.
+- [x] Implement limits module, model search, direct SettingsApi buttons, settings menu and execution propagation with final answer reserve.
+- [x] Run full npm test + check; expect green.
+- [x] Commit feat.
 
 ### Task 3: Bounded safe diagnostics
 Files: new src/diagnostics.js; src/settings.js, controller.js, transport integration, prompts.js, index.js; tests diagnostics/controller/integration.

@@ -1,10 +1,11 @@
 'use strict';
-var appError = require('./transport').appError;
+var appError = require('./transport').appError, normalizeLimits = require('./limits').normalizeLimits;
 function noop() {}
 function createBudget(options) {
+    var limits = normalizeLimits(options.limits);
     var clock = options.clock, started = clock.now(), stopped = false, queue = [], records = [];
     var counts = {modelCalls:0,toolCalls:0,catalogRequests:0,activeCatalog:0}, pumping = false;
-    function remainingMs() { return Math.max(0,90000 - (clock.now() - started)); }
+    function remainingMs() { return Math.max(0,limits.totalTimeoutMs - (clock.now() - started)); }
     function pump() {
         if (pumping || stopped) return;
         pumping = true;
@@ -12,9 +13,9 @@ function createBudget(options) {
             var job = queue.shift();
             if (job.settled) continue;
             if (!remainingMs()) { job.finish(appError('timeout')); continue; }
-            if (counts.catalogRequests >= 40) { job.finish(appError('catalog_limit')); continue; }
+            if (counts.catalogRequests >= limits.catalogRequests) { job.finish(appError('catalog_limit')); continue; }
             counts.catalogRequests++; counts.activeCatalog++; job.started = true;
-            job.spec.timeoutMs = Math.min(job.spec.timeoutMs || 10000,10000,remainingMs());
+            job.spec.timeoutMs = Math.min(job.spec.timeoutMs || limits.catalogTimeoutMs,limits.catalogTimeoutMs,remainingMs());
             (function (row) {
                 row.timer = clock.setTimeout(function () {
                     if (row.cancelNetwork) row.cancelNetwork();
@@ -49,8 +50,8 @@ function createBudget(options) {
     function consume(key, max) { if (stopped || !remainingMs() || counts[key] >= max) return false; counts[key]++; return true; }
     return {
         catalogRequest:catalogRequest,remainingMs:remainingMs,
-        consumeModel:function () { return consume('modelCalls',5); },
-        consumeTool:function () { return consume('toolCalls',12); },
+        consumeModel:function () { return consume('modelCalls',limits.modelCalls); },
+        consumeTool:function () { return consume('toolCalls',limits.toolCalls); },
         snapshot:function () { return {modelCalls:counts.modelCalls,toolCalls:counts.toolCalls,catalogRequests:counts.catalogRequests,activeCatalog:counts.activeCatalog}; },
         cancel:function () {
             if (stopped) return;

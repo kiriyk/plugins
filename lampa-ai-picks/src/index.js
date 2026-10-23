@@ -10,7 +10,7 @@ function registerPlugin(options) {
     if (win.__aipPicksPlugin) return win.__aipPicksPlugin;
     if (!L || !L.Component || !L.Storage || !L.Controller || !L.Scroll) return null;
     var clock = options.clock || {now:function () { return Date.now(); },setTimeout:function (fn,ms) { return win.setTimeout(fn,ms); },clearTimeout:function (id) { win.clearTimeout(id); }};
-    var request = createTransport(L,clock), routerai = createRouterAI({request:request}), catalog = createCatalog({request:request,Lampa:L});
+    var request = createTransport(L,clock), routerai = createRouterAI({request:request}), catalog = createCatalog({request:request,Lampa:L,getTimeoutMs:function () { return settings.getConfig().limits.catalogTimeoutMs; }});
     var contexts = [];
     var settings = registerSettings({Lampa:L,routerai:routerai,onChange:function () {
         contexts.forEach(function (ctx) { ctx.controller.cancel();ctx.screen.setStage('cancelled');ctx.screen.setMessage('Настройки ИИ изменены. Можно запустить новую подборку.'); });
@@ -25,7 +25,7 @@ function registerPlugin(options) {
         function launch(payload) {
             var config = settings.getConfig();
             if (!config.key || !config.model) { screen.setMessage('Введите ключ RouterAI и выберите модель.');settings.open();return; }
-            payload.key = config.key;payload.model = config.model;controller.start(payload);
+            payload.key = config.key;payload.model = config.model;payload.limits = config.limits;controller.start(payload);
         }
         screen = createScreen({Lampa:L,document:doc,window:win,navigator:win.Navigator,catalog:catalog,onSubmit:launch,onCancel:function () { if (controller) controller.cancel(); },onSettings:settings.open});
         renderer = createResults({Lampa:L,document:doc,$:win.jQuery || win.$,onFocus:screen.focusElement,onMore:function () { launch(screen.getRequest('more')); },onRefine:function () {

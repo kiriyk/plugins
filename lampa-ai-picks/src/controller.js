@@ -1,5 +1,6 @@
 'use strict';
 var d = require('./domain'), appError = require('./transport').appError;
+var normalizeLimits = require('./limits').normalizeLimits;
 var createBudget = require('./budget').createBudget, createCatalog = require('./catalog').createCatalog;
 var createTools = require('./tools').createTools, prompts = require('./prompts');
 function createController(options) {
@@ -41,9 +42,9 @@ function createController(options) {
         change(run,'ranking');
         try {
             var intent = run.tools.getIntent();
-            complete(run,prompts.parseFinal(content,run.store,intent.filters,run.shown.concat(intent.examples)));
+            complete(run,prompts.parseFinal(content,run.store,intent.filters,run.shown.concat(intent.examples),{limit:run.limits.resultCount}));
         } catch (error) {
-            if (run.budget.snapshot().modelCalls < 5 && run.budget.remainingMs() > 0) {
+            if (run.budget.snapshot().modelCalls < run.limits.modelCalls && run.budget.remainingMs() > 0) {
                 run.trace.push({role:'assistant',content:String(content).slice(0,3000)});
                 takeStep(run,true,true);
             } else fail(run,appError('invalid_response'));
@@ -52,13 +53,13 @@ function createController(options) {
     function takeStep(run, finalOnly, repair) {
         if (!alive(run)) return;
         var count = run.budget.snapshot();
-        finalOnly = finalOnly || count.modelCalls >= 4 || count.toolCalls >= 12;
+        finalOnly = finalOnly || count.modelCalls >= run.limits.modelCalls - 1 || count.toolCalls >= run.limits.toolCalls;
         if (finalOnly && !repair && !run.store.all().length) return complete(run,{items:[],partial:true,notice:'Подходящие варианты не найдены. Попробуйте изменить условия.'});
         if (!run.budget.consumeModel()) return fail(run,appError('search_limit'));
         change(run,finalOnly ? 'ranking' : count.modelCalls ? 'searching' : 'parsing');
-        var timeout = Math.min(25000,run.budget.remainingMs()), messages;
+        var timeout = Math.min(run.limits.modelTimeoutMs,run.budget.remainingMs()), messages;
         try { messages = prompts.buildMessages({query:run.query,intent:run.tools.getIntent(),formFilters:run.args.formFilters,examples:run.tools.getIntent().examples,
-            shown:run.shown,candidates:run.store.all(),trace:run.trace,dictionaries:run.dictionaries}); }
+            shown:run.shown,candidates:run.store.all(),trace:run.trace,dictionaries:run.dictionaries,resultCount:run.limits.resultCount}); }
         catch (error) { return fail(run,error); }
         if (repair) messages.push({role:'user',content:'Предыдущий итоговый ответ некорректен. Верни только JSON {"picks":[{"key":"...","reason":"..."}]} с известными кандидатами.'});
         var choice = finalOnly ? 'none' : count.modelCalls === 0 ? {type:'function',function:{name:'set_search_intent'}} : 'auto';
@@ -109,16 +110,16 @@ function createController(options) {
         var base = mode === 'new' ? d.emptyIntent() : options.session.getIntent() || d.emptyIntent();
         var run = {id:id,alive:true,args:d.clone(args),query:query,key:String(args.key).trim(),cancels:[],trace:[],store:d.createCandidateStore(80),
             shown:mode === 'new' ? [] : options.session.getShown()};
-        run.args.mode = mode;
-        run.budget = createBudget({clock:options.clock,request:options.request});
+        run.args.mode = mode;run.limits = normalizeLimits(args.limits);
+        run.budget = createBudget({clock:options.clock,request:options.request,limits:run.limits});
         active = run;
         var seeds = examples.length ? examples : mode !== 'new' ? rememberedExamples : [];
         seeds.slice(0,3).forEach(function (c) { run.store.add(c); });
         base.examples = seeds.slice(0,3).map(function (c) { return c.key; });
         run.base = base;
-        run.deadline = options.clock.setTimeout(function () { fail(run,appError('timeout')); },90000);
+        run.deadline = options.clock.setTimeout(function () { fail(run,appError('timeout')); },run.limits.totalTimeoutMs);
         change(run,'parsing');
-        var catalog = createCatalog({request:run.budget.catalogRequest,Lampa:options.Lampa,language:options.Lampa.Storage && options.Lampa.Storage.field('tmdb_lang') || 'ru-RU'});
+        var catalog = createCatalog({request:run.budget.catalogRequest,Lampa:options.Lampa,timeoutMs:run.limits.catalogTimeoutMs});
         run.cancels.push(catalog.getDictionaries(function (error, dictionaries) {
             if (!alive(run)) return;
             if (error) return fail(run,error);

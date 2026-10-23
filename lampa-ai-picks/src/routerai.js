@@ -14,7 +14,7 @@ function createRouterAI(options) {
         if (args.tools && args.tools.length) json.tools = args.tools;
         if (args.toolChoice) json.tool_choice = args.toolChoice;
         return send({url:BASE + '/chat/completions',method:'POST',json:json,
-            headers:{Authorization:'Bearer ' + args.key.trim()},timeoutMs:Math.min(args.timeoutMs || 25000,25000)},function (error, body) {
+            headers:{Authorization:'Bearer ' + args.key.trim()},timeoutMs:Math.min(args.timeoutMs || 25000,120000)},function (error, body) {
             if (error) return done(error);
             var raw = body && Array.isArray(body.choices) && body.choices[0] && body.choices[0].message;
             if (!raw || raw.content !== null && raw.content !== undefined && typeof raw.content !== 'string') return done(appError('invalid_response'));
@@ -50,7 +50,7 @@ function createRouterAI(options) {
         var tool = {type:'function',function:{name:'connection_check',description:'Проверка вызова инструмента. Верните ok=true.',
             parameters:{type:'object',properties:{ok:{type:'boolean'}},required:['ok'],additionalProperties:false}}};
         return chat({key:args.key,model:args.model,messages:[{role:'user',content:'Вызови connection_check с ok=true.'}],
-            tools:[tool],toolChoice:{type:'function',function:{name:'connection_check'}},timeoutMs:25000},function (error, message) {
+            tools:[tool],toolChoice:{type:'function',function:{name:'connection_check'}},timeoutMs:args.limits && args.limits.modelTimeoutMs || 25000},function (error, message) {
             if (error) return done(error);
             var call = message.tool_calls.length === 1 && message.tool_calls[0], data;
             try { data = call && JSON.parse(call.arguments); } catch (ignore) {}

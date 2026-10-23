@@ -9,7 +9,7 @@ function createCatalog(options) {
         if (!L.TMDB || !L.TMDB.api || !L.TMDB.key) { done(appError('unsupported')); return noop; }
         Object.keys(params || {}).forEach(function (key) { if (params[key] !== null && params[key] !== undefined && params[key] !== '') query[key] = params[key]; });
         var suffix = Object.keys(query).map(function (key) { return encodeURIComponent(key) + '=' + encodeURIComponent(query[key]); }).join('&');
-        return request({url:L.TMDB.api(path + '?' + suffix),method:'GET',headers:{Accept:'application/json'},timeoutMs:10000},done);
+        return request({url:L.TMDB.api(path + '?' + suffix),method:'GET',headers:{Accept:'application/json'},timeoutMs:options.getTimeoutMs ? options.getTimeoutMs() : options.timeoutMs || 10000},done);
     }
     function page(args) { return args.page === undefined ? 1 : args.page; }
     function validPage(args) { return domain.positive(page(args)) && page(args) <= 500; }

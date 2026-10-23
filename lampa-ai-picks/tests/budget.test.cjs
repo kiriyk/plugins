@@ -32,3 +32,20 @@ test('synchronous request callbacks do not corrupt queue accounting',()=>{
     for(let i=0;i<40;i++)b.catalogRequest(spec,()=>{});
     assert.equal(b.snapshot().activeCatalog,0);assert.equal(b.snapshot().catalogRequests,40);
 });
+
+
+test('configured model tool HTTP and overall limits actually stop new work',()=>{
+    const h=createHarness(),b=createBudget({clock:h.clock,request:h.request,limits:{modelCalls:3,toolCalls:4,catalogRequests:10,totalTimeoutMs:30000}});
+    assert.equal(Array.from({length:4},()=>b.consumeModel()).filter(Boolean).length,3);
+    assert.equal(Array.from({length:5},()=>b.consumeTool()).filter(Boolean).length,4);
+    let rejected=0;for(let i=0;i<11;i++)b.catalogRequest(spec,e=>{if(e)rejected++;});
+    for(let i=0;i<10;i++)h.reply(i,{});
+    assert.equal(h.requests.length,10);assert.equal(rejected,1);
+    h.advance(30000);assert.equal(b.remainingMs(),0);b.cancel();
+});
+test('catalog timeout can be raised and still respects the overall deadline',()=>{
+    const h=createHarness(),b=createBudget({clock:h.clock,request:h.request,limits:{catalogTimeoutMs:20000,totalTimeoutMs:30000}});
+    let error;b.catalogRequest({...spec,timeoutMs:20000},e=>error=e);
+    assert.equal(h.requests[0].timeoutMs,20000);h.advance(10001);assert.equal(error,undefined);
+    h.advance(9999);assert.equal(error.code,'timeout');b.cancel();
+});

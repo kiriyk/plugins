@@ -91,3 +91,13 @@ test('pult focus scrolls to result cards and actions and survives full-card retu
     h.enter('[data-action="why"]');h.modals.at(-1).onBack();
     assert.equal(h.scrollUpdates.at(-1).element.getAttribute('data-action'),'why');
 });
+
+
+test('stored search limits are passed from app settings into the live screen controller',t=>{
+    const h=setup(t);h.storage.aip_model_steps='3';h.text('Кино');h.submit();
+    h.model([{id:'discover',name:'discover_titles',arguments:{type:'movie'}}]);h.found(2);
+    const pending=h.nativeRequests.find(r=>r.post&&!r.answered);
+    assert.equal(JSON.parse(pending.post).tool_choice,'none');
+    h.model([], '{"picks":[{"key":"tmdb:movie:2","reason":"Подходит."}]}');
+    assert.equal(h.screen.element().querySelectorAll('.aip-pick').length,1);
+});
