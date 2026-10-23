@@ -71,3 +71,23 @@ test('viewport resize keeps lower controls inside the available activity height'
     viewport.innerHeight=1080;listeners.resize();assert.equal(frame.style.height,'1010px');
     h.screen.destroy();assert.ok(removed.some(([name,fn])=>name==='resize'&&fn===listeners.resize));
 });
+
+test('rating controls accept comma decimals with IMDb default and all three source choices',()=>{
+ const h=setup();h.enter('[data-action="filters"]');h.enter('[data-action="rating-min"]');h.inputs.at(-1).done('7,5');
+ assert.equal(h.screen.getRequest('new').formFilters.ratingMin,7.5);assert.equal(h.screen.getRequest('new').formFilters.ratingSource,'imdb');
+ for(const source of ['kp','tmdb','imdb']){h.enter('[data-action="rating-source"]');h.choose(source);assert.equal(h.screen.getRequest('new').formFilters.ratingSource,source);}
+ h.enter('[data-action="submit"]');assert.equal(h.submissions.length,1);
+});
+test('clearing rating disables the filter and invalid ratings never overwrite a valid threshold',()=>{
+ const h=setup();h.enter('[data-action="rating-min"]');h.inputs.at(-1).done('7');
+ for(const value of ['10.1','-1','NaN']){h.enter('[data-action="rating-min"]');h.inputs.at(-1).done(value);assert.equal(h.screen.getRequest('new').formFilters.ratingMin,7);}
+ h.enter('[data-action="rating-min"]');h.inputs.at(-1).done('');assert.equal(h.screen.getRequest('new').formFilters.ratingMin,undefined);
+ h.enter('[data-action="submit"]');assert.equal(h.submissions.length,0,'source selection alone must not start a search');
+ h.enter('[data-action="reset"]');assert.deepEqual(h.screen.getRequest('new').formFilters,{});
+});
+test('progress distinguishes checked, passed, missing and timed-out candidates and remains after completion',()=>{
+ const h=setup();h.screen.setStage('checking');assert.equal(h.screen.element().getAttribute('aria-busy'),'true');
+ h.screen.setProgress({candidates:48,checked:42,conditionsPassed:32,ratingEnabled:true,ratingSource:'imdb',ratingPassed:22,selected:10,missingRatings:4,ratingErrors:2,metadataErrors:0,metadataMissing:0,unverified:6,stopReason:'timeout'});
+ const progress=h.screen.element().querySelector('.aip-progress');assert.match(progress.textContent,/42 из 48/);assert.match(progress.textContent,/32/);assert.match(progress.textContent,/IMDb.*22/);assert.match(progress.textContent,/10/);assert.match(progress.textContent,/Нет рейтинга: 4/);assert.match(progress.textContent,/Ошибок рейтинга: 2/);assert.match(progress.textContent,/врем/);
+ h.screen.setStage('done');assert.match(progress.textContent,/42 из 48/);
+});

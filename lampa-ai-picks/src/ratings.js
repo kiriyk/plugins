@@ -16,7 +16,7 @@ function createRatings(options) {
         keys.slice(500).forEach(function (name) { delete cache[name]; });
         try { storage.set(CACHE,cache); } catch (ignore) {}
     }
-    function getMany(candidates, source, done) {
+    function getMany(candidates, source, done, onResult) {
         var active = true, cancels = [], rows = {}, pending = [], byId = {};
         function cancel() { active = false;cancels.forEach(function (fn) { if (fn) fn(); }); }
         function finish() { if (active) { active = false;done(null,rows); } }
@@ -24,6 +24,7 @@ function createRatings(options) {
             if (!active) return;
             value = score(value);rows[c.key] = {value:value,error:error || null};
             if (!error && source !== 'tmdb') remember(source + ':' + c.key,value);
+            if (onResult) onResult(c.key,rows[c.key]);
         }
         function resolve(c, callback) {
             var card = c.card || {}, id = imdbId(card.imdb_id || (card.external_ids || {}).imdb_id || ids[c.key]);
@@ -39,7 +40,7 @@ function createRatings(options) {
         }
         candidates.forEach(function (c) {
             var hit = source !== 'tmdb' && cached(source + ':' + c.key);
-            if (hit) rows[c.key] = {value:hit.value,error:null};
+            if (hit) { rows[c.key] = {value:hit.value,error:null};if (onResult) onResult(c.key,rows[c.key]); }
             else if (source === 'tmdb') result(c,(c.card || {}).vote_average,null);
             else pending.push(c);
         });

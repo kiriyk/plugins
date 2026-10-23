@@ -89,3 +89,9 @@ test('download and copy export only sanitized journal data and remain user actio
  s.open();h.choose('Диагностика');h.choose('copy');assert.equal(copied,journal.exportText());
  assert.equal(h.document.querySelector('textarea'),null);
 });
+test('KP key is masked, shared with poster ratings and hidden from settings menus',()=>{
+ const h=setup({storage:{cr_api_key:'existing-kp-secret'}});h.settings.open();h.choose('Ключ API Кинопоиска');
+ assert.equal(h.inputs.at(-1).params.password,true);assert.equal(h.inputs.at(-1).params.value,'existing-kp-secret');
+ h.inputs.at(-1).done('new-kp-secret');assert.equal(h.storage.cr_api_key,'new-kp-secret');
+ h.settings.open();assert.equal(JSON.stringify(h.selects.at(-1)).includes('new-kp-secret'),false);
+});

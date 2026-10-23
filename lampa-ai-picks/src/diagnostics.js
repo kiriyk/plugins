@@ -5,7 +5,7 @@ var events = ['run_start','screening','stage','filters','tool_start','tool_resul
 var codes = ['timeout','network','auth','balance','rate_limit','server','unsupported','invalid_arguments','invalid_response','catalog_limit','tool_limit','search_limit','context_limit','incompatible_model','unknown_title','unknown_keyword','intent_required','clarification','session_limit','cancelled','kp_key','kp_limit','unknown'];
 var reasons = ['invalid_pick','unknown_key','already_shown','duplicate','count_limit','invalid','type','unknown_genres','genres','excluded_genres','year','country','runtime','rating','unknown_rating','not_verified'];
 var tools = ['set_search_intent','search_titles','resolve_keywords','discover_titles','get_related','get_title_details','unknown'];
-var endpointPattern = /^(genre\/(movie|tv)\/list|configuration\/countries|search\/(movie|tv|keyword)|discover\/(movie|tv)|(movie|tv)\/[1-9][0-9]*(\/(recommendations|similar))?|chat\/completions|models)$/;
+var endpointPattern = /^(genre\/(movie|tv)\/list|configuration\/countries|search\/(movie|tv|keyword)|discover\/(movie|tv)|(movie|tv)\/[1-9][0-9]*(\/(recommendations|similar|external_ids))?|api\/ratings|api\/v2.2\/films(\/[1-9][0-9]*)?|chat\/completions|models)$/;
 var paramPatterns = {
     page:/^[1-9][0-9]{0,2}$/,year:/^[0-9]{4}$/,first_air_date_year:/^[0-9]{4}$/,
     with_genres:/^[0-9|,]{1,300}$/,without_genres:/^[0-9|,]{1,300}$/,with_keywords:/^[0-9|,]{1,300}$/,
@@ -53,9 +53,9 @@ function safeRecord(event, source, at) {
     var row = {at:integer(at,9007199254740991) ? at : 0,event:event};
     ['runId','requestId','elapsedMs','count','candidates','rejected','queryLength'].forEach(function (key) { if (integer(source[key])) row[key] = source[key]; });
     if (['new','more','refine'].indexOf(source.mode) >= 0) row.mode = source.mode;
-    if (['idle','parsing','searching','ranking','done','error','cancelled','clarification'].indexOf(source.stage) >= 0) row.stage = source.stage;
+    if (['idle','parsing','searching','checking','ranking','done','error','cancelled','clarification'].indexOf(source.stage) >= 0) row.stage = source.stage;
     if (['filters','example'].indexOf(source.kind) >= 0) row.kind = source.kind;
-    if (['catalog','model','search'].indexOf(source.scope) >= 0) row.scope = source.scope;
+    if (['catalog','model','search','rating'].indexOf(source.scope) >= 0) row.scope = source.scope;
     if (source.tool !== undefined) row.tool = tools.indexOf(source.tool) >= 0 ? source.tool : 'unknown';
     if (source.code !== undefined) row.code = codes.indexOf(source.code) >= 0 ? source.code : 'unknown';
     if (reasons.indexOf(source.reason) >= 0) row.reason = source.reason;
@@ -90,19 +90,19 @@ function safeRecord(event, source, at) {
 function networkInfo(spec) {
     var url = String(spec.url || ''), match = /^https?:\/\/([^/?#]+)([^?#]*)/.exec(url), params = {};
     var host = match ? match[1].split('@').pop() : '', path = match ? match[2] : '';
-    var endpoint = path.match(/\/(genre\/(?:movie|tv)\/list|configuration\/countries|search\/(?:movie|tv|keyword)|discover\/(?:movie|tv)|(?:movie|tv)\/[1-9][0-9]*(?:\/(?:recommendations|similar))?|chat\/completions|models)$/);
+    var endpoint = path.match(/\/(genre\/(?:movie|tv)\/list|configuration\/countries|search\/(?:movie|tv|keyword)|discover\/(?:movie|tv)|(?:movie|tv)\/[1-9][0-9]*(?:\/(?:recommendations|similar|external_ids))?|api\/ratings|api\/v2.2\/films(?:\/[1-9][0-9]*)?|chat\/completions|models)$/);
     var query = url.indexOf('?') >= 0 ? url.slice(url.indexOf('?') + 1).split('#')[0] : '';
     query.split('&').forEach(function (part) {
         var at = part.indexOf('='), name, value;if (at < 0) return;
         try { name = decodeURIComponent(part.slice(0,at));value = decodeURIComponent(part.slice(at + 1)); } catch (ignore) { return; }
         if (Object.prototype.hasOwnProperty.call(paramPatterns,name)) params[name] = value;
     });
-    return {host:host,endpoint:endpoint ? endpoint[1] : undefined,method:spec.method,params:safeParams(params),scope:endpoint && (endpoint[1] === 'chat/completions' || endpoint[1] === 'models') ? 'model' : endpoint ? 'catalog' : undefined};
+    return {host:host,endpoint:endpoint ? endpoint[1] : undefined,method:spec.method,params:safeParams(params),scope:endpoint && (endpoint[1] === 'chat/completions' || endpoint[1] === 'models') ? 'model' : endpoint && /^api\//.test(endpoint[1]) ? 'rating' : endpoint ? 'catalog' : undefined};
 }
 function createDiagnostics(options) {
     var records = [], enabled = false, persistent = true, runNumber = 0, requestNumber = 0;
     var clock = options.clock || {now:function () { return Date.now(); }}, storage = options.Storage;
-    function exportText() { return JSON.stringify({version:1,pluginVersion:'0.2.0',persistence:persistent ? 'local' : 'memory',records:records},null,2); }
+    function exportText() { return JSON.stringify({version:1,pluginVersion:'0.3.0',persistence:persistent ? 'local' : 'memory',records:records},null,2); }
     function trim() { while (records.length > 200 || exportText().length > 120000) records.shift(); }
     function persist() {
         try { if (!storage) throw new Error('storage');storage.set(STORAGE,exportText());persistent = true; }

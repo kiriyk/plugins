@@ -1,4 +1,4 @@
-/* AI Picks 0.2.0 | Lampa 3.3.8 */
+/* AI Picks 0.3.0 | Lampa 3.3.8 */
 'use strict';
 var openText = require('./dialog').openText;
 var createDiagnostics = require('./diagnostics').createDiagnostics;
@@ -47,6 +47,7 @@ function registerPlugin(options) {
         controller = createController({Lampa:L,request:request,routerai:routerai,session:createSession(),clock:clock,diagnostics:diagnostics,onEvent:function (event) {
             if (destroyed) return;
             if (event.type === 'stage') screen.setStage(event.data.stage);
+            else if (event.type === 'progress') screen.setProgress(event.data);
             else if (event.type === 'error') { screen.setStage('error');screen.setMessage(event.data.message); }
             else if (event.type === 'result') {
                 screen.setStage('done');

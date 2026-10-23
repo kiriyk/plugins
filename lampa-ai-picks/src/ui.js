@@ -40,7 +40,7 @@ function createScreen(options) {
     }
     function notify(message) { if (L.Noty) L.Noty.show(message); }
     function edit(title, value, callback) {
-        L.Input.edit({title:title,value:String(value || ''),free:true,nosave:true},function (text) { if (alive) { callback(String(text || '').trim()); focus(); } });
+        L.Input.edit({title:title,value:String(value === undefined || value === null ? '' : value),free:true,nosave:true},function (text) { if (alive) { callback(String(text || '').trim()); focus(); } });
     }
     function select(title, items, callback, onCheck) {
         L.Select.show({title:title,items:items,nohide:!!onCheck,onSelect:function (item) { if (alive) { callback(item); update(); focus(); } },
@@ -93,6 +93,20 @@ function createScreen(options) {
     var yearMin = numberControl('year-min','Год от','yearMin',true), yearMax = numberControl('year-max','Год до','yearMax',true);
     var runtime = numberControl('runtime','Длительность до, минут','maxRuntimeMinutes',false);
     filtersBox.appendChild(yearMin);filtersBox.appendChild(yearMax);filtersBox.appendChild(runtime);
+    var sourceNames = {imdb:'IMDb',kp:'Кинопоиск',tmdb:'TMDB'};
+    var ratingSource = button('rating-source','',function () {
+        select('Источник рейтинга',['imdb','kp','tmdb'].map(function (source) { return {title:sourceNames[source],value:source}; }),function (item) { form.ratingSource = item.value; });
+    });
+    var ratingMin = button('rating-min','',function () {
+        edit('Минимальный рейтинг (0–10; пусто — без фильтра)',form.ratingMin,function (value) {
+            var number = Number(value.replace(',','.'));
+            if (!value) form.ratingMin = null;
+            else if (/^\d+(?:[.,]\d+)?$/.test(value) && isFinite(number) && number >= 0 && number <= 10) { form.ratingMin = number;if (!form.ratingSource) form.ratingSource = 'imdb'; }
+            else notify('Введите рейтинг от 0 до 10 или очистите поле.');
+            update();
+        });
+    });
+    filtersBox.appendChild(ratingSource);filtersBox.appendChild(ratingMin);
     function requireDictionaries(callback) {
         if (dictionaries) callback();
         else {
@@ -124,35 +138,39 @@ function createScreen(options) {
             if (item.checked && at < 0) form.countries.push(item.value); else if (!item.checked && at >= 0) form.countries.splice(at,1);
         });
     }); }));
-    filtersBox.appendChild(button('reset','Сбросить условия',function () { form = {}; update(); }));
+    filtersBox.appendChild(button('reset','Сбросить условия',function () { form = {ratingMin:null};update(); }));
     root.appendChild(filtersBox);
     var summary = elem('p','aip-summary'), status = elem('p','aip-status');
     status.setAttribute('role','status');status.setAttribute('aria-live','polite');
     root.appendChild(summary);
     var actions = elem('div','aip-actions'), submit = button('submit','Подобрать',function () {
         if (busy) return;
-        if (!query.trim() && !Object.keys(cleanForm()).length && !examples.length) { notify('Опишите пожелание, добавьте условие или фильм-пример.'); return; }
+        if (!query.trim() && !Object.keys(cleanForm()).some(function (key) { return key !== 'ratingSource' && !(key === 'ratingMin' && form.ratingMin === null); }) && !examples.length) { notify('Опишите пожелание, добавьте условие или фильм-пример.'); return; }
         var resolved = d.resolveIntent(d.emptyIntent(),{filters:form},{},dictionaries);
         if (resolved.status !== 'ready') { notify(resolved.issues[0]); return; }
         options.onSubmit(getRequest('new'));
     },'aip-primary');
     var cancel = button('cancel','Отменить поиск',function () { options.onCancel(); setStage('cancelled'); });
     cancel.hidden = true;actions.appendChild(submit);actions.appendChild(cancel);root.appendChild(actions);root.appendChild(status);
+    var progress = elem('p','aip-progress');progress.hidden = true;progress.setAttribute('role','status');progress.setAttribute('aria-live','polite');root.appendChild(progress);
     var resultHost = elem('div','aip-result-host');root.appendChild(resultHost);
     function update() {
         queryButton.textContent = query || 'Например: лёгкое кино на вечер, без романтики';
         queryButton.classList.toggle('aip-query--filled',!!query);
         formatButton.textContent = 'Формат: ' + ({movie:'Фильмы',tv:'Сериалы',all:'Фильмы и сериалы'}[form.media || 'movie']);
         yearMin.textContent = 'Год от: ' + (form.yearMin || 'любой');yearMax.textContent = 'Год до: ' + (form.yearMax || 'любой');
+        ratingSource.textContent = 'Источник рейтинга: ' + sourceNames[form.ratingSource || 'imdb'];
+        ratingMin.textContent = 'Рейтинг от: ' + (typeof form.ratingMin === 'number' ? String(form.ratingMin).replace('.',',') : 'без ограничения');
         runtime.textContent = (form.media === 'tv' ? 'Длительность серии' : form.media === 'all' ? 'Длительность фильма / серии' : 'Длительность фильма') + ': ' + (form.maxRuntimeMinutes ? 'до ' + form.maxRuntimeMinutes + ' мин' : 'любая');
-        summary.textContent = Object.keys(form).length ? 'Заданные условия обязательны. Распознанные пожелания появятся в подборке.' : 'Условия можно сочетать с текстом и примерами.';
+        summary.textContent = Object.keys(cleanForm('new')).some(function (key) { return key !== 'ratingSource'; }) ? 'Заданные условия обязательны. Распознанные пожелания появятся в подборке.' : 'Условия можно сочетать с текстом и примерами.';
         exampleList.textContent = '';
         examples.forEach(function (c) {
             exampleList.appendChild(button('remove-example',c.title + (c.year ? ' · ' + c.year : '') + ' · Убрать',function () { examples = examples.filter(function (x) { return x.key !== c.key; }); update(); focus(); },'aip-example'));
         });
     }
-    function cleanForm() {
+    function cleanForm(mode) {
         var copy = d.clone(form);
+        if (mode === 'new' && copy.ratingMin === null) delete copy.ratingMin;
         if (copy.countries && !copy.countries.length) delete copy.countries;
         if (copy.genres) {
             ['movie','tv'].forEach(function (type) {
@@ -163,24 +181,40 @@ function createScreen(options) {
         }
         return copy;
     }
-    function getRequest(mode) { return {query:query,formFilters:cleanForm(),examples:d.clone(examples),mode:mode || 'new'}; }
+    function getRequest(mode) { return {query:query,formFilters:cleanForm(mode || 'new'),examples:d.clone(examples),mode:mode || 'new'}; }
     function setStage(value) {
-        busy = ['parsing','searching','ranking'].indexOf(value) >= 0;
+        busy = ['parsing','searching','checking','ranking'].indexOf(value) >= 0;
         Array.prototype.forEach.call(root.querySelectorAll('button[data-action]'),function (control) {
             var action = control.getAttribute('data-action');
             control.disabled = busy && action !== 'cancel' && action !== 'settings';
             control.setAttribute('aria-disabled',String(control.disabled));
         });
         cancel.hidden = !busy;
-        status.textContent = {parsing:'Разбираем запрос…',searching:'Ищем фильмы…',ranking:'Выбираем варианты…',cancelled:'Поиск отменён.'}[value] || '';
+        status.textContent = {parsing:'Разбираем запрос…',searching:'Ищем фильмы…',checking:'Проверяем условия и рейтинги…',ranking:'Выбираем варианты…',cancelled:'Поиск отменён.'}[value] || '';
         root.setAttribute('aria-busy',String(busy));
         if (busy) { lastFocus = cancel; focus(); }
+    }
+    function setProgress(value) {
+        var s = value || {}, lines = ['Проверено кандидатов: ' + (s.checked || 0) + ' из ' + (s.candidates || 0)];
+        var passed = ['Прошли условия: ' + (s.conditionsPassed || 0)];
+        if (s.ratingEnabled) passed.push('Прошли рейтинг ' + (sourceNames[s.ratingSource] || 'IMDb') + ': ' + (s.ratingPassed || 0));
+        passed.push('Выбрано: ' + (s.selected || 0));lines.push(passed.join(' · '));
+        var errors = [];
+        if (s.missingRatings) errors.push('Нет рейтинга: ' + s.missingRatings);
+        if (s.ratingErrors) errors.push('Ошибок рейтинга: ' + s.ratingErrors);
+        if (s.metadataErrors) errors.push('Ошибок данных: ' + s.metadataErrors);
+        if (s.metadataMissing) errors.push('Не хватает данных: ' + s.metadataMissing);
+        if (s.unverified) errors.push('Не проверено: ' + s.unverified);
+        if (errors.length) lines.push(errors.join(' · '));
+        var reasons = {timeout:'Достигнут лимит времени ожидания.',catalog_limit:'Достигнут лимит HTTP-запросов.',kp_limit:'Достигнут лимит запросов КП.',kp_key:'Задайте ключ API Кинопоиска в настройках ИИ.',auth:'Сервис рейтингов отклонил ключ.',balance:'Исчерпана квота сервиса рейтингов.',rate_limit:'Сервис ограничил частоту запросов.',network:'Сетевая ошибка при проверке.',server:'Сервис проверки временно недоступен.'};
+        if (reasons[s.stopReason]) lines.push(reasons[s.stopReason]);
+        progress.textContent = lines.join('\n');progress.hidden = false;
     }
     scroll.append(root);update();
     return {
         create:function () { if (!created) { scroll.minus();created = true; } return scroll.render(); },
         render:function () { return scroll.render(); },element:function () { return root; },resultsHost:function () { return resultHost; },
-        getRequest:getRequest,focusElement:focusElement,setStage:setStage,setMessage:function (text) { status.textContent = text; },
+        getRequest:getRequest,setProgress:setProgress,focusElement:focusElement,setStage:setStage,setMessage:function (text) { status.textContent = text; },
         applyIntent:function (intent, values) {
             recognized = d.clone(intent);if (values) dictionaries = values;update();
             var f = recognized.filters, parts = [{movie:'Фильмы',tv:'Сериалы',all:'Фильмы и сериалы'}[f.media]];
@@ -195,6 +229,7 @@ function createScreen(options) {
                     parts.push((kind === 'exclude' ? 'Без жанров: ' : 'Жанры: ') + names.join(', '));
                 });
             });
+            if (typeof f.ratingMin === 'number') parts.push((sourceNames[f.ratingSource || 'imdb']) + ' от ' + String(f.ratingMin).replace('.',','));
             if (f.countries.length) parts.push('Страны: ' + f.countries.map(function (code) { var match = (dictionaries && dictionaries.countries || []).filter(function (c) { return c.code === code; })[0];return match ? match.name : code; }).join(', '));
             summary.textContent = 'Учтено: ' + parts.join(' · ');
         },

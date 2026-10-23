@@ -34,3 +34,24 @@ test('progress shows in-flight candidates and cancellation suppresses late verif
  assert.equal(h.check(filters({ratingMin:7,ratingSource:'imdb'})),false);assert.equal(h.progress.at(-1).candidates,1);assert.equal(h.progress.at(-1).checked,0);
  h.screening.cancel();const count=h.progress.length;reply(null,{'tmdb:movie:1':{value:8,error:null}});assert.equal(h.progress.length,count);
 });
+
+test('completed KP checks stay counted while later requests are pending or cancelled',()=>{
+ const {createHarness}=require('./helpers.cjs'),{createRatings}=require('../src/ratings');const h=createHarness(),store=createCandidateStore(80);
+ store.add(c(1,{card:{imdb_id:'tt0000001'}}));store.add(c(2,{card:{imdb_id:'tt0000002'}}));
+ h.Lampa.Storage={get:(key,f)=>key==='cr_api_key'?'fixture-key':f,set(){}};
+ const ratings=createRatings({Lampa:h.Lampa,request:h.request,clock:h.clock,catalog:{}});
+ const screening=createScreening({store,ratings,catalog:{}});screening.check(filters({ratingMin:7,ratingSource:'kp'}),[],()=>{});
+ h.reply(0,{items:[{imdbId:'tt0000001',ratingKinopoisk:8}]});
+ assert.equal(h.requests.length,2);assert.equal(screening.snapshot().checked,1);assert.equal(screening.snapshot().ratingPassed,1);assert.equal(screening.snapshot().unverified,1);
+ screening.cancel();h.reply(1,{items:[{imdbId:'tt0000002',ratingKinopoisk:9}]});assert.equal(screening.snapshot().checked,1);
+});
+
+test('completed metadata checks are retained before another detail request times out',()=>{
+ const {createHarness}=require('./helpers.cjs'),{createCatalog}=require('../src/catalog');const h=createHarness(),store=createCandidateStore(80);
+ store.add(c(1,{runtimeMinutes:null}));store.add(c(2,{runtimeMinutes:null}));
+ const screening=createScreening({store,catalog:createCatalog({request:h.request,Lampa:h.Lampa}),ratings:{}});
+ screening.check(filters({maxRuntimeMinutes:120}),[],()=>{});
+ assert.equal(screening.snapshot().metadataMissing,0,'pending requests are not confirmed missing metadata');
+ h.reply(0,{id:1,title:'Known',runtime:110});assert.equal(screening.snapshot().checked,1);assert.equal(screening.snapshot().unverified,1);
+ screening.cancel();h.reply(1,{id:2,title:'Late',runtime:100});assert.equal(screening.snapshot().checked,1);
+});

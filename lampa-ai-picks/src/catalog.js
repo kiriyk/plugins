@@ -73,15 +73,15 @@ function createCatalog(options) {
         if (!parsed || ['recommendations','similar'].indexOf(args.relation) < 0 || !validPage(args)) return invalid(done);
         return list(parsed.type + '/' + parsed.id + '/' + args.relation,{page:page(args)},parsed.type,done);
     }
-    function getTitleDetails(args, done) {
+    function getTitleDetails(args, done, onItem) {
         if (!Array.isArray(args.keys) || args.keys.length > 10 || !args.keys.every(domain.parseKey)) return invalid(done);
         return batch(args.keys.map(function (key) { return function (next) {
             var parsed = domain.parseKey(key);
             return get(parsed.type + '/' + parsed.id,{append_to_response:'external_ids'},function (error, raw) {
-                if (error) return next(error);
-                var c = domain.normalizeTitle(raw,parsed.type);
-                if (!c || c.key !== key) return next(appError('invalid_response'));
-                next(null,c);
+                var c = !error && domain.normalizeTitle(raw,parsed.type);
+                if (!error && (!c || c.key !== key)) error = appError('invalid_response');
+                if (onItem) onItem(error,c || null,key);
+                next(error,c);
             });
         }; }),function (unused, rows) {
             var result = [], errors = [];

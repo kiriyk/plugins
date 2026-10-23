@@ -5,9 +5,10 @@ function registerSettings(options) {
     var L = options.Lampa, alive = true, revision = 0, cancels = [], diagnosticChoice = null;
     function notify(message) { if (L.Noty) L.Noty.show(message); }
     function getConfig() {
-        var config = {key:'',model:'',limits:limits.readLimits(L.Storage),diagnostics:false};
+        var config = {key:'',kpKey:'',model:'',limits:limits.readLimits(L.Storage),diagnostics:false};
         try {
             config.key = String(L.Storage.get('aip_api_key','') || '');config.model = String(L.Storage.get('aip_model','') || '');
+            config.kpKey = String(L.Storage.get('cr_api_key','') || '');
             var enabled = L.Storage.get('aip_diagnostics',false);config.diagnostics = enabled === true || enabled === 'true';
         } catch (ignore) {}
         if (diagnosticChoice !== null) config.diagnostics = diagnosticChoice;
@@ -26,7 +27,7 @@ function registerSettings(options) {
     function origin() { return L.Controller.enabled().name; }
     function input(title, name, password, previous) {
         var config = getConfig();
-        L.Input.edit({title:title,value:name === 'aip_api_key' ? config.key : config.model,password:!!password,nosave:true,free:true},function (value) {
+        L.Input.edit({title:title,value:name === 'aip_api_key' ? config.key : name === 'cr_api_key' ? config.kpKey : config.model,password:!!password,nosave:true,free:true},function (value) {
             if (alive) { save(name,String(value || '').slice(0,password ? 4096 : 200));restore(previous); }
         });
     }
@@ -142,12 +143,14 @@ function registerSettings(options) {
         var config = getConfig(), previous = origin();
         L.Select.show({title:'ИИ-подборки · настройки',items:[
             {title:'Ключ RouterAI',subtitle:config.key ? 'Задан на этом устройстве' : 'Не задан',value:'key'},
+            {title:'Ключ API Кинопоиска',subtitle:config.kpKey ? 'Задан; общий с плагином рейтингов' : 'Нужен только для фильтра КП',value:'kp-key'},
             {title:'Модель',subtitle:escapeText(config.model || 'Выберите модель с инструментами'),value:'model'},
             {title:'Проверить подключение',subtitle:'Короткий платный запрос к выбранной модели',value:'probe'},
             {title:'Параметры поиска',subtitle:'Шаги, запросы, тайм-ауты и число карточек',value:'limits'},
             {title:'Диагностика',subtitle:config.diagnostics ? 'Включена' : 'Выключена',value:'diagnostics'}
         ],onSelect:function (item) {
             if (item.value === 'key') input('Ключ RouterAI','aip_api_key',true,previous);
+            else if (item.value === 'kp-key') input('Ключ Kinopoisk API Unofficial','cr_api_key',true,previous);
             else if (item.value === 'model') models(previous);
             else if (item.value === 'limits') advanced(previous);
             else if (item.value === 'diagnostics') diagnostics(previous);
@@ -161,6 +164,7 @@ function registerSettings(options) {
                 onRender:function (item) { item.on('hover:enter',function () { callback(origin()); }); }});
         }
         addButton('key','Ключ RouterAI','Сохраняется только на этом устройстве',function (previous) { input('Ключ RouterAI','aip_api_key',true,previous); });
+        addButton('kp-key','Ключ API Кинопоиска','Общий с плагином рейтингов; нужен только для фильтра КП',function (previous) { input('Ключ Kinopoisk API Unofficial','cr_api_key',true,previous); });
         addButton('model','Модель','Поиск по названию и ID, ручной ввод',models);
         addButton('probe','Проверить подключение','Короткий платный запрос к выбранной модели',probe);
         addButton('diagnostics','Диагностика и журнал','Включение, просмотр, копирование и скачивание',diagnostics);

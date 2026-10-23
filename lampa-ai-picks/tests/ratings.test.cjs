@@ -58,3 +58,9 @@ test('cancelled rating batch ignores late replies and never persists them',()=>{
  const h=setup();let called=false;const cancel=h.service.getMany([item(1)],'imdb',()=>called=true);cancel();
  h.reply(0,[{imdbId:'tt0000001',rating:8}]);assert.equal(called,false);assert.equal(h.storage.aip_rating_cache,undefined);
 });
+
+test('cached rating rows are reported before uncached requests finish',()=>{
+ const h=setup();h.service.getMany([item(1)],'imdb',()=>{});h.reply(0,[{imdbId:'tt0000001',rating:8}]);
+ const progress=[];h.service.getMany([item(1),item(2)],'imdb',()=>{},(key,row)=>progress.push({key,value:row.value}));
+ assert.deepEqual(progress,[{key:'tmdb:movie:1',value:8}]);assert.equal(h.requests.length,2);
+});

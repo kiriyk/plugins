@@ -37,7 +37,7 @@ function createController(options) {
         result.stats = run.screening.snapshot();result.stats.selected = result.items.length;
         if (result.stats.unverified) result.notice = (result.notice ? result.notice + ' ' : '') + 'Не проверено кандидатов: ' + result.stats.unverified + '. См. счётчик поиска.';
         emit(run,'progress',result.stats);
-        log(run,'run_done',{count:result.items.length,candidates:run.store.all().length,budget:run.budget.snapshot()});
+        log(run,'run_done',{count:result.items.length,candidates:result.stats.candidates,budget:run.budget.snapshot()});
         stop(run);stage = 'done'; emit(run,'result',{result:result,intent:intent,mode:run.args.mode,dictionaries:run.dictionaries});
     }
     function pause(run, clarification) {

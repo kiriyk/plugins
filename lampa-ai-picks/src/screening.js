@@ -15,7 +15,7 @@ function createScreening(options) {
             var c = options.store.get(old.key), verdict = base(c), row = ratingRows[source + ':' + c.key];
             if (missing(c,verdict)) {
                 if (metadataErrors[c.key]) { stats.metadataErrors++;if (!stats.stopReason) stats.stopReason = metadataErrors[c.key]; }
-                else if (attempted[c.key]) stats.metadataMissing++;
+                else if (attempted[c.key] === 'done') stats.metadataMissing++;
                 return;
             }
             if (!verdict.ok) { stats.checked++;return; }
@@ -34,6 +34,7 @@ function createScreening(options) {
     function check(nextFilters, excluded, done) {
         if (!alive) return function () {};
         var id = ++generation;filters = d.clone(nextFilters);
+        if (!filters.ratingSource) filters.ratingSource = 'imdb';
         current = options.store.all().filter(function (c) { return (excluded || []).indexOf(c.key) < 0; });
         function valid() { return alive && generation === id; }
         refresh();
@@ -47,22 +48,32 @@ function createScreening(options) {
                 if (!valid()) return;
                 pending.forEach(function (c) { ratingRows[filters.ratingSource + ':' + c.key] = rows && rows[c.key] || {value:null,error:error || {code:'invalid_response'}}; });
                 refresh();done();
+            },function (key,row) {
+                if (!valid()) return;
+                ratingRows[filters.ratingSource + ':' + key] = row;refresh();
             }));
         }
         var pending = current.filter(function (c) { return missing(c,base(c)) && !attempted[c.key]; }), chunks = [];
-        for (var i = 0;i < pending.length;i += 10) chunks.push(pending.slice(i,i + 10).map(function (c) { attempted[c.key] = true;return c.key; }));
+        for (var i = 0;i < pending.length;i += 10) chunks.push(pending.slice(i,i + 10).map(function (c) { attempted[c.key] = 'pending';return c.key; }));
         if (!chunks.length) ratings();
         else {
             var left = chunks.length;
             chunks.forEach(function (keys) {
                 cancels.push(options.catalog.getTitleDetails({keys:keys},function (error, rows) {
                     if (!valid()) return;
+                    keys.forEach(function (key) { attempted[key] = 'done'; });
                     if (error) keys.forEach(function (key) { metadataErrors[key] = error.code; });
                     else {
                         (rows || []).forEach(function (c) { options.store.add(c); });
                         (rows && rows.errors || []).forEach(function (row) { metadataErrors[row.key] = row.code; });
                     }
                     refresh();if (!--left) ratings();
+                },function (error,c,key) {
+                    if (!valid()) return;
+                    attempted[key] = 'done';
+                    if (error) metadataErrors[key] = error.code;
+                    else if (c) options.store.add(c);
+                    refresh();
                 }));
             });
         }

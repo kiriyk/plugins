@@ -23,21 +23,21 @@
 ### Task 1: Source adapters and filter contract
 Files: src/domain.js, src/catalog.js, src/ratings.js (new), src/limits.js, tests/ratings.test.cjs (new), tests/domain.test.cjs.
 Interfaces: createRatings({request,catalog,Lampa,clock,maxKpRequests}).getMany(candidates,source,done) returns cancel; callback map key to {value,error}. Filters ratingSource/ratingMin; ratingSource defaults imdb.
-- [ ] Write and run failing tests for rating range/source locks, bulk IMDb exact ID, KP cap/auth/cache, TMDB independent scores and unknown ratings.
-- [ ] Implement adapters, rating validation and required catalog ID enrichment.
-- [ ] Run targeted tests and full suite; commit.
+- [x] Write and run failing tests for rating range/source locks, bulk IMDb exact ID, KP cap/auth/cache, TMDB independent scores and unknown ratings.
+- [x] Implement adapters, rating validation and required catalog ID enrichment.
+- [x] Run targeted tests and full suite; commit.
 
 ### Task 2: Screening and honest progress
 Files: src/screening.js (new), src/controller.js, src/prompts.js, src/diagnostics.js, tests/screening.test.cjs (new), tests/controller.test.cjs.
 Interfaces: createScreening(...).check(filters,excluded,done), snapshot(), eligible(); controller emits progress snapshots and includes final stats.
-- [ ] Write and run failing tests for every unique candidate, exclusion, metadata errors, ratings after cheap filters, budget exhaustion and revalidation.
-- [ ] Implement screening before model selection, final eligibility gate, live progress and sanitised diagnostic fields.
-- [ ] Run cancellation/timeout/controller/full tests; commit.
+- [x] Write and run failing tests for every unique candidate, exclusion, metadata errors, ratings after cheap filters, budget exhaustion and revalidation.
+- [x] Implement screening before model selection, final eligibility gate, live progress and sanitised diagnostic fields.
+- [x] Run cancellation/timeout/controller/full tests; commit.
 
 ### Task 3: Native controls and integration
 Files: src/ui.js, src/index.js, src/settings.js, src/styles.css, README.md, tests/ui.test.cjs, tests/integration.test.cjs, ai-picks.js, .gitignore.
 Interfaces: screen.setProgress(stats), rating controls emit same domain form fields; index forwards progress; settings expose KP key and cap.
-- [ ] Write and run failing UI/integration tests for three sources, comma decimal, clear/reset, progress labels and More/refine.
-- [ ] Implement native controls, settings, documentation and build.
-- [ ] Run full suite, ES5, diff check, reproducible build and native browser fixture; commit.
-- [ ] Request fresh whole-branch review; fix important findings with regression tests; retain branch for separate publication approval.
+- [x] Write and run failing UI/integration tests for three sources, comma decimal, clear/reset, progress labels and More/refine.
+- [x] Implement native controls, settings, documentation and build.
+- [x] Run full suite, ES5, diff check, reproducible build and native browser fixture; commit.
+- [x] Request fresh whole-branch review; fix important findings with regression tests; retain branch for separate publication approval.

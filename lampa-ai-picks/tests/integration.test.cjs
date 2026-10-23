@@ -148,3 +148,28 @@ test('app can enable diagnostics in memory under storage failure and keep its ch
  h.text('Другое кино');h.submit();h.finish(3);
  assert.equal(journal.isEnabled(),false);assert.equal(JSON.parse(journal.exportText()).records.length,count);
 });
+
+test('native rating form filters TMDB scores, displays actual coverage and preserves filters for More',t=>{
+ const h=setup(t);h.enter('[data-action="rating-source"]');h.choose('tmdb');h.enter('[data-action="rating-min"]');h.inputs.at(-1).done('7,5');
+ h.submit();h.model([{id:'discover-rated',name:'discover_titles',arguments:{type:'movie'}}]);
+ const i=h.nativeRequests.findIndex(r=>r.url.includes('discover/')&&!r.answered);h.nativeRequests[i].answered=true;
+ h.nativeReply(i,{results:[{id:2,title:'Good',vote_average:8},{id:3,title:'Low',vote_average:6}]});
+ h.model([],JSON.stringify({picks:[{key:'tmdb:movie:2',reason:'Подходит.'},{key:'tmdb:movie:3',reason:'Нельзя.'}]}));
+ assert.equal(h.screen.element().querySelectorAll('.aip-pick').length,1);const stats=h.screen.element().querySelector('.aip-progress').textContent;
+ assert.match(stats,/2 из 2/);assert.match(stats,/TMDB.*1/);assert.equal(h.nativeRequests.some(r=>r.url.includes('agregarr')||r.url.includes('kinopoiskapi')),false);
+ h.enter('[data-action="more"]');h.boot();const pending=h.nativeRequests.find(r=>r.post&&!r.answered);const state=JSON.parse(JSON.parse(pending.post).messages[1].content);
+ assert.equal(state.intent.filters.ratingSource,'tmdb');assert.equal(state.intent.filters.ratingMin,7.5);
+});
+
+for(const action of ['clear','reset'])for(const mode of ['more','refine'])test('rating '+action+' disables the prior session threshold for '+mode,t=>{
+ const h=setup(t);h.enter('[data-action="rating-source"]');h.choose('tmdb');h.enter('[data-action="rating-min"]');h.inputs.at(-1).done('7.5');
+ h.submit();h.model([{id:'rated',name:'discover_titles',arguments:{type:'movie'}}]);
+ const i=h.nativeRequests.findIndex(r=>r.url.includes('discover/')&&!r.answered);h.nativeRequests[i].answered=true;h.nativeReply(i,{results:[{id:2,title:'High',vote_average:8}]});
+ h.model([],JSON.stringify({picks:[{key:'tmdb:movie:2',reason:'Подходит.'}]}));
+ if(action==='clear'){h.enter('[data-action="rating-min"]');h.inputs.at(-1).done('');}else h.enter('[data-action="reset"]');
+ if(mode==='more')h.enter('[data-action="more"]');else{h.enter('[data-action="refine"]');h.inputs.at(-1).done('меньше драмы');}
+ h.boot();h.model([{id:'intent-more',name:'set_search_intent',arguments:{}}]);
+ const post=h.nativeRequests.find(r=>r.post&&!r.answered);const state=JSON.parse(JSON.parse(post.post).messages[1].content);
+ assert.equal(state.intent.filters.ratingMin,null,'empty visible threshold must clear the previous mandatory minimum');
+ h.finish(3);assert.equal(h.screen.element().querySelector('[data-key]').getAttribute('data-key'),'tmdb:movie:3');
+});

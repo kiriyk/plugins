@@ -55,3 +55,11 @@ test('unknown or encoded proxy paths cannot smuggle credentials into the journal
  const data=h.journal.exportText();assert.equal(data.includes('SECRET'),false);
  assert.ok(h.records().some(r=>r.code==='auth'&&r.status===403));
 });
+
+test('rating requests retain provider scope and decimal filters without leaking KP headers',()=>{
+ const h=setup();h.journal.setEnabled(true);h.journal.record('filters',{filters:{ratingSource:'kp',ratingMin:7.5}});
+ h.journal.request({url:'https://kinopoiskapiunofficial.tech/api/v2.2/films?imdbId=tt0111161',method:'GET',headers:{'X-API-KEY':'KP-PRIVATE-KEY'},timeoutMs:1000},()=>{});
+ h.nativeReply(0,{items:[]});const records=h.records();
+ assert.equal(records[0].filters.ratingMin,7.5);assert.ok(records.some(r=>r.event==='request_start'&&r.scope==='rating'&&r.endpoint==='api/v2.2/films'));
+ assert.equal(h.journal.exportText().includes('KP-PRIVATE-KEY'),false);
+});

@@ -37,3 +37,5 @@
 @media(max-width:1100px){.aip-picks .aip-pick{width:25%}}
 @media(max-width:800px){.aip-picks .aip-pick{width:33.333%}}
 @media(max-width:500px){.aip-picks .aip-pick{width:50%}}
+
+.aip-picks .aip-progress{font-size:.9em;line-height:1.65;white-space:pre-line;margin:1em 0 0;padding:.8em 1em;border-left:2px solid rgba(255,255,255,.4);font-variant-numeric:tabular-nums}

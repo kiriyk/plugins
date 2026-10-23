@@ -1,4 +1,4 @@
-/* AI Picks 0.2.0 | Lampa 3.3.8 | Configure RouterAI in Lampa settings. */
+/* AI Picks 0.3.0 | Lampa 3.3.8 | Configure RouterAI in Lampa settings. */
 "use strict";
 (function() {
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -371,7 +371,7 @@
       var codes = ["timeout", "network", "auth", "balance", "rate_limit", "server", "unsupported", "invalid_arguments", "invalid_response", "catalog_limit", "tool_limit", "search_limit", "context_limit", "incompatible_model", "unknown_title", "unknown_keyword", "intent_required", "clarification", "session_limit", "cancelled", "kp_key", "kp_limit", "unknown"];
       var reasons = ["invalid_pick", "unknown_key", "already_shown", "duplicate", "count_limit", "invalid", "type", "unknown_genres", "genres", "excluded_genres", "year", "country", "runtime", "rating", "unknown_rating", "not_verified"];
       var tools = ["set_search_intent", "search_titles", "resolve_keywords", "discover_titles", "get_related", "get_title_details", "unknown"];
-      var endpointPattern = /^(genre\/(movie|tv)\/list|configuration\/countries|search\/(movie|tv|keyword)|discover\/(movie|tv)|(movie|tv)\/[1-9][0-9]*(\/(recommendations|similar))?|chat\/completions|models)$/;
+      var endpointPattern = /^(genre\/(movie|tv)\/list|configuration\/countries|search\/(movie|tv|keyword)|discover\/(movie|tv)|(movie|tv)\/[1-9][0-9]*(\/(recommendations|similar|external_ids))?|api\/ratings|api\/v2.2\/films(\/[1-9][0-9]*)?|chat\/completions|models)$/;
       var paramPatterns = {
         page: /^[1-9][0-9]{0,2}$/,
         year: /^[0-9]{4}$/,
@@ -435,9 +435,9 @@
           if (integer(source[key])) row[key] = source[key];
         });
         if (["new", "more", "refine"].indexOf(source.mode) >= 0) row.mode = source.mode;
-        if (["idle", "parsing", "searching", "ranking", "done", "error", "cancelled", "clarification"].indexOf(source.stage) >= 0) row.stage = source.stage;
+        if (["idle", "parsing", "searching", "checking", "ranking", "done", "error", "cancelled", "clarification"].indexOf(source.stage) >= 0) row.stage = source.stage;
         if (["filters", "example"].indexOf(source.kind) >= 0) row.kind = source.kind;
-        if (["catalog", "model", "search"].indexOf(source.scope) >= 0) row.scope = source.scope;
+        if (["catalog", "model", "search", "rating"].indexOf(source.scope) >= 0) row.scope = source.scope;
         if (source.tool !== void 0) row.tool = tools.indexOf(source.tool) >= 0 ? source.tool : "unknown";
         if (source.code !== void 0) row.code = codes.indexOf(source.code) >= 0 ? source.code : "unknown";
         if (reasons.indexOf(source.reason) >= 0) row.reason = source.reason;
@@ -482,7 +482,7 @@
       function networkInfo(spec) {
         var url = String(spec.url || ""), match = /^https?:\/\/([^/?#]+)([^?#]*)/.exec(url), params = {};
         var host = match ? match[1].split("@").pop() : "", path = match ? match[2] : "";
-        var endpoint = path.match(/\/(genre\/(?:movie|tv)\/list|configuration\/countries|search\/(?:movie|tv|keyword)|discover\/(?:movie|tv)|(?:movie|tv)\/[1-9][0-9]*(?:\/(?:recommendations|similar))?|chat\/completions|models)$/);
+        var endpoint = path.match(/\/(genre\/(?:movie|tv)\/list|configuration\/countries|search\/(?:movie|tv|keyword)|discover\/(?:movie|tv)|(?:movie|tv)\/[1-9][0-9]*(?:\/(?:recommendations|similar|external_ids))?|api\/ratings|api\/v2.2\/films(?:\/[1-9][0-9]*)?|chat\/completions|models)$/);
         var query = url.indexOf("?") >= 0 ? url.slice(url.indexOf("?") + 1).split("#")[0] : "";
         query.split("&").forEach(function(part) {
           var at = part.indexOf("="), name, value;
@@ -495,7 +495,7 @@
           }
           if (Object.prototype.hasOwnProperty.call(paramPatterns, name)) params[name] = value;
         });
-        return { host: host, endpoint: endpoint ? endpoint[1] : void 0, method: spec.method, params: safeParams(params), scope: endpoint && (endpoint[1] === "chat/completions" || endpoint[1] === "models") ? "model" : endpoint ? "catalog" : void 0 };
+        return { host: host, endpoint: endpoint ? endpoint[1] : void 0, method: spec.method, params: safeParams(params), scope: endpoint && (endpoint[1] === "chat/completions" || endpoint[1] === "models") ? "model" : endpoint && /^api\//.test(endpoint[1]) ? "rating" : endpoint ? "catalog" : void 0 };
       }
       function createDiagnostics(options) {
         var records = [], enabled = false, persistent = true, runNumber = 0, requestNumber = 0;
@@ -503,7 +503,7 @@
           return Date.now();
         } }, storage = options.Storage;
         function exportText() {
-          return JSON.stringify({ version: 1, pluginVersion: "0.2.0", persistence: persistent ? "local" : "memory", records: records }, null, 2);
+          return JSON.stringify({ version: 1, pluginVersion: "0.3.0", persistence: persistent ? "local" : "memory", records: records }, null, 2);
         }
         function trim() {
           while (records.length > 200 || exportText().length > 12e4) records.shift();
@@ -847,16 +847,16 @@
           if (!parsed || ["recommendations", "similar"].indexOf(args.relation) < 0 || !validPage(args)) return invalid(done);
           return list(parsed.type + "/" + parsed.id + "/" + args.relation, { page: page(args) }, parsed.type, done);
         }
-        function getTitleDetails(args, done) {
+        function getTitleDetails(args, done, onItem) {
           if (!Array.isArray(args.keys) || args.keys.length > 10 || !args.keys.every(domain.parseKey)) return invalid(done);
           return batch(args.keys.map(function(key) {
             return function(next) {
               var parsed = domain.parseKey(key);
               return get(parsed.type + "/" + parsed.id, { append_to_response: "external_ids" }, function(error, raw) {
-                if (error) return next(error);
-                var c = domain.normalizeTitle(raw, parsed.type);
-                if (!c || c.key !== key) return next(appError("invalid_response"));
-                next(null, c);
+                var c = !error && domain.normalizeTitle(raw, parsed.type);
+                if (!error && (!c || c.key !== key)) error = appError("invalid_response");
+                if (onItem) onItem(error, c || null, key);
+                next(error, c);
               });
             };
           }), function(unused, rows) {
@@ -924,10 +924,11 @@
           if (L.Noty) L.Noty.show(message);
         }
         function getConfig() {
-          var config = { key: "", model: "", limits: limits.readLimits(L.Storage), diagnostics: false };
+          var config = { key: "", kpKey: "", model: "", limits: limits.readLimits(L.Storage), diagnostics: false };
           try {
             config.key = String(L.Storage.get("aip_api_key", "") || "");
             config.model = String(L.Storage.get("aip_model", "") || "");
+            config.kpKey = String(L.Storage.get("cr_api_key", "") || "");
             var enabled = L.Storage.get("aip_diagnostics", false);
             config.diagnostics = enabled === true || enabled === "true";
           } catch (ignore) {
@@ -959,7 +960,7 @@
         }
         function input(title, name, password, previous) {
           var config = getConfig();
-          L.Input.edit({ title: title, value: name === "aip_api_key" ? config.key : config.model, password: !!password, nosave: true, free: true }, function(value) {
+          L.Input.edit({ title: title, value: name === "aip_api_key" ? config.key : name === "cr_api_key" ? config.kpKey : config.model, password: !!password, nosave: true, free: true }, function(value) {
             if (alive) {
               save(name, String(value || "").slice(0, password ? 4096 : 200));
               restore(previous);
@@ -1140,12 +1141,14 @@
           var config = getConfig(), previous = origin();
           L.Select.show({ title: "ИИ-подборки · настройки", items: [
             { title: "Ключ RouterAI", subtitle: config.key ? "Задан на этом устройстве" : "Не задан", value: "key" },
+            { title: "Ключ API Кинопоиска", subtitle: config.kpKey ? "Задан; общий с плагином рейтингов" : "Нужен только для фильтра КП", value: "kp-key" },
             { title: "Модель", subtitle: escapeText(config.model || "Выберите модель с инструментами"), value: "model" },
             { title: "Проверить подключение", subtitle: "Короткий платный запрос к выбранной модели", value: "probe" },
             { title: "Параметры поиска", subtitle: "Шаги, запросы, тайм-ауты и число карточек", value: "limits" },
             { title: "Диагностика", subtitle: config.diagnostics ? "Включена" : "Выключена", value: "diagnostics" }
           ], onSelect: function(item) {
             if (item.value === "key") input("Ключ RouterAI", "aip_api_key", true, previous);
+            else if (item.value === "kp-key") input("Ключ Kinopoisk API Unofficial", "cr_api_key", true, previous);
             else if (item.value === "model") models(previous);
             else if (item.value === "limits") advanced(previous);
             else if (item.value === "diagnostics") diagnostics(previous);
@@ -1170,6 +1173,9 @@
           L.SettingsApi.addComponent({ component: "aip_settings", name: "ИИ-подборки", icon: "" });
           addButton("key", "Ключ RouterAI", "Сохраняется только на этом устройстве", function(previous) {
             input("Ключ RouterAI", "aip_api_key", true, previous);
+          });
+          addButton("kp-key", "Ключ API Кинопоиска", "Общий с плагином рейтингов; нужен только для фильтра КП", function(previous) {
+            input("Ключ Kinopoisk API Unofficial", "cr_api_key", true, previous);
           });
           addButton("model", "Модель", "Поиск по названию и ID, ручной ввод", models);
           addButton("probe", "Проверить подключение", "Короткий платный запрос к выбранной модели", probe);
@@ -1258,7 +1264,7 @@
           if (L.Noty) L.Noty.show(message);
         }
         function edit(title, value, callback) {
-          L.Input.edit({ title: title, value: String(value || ""), free: true, nosave: true }, function(text) {
+          L.Input.edit({ title: title, value: String(value === void 0 || value === null ? "" : value), free: true, nosave: true }, function(text) {
             if (alive) {
               callback(String(text || "").trim());
               focus();
@@ -1361,6 +1367,27 @@
         filtersBox.appendChild(yearMin);
         filtersBox.appendChild(yearMax);
         filtersBox.appendChild(runtime);
+        var sourceNames = { imdb: "IMDb", kp: "Кинопоиск", tmdb: "TMDB" };
+        var ratingSource = button("rating-source", "", function() {
+          select("Источник рейтинга", ["imdb", "kp", "tmdb"].map(function(source) {
+            return { title: sourceNames[source], value: source };
+          }), function(item) {
+            form.ratingSource = item.value;
+          });
+        });
+        var ratingMin = button("rating-min", "", function() {
+          edit("Минимальный рейтинг (0–10; пусто — без фильтра)", form.ratingMin, function(value) {
+            var number = Number(value.replace(",", "."));
+            if (!value) form.ratingMin = null;
+            else if (/^\d+(?:[.,]\d+)?$/.test(value) && isFinite(number) && number >= 0 && number <= 10) {
+              form.ratingMin = number;
+              if (!form.ratingSource) form.ratingSource = "imdb";
+            } else notify("Введите рейтинг от 0 до 10 или очистите поле.");
+            update();
+          });
+        });
+        filtersBox.appendChild(ratingSource);
+        filtersBox.appendChild(ratingMin);
         function requireDictionaries(callback) {
           if (dictionaries) callback();
           else {
@@ -1409,7 +1436,7 @@
           });
         }));
         filtersBox.appendChild(button("reset", "Сбросить условия", function() {
-          form = {};
+          form = { ratingMin: null };
           update();
         }));
         root.appendChild(filtersBox);
@@ -1419,7 +1446,9 @@
         root.appendChild(summary);
         var actions = elem("div", "aip-actions"), submit = button("submit", "Подобрать", function() {
           if (busy) return;
-          if (!query.trim() && !Object.keys(cleanForm()).length && !examples.length) {
+          if (!query.trim() && !Object.keys(cleanForm()).some(function(key) {
+            return key !== "ratingSource" && !(key === "ratingMin" && form.ratingMin === null);
+          }) && !examples.length) {
             notify("Опишите пожелание, добавьте условие или фильм-пример.");
             return;
           }
@@ -1439,6 +1468,11 @@
         actions.appendChild(cancel);
         root.appendChild(actions);
         root.appendChild(status);
+        var progress = elem("p", "aip-progress");
+        progress.hidden = true;
+        progress.setAttribute("role", "status");
+        progress.setAttribute("aria-live", "polite");
+        root.appendChild(progress);
         var resultHost = elem("div", "aip-result-host");
         root.appendChild(resultHost);
         function update() {
@@ -1447,8 +1481,12 @@
           formatButton.textContent = "Формат: " + { movie: "Фильмы", tv: "Сериалы", all: "Фильмы и сериалы" }[form.media || "movie"];
           yearMin.textContent = "Год от: " + (form.yearMin || "любой");
           yearMax.textContent = "Год до: " + (form.yearMax || "любой");
+          ratingSource.textContent = "Источник рейтинга: " + sourceNames[form.ratingSource || "imdb"];
+          ratingMin.textContent = "Рейтинг от: " + (typeof form.ratingMin === "number" ? String(form.ratingMin).replace(".", ",") : "без ограничения");
           runtime.textContent = (form.media === "tv" ? "Длительность серии" : form.media === "all" ? "Длительность фильма / серии" : "Длительность фильма") + ": " + (form.maxRuntimeMinutes ? "до " + form.maxRuntimeMinutes + " мин" : "любая");
-          summary.textContent = Object.keys(form).length ? "Заданные условия обязательны. Распознанные пожелания появятся в подборке." : "Условия можно сочетать с текстом и примерами.";
+          summary.textContent = Object.keys(cleanForm("new")).some(function(key) {
+            return key !== "ratingSource";
+          }) ? "Заданные условия обязательны. Распознанные пожелания появятся в подборке." : "Условия можно сочетать с текстом и примерами.";
           exampleList.textContent = "";
           examples.forEach(function(c) {
             exampleList.appendChild(button("remove-example", c.title + (c.year ? " · " + c.year : "") + " · Убрать", function() {
@@ -1460,8 +1498,9 @@
             }, "aip-example"));
           });
         }
-        function cleanForm() {
+        function cleanForm(mode) {
           var copy = d.clone(form);
+          if (mode === "new" && copy.ratingMin === null) delete copy.ratingMin;
           if (copy.countries && !copy.countries.length) delete copy.countries;
           if (copy.genres) {
             ["movie", "tv"].forEach(function(type) {
@@ -1475,22 +1514,40 @@
           return copy;
         }
         function getRequest(mode) {
-          return { query: query, formFilters: cleanForm(), examples: d.clone(examples), mode: mode || "new" };
+          return { query: query, formFilters: cleanForm(mode || "new"), examples: d.clone(examples), mode: mode || "new" };
         }
         function setStage(value) {
-          busy = ["parsing", "searching", "ranking"].indexOf(value) >= 0;
+          busy = ["parsing", "searching", "checking", "ranking"].indexOf(value) >= 0;
           Array.prototype.forEach.call(root.querySelectorAll("button[data-action]"), function(control) {
             var action = control.getAttribute("data-action");
             control.disabled = busy && action !== "cancel" && action !== "settings";
             control.setAttribute("aria-disabled", String(control.disabled));
           });
           cancel.hidden = !busy;
-          status.textContent = { parsing: "Разбираем запрос…", searching: "Ищем фильмы…", ranking: "Выбираем варианты…", cancelled: "Поиск отменён." }[value] || "";
+          status.textContent = { parsing: "Разбираем запрос…", searching: "Ищем фильмы…", checking: "Проверяем условия и рейтинги…", ranking: "Выбираем варианты…", cancelled: "Поиск отменён." }[value] || "";
           root.setAttribute("aria-busy", String(busy));
           if (busy) {
             lastFocus = cancel;
             focus();
           }
+        }
+        function setProgress(value) {
+          var s = value || {}, lines = ["Проверено кандидатов: " + (s.checked || 0) + " из " + (s.candidates || 0)];
+          var passed = ["Прошли условия: " + (s.conditionsPassed || 0)];
+          if (s.ratingEnabled) passed.push("Прошли рейтинг " + (sourceNames[s.ratingSource] || "IMDb") + ": " + (s.ratingPassed || 0));
+          passed.push("Выбрано: " + (s.selected || 0));
+          lines.push(passed.join(" · "));
+          var errors = [];
+          if (s.missingRatings) errors.push("Нет рейтинга: " + s.missingRatings);
+          if (s.ratingErrors) errors.push("Ошибок рейтинга: " + s.ratingErrors);
+          if (s.metadataErrors) errors.push("Ошибок данных: " + s.metadataErrors);
+          if (s.metadataMissing) errors.push("Не хватает данных: " + s.metadataMissing);
+          if (s.unverified) errors.push("Не проверено: " + s.unverified);
+          if (errors.length) lines.push(errors.join(" · "));
+          var reasons = { timeout: "Достигнут лимит времени ожидания.", catalog_limit: "Достигнут лимит HTTP-запросов.", kp_limit: "Достигнут лимит запросов КП.", kp_key: "Задайте ключ API Кинопоиска в настройках ИИ.", auth: "Сервис рейтингов отклонил ключ.", balance: "Исчерпана квота сервиса рейтингов.", rate_limit: "Сервис ограничил частоту запросов.", network: "Сетевая ошибка при проверке.", server: "Сервис проверки временно недоступен." };
+          if (reasons[s.stopReason]) lines.push(reasons[s.stopReason]);
+          progress.textContent = lines.join("\n");
+          progress.hidden = false;
         }
         scroll.append(root);
         update();
@@ -1512,6 +1569,7 @@
             return resultHost;
           },
           getRequest: getRequest,
+          setProgress: setProgress,
           focusElement: focusElement,
           setStage: setStage,
           setMessage: function(text) {
@@ -1538,6 +1596,7 @@
                 parts.push((kind === "exclude" ? "Без жанров: " : "Жанры: ") + names.join(", "));
               });
             });
+            if (typeof f.ratingMin === "number") parts.push(sourceNames[f.ratingSource || "imdb"] + " от " + String(f.ratingMin).replace(".", ","));
             if (f.countries.length) parts.push("Страны: " + f.countries.map(function(code) {
               var match = (dictionaries && dictionaries.countries || []).filter(function(c) {
                 return c.code === code;
@@ -2144,7 +2203,7 @@
           } catch (ignore) {
           }
         }
-        function getMany(candidates, source, done) {
+        function getMany(candidates, source, done, onResult) {
           var active = true, cancels = [], rows = {}, pending = [], byId = {};
           function cancel() {
             active = false;
@@ -2163,6 +2222,7 @@
             value = score(value);
             rows[c.key] = { value: value, error: error || null };
             if (!error && source !== "tmdb") remember(source + ":" + c.key, value);
+            if (onResult) onResult(c.key, rows[c.key]);
           }
           function resolve(c, callback) {
             var card = c.card || {}, id = imdbId(card.imdb_id || (card.external_ids || {}).imdb_id || ids[c.key]);
@@ -2181,8 +2241,10 @@
           }
           candidates.forEach(function(c) {
             var hit = source !== "tmdb" && cached(source + ":" + c.key);
-            if (hit) rows[c.key] = { value: hit.value, error: null };
-            else if (source === "tmdb") result(c, (c.card || {}).vote_average, null);
+            if (hit) {
+              rows[c.key] = { value: hit.value, error: null };
+              if (onResult) onResult(c.key, rows[c.key]);
+            } else if (source === "tmdb") result(c, (c.card || {}).vote_average, null);
             else pending.push(c);
           });
           if (!pending.length) {
@@ -2319,7 +2381,7 @@
               if (metadataErrors[c.key]) {
                 stats.metadataErrors++;
                 if (!stats.stopReason) stats.stopReason = metadataErrors[c.key];
-              } else if (attempted[c.key]) stats.metadataMissing++;
+              } else if (attempted[c.key] === "done") stats.metadataMissing++;
               return;
             }
             if (!verdict.ok) {
@@ -2359,6 +2421,7 @@
           };
           var id = ++generation;
           filters = d.clone(nextFilters);
+          if (!filters.ratingSource) filters.ratingSource = "imdb";
           current = options.store.all().filter(function(c) {
             return (excluded || []).indexOf(c.key) < 0;
           });
@@ -2383,13 +2446,17 @@
               });
               refresh();
               done();
+            }, function(key, row) {
+              if (!valid()) return;
+              ratingRows[filters.ratingSource + ":" + key] = row;
+              refresh();
             }));
           }
           var pending = current.filter(function(c) {
             return missing(c, base(c)) && !attempted[c.key];
           }), chunks = [];
           for (var i = 0; i < pending.length; i += 10) chunks.push(pending.slice(i, i + 10).map(function(c) {
-            attempted[c.key] = true;
+            attempted[c.key] = "pending";
             return c.key;
           }));
           if (!chunks.length) ratings();
@@ -2398,6 +2465,9 @@
             chunks.forEach(function(keys) {
               cancels.push(options.catalog.getTitleDetails({ keys: keys }, function(error, rows) {
                 if (!valid()) return;
+                keys.forEach(function(key) {
+                  attempted[key] = "done";
+                });
                 if (error) keys.forEach(function(key) {
                   metadataErrors[key] = error.code;
                 });
@@ -2411,6 +2481,12 @@
                 }
                 refresh();
                 if (!--left) ratings();
+              }, function(error, c, key) {
+                if (!valid()) return;
+                attempted[key] = "done";
+                if (error) metadataErrors[key] = error.code;
+                else if (c) options.store.add(c);
+                refresh();
               }));
             });
           }
@@ -2509,7 +2585,7 @@
           result.stats.selected = result.items.length;
           if (result.stats.unverified) result.notice = (result.notice ? result.notice + " " : "") + "Не проверено кандидатов: " + result.stats.unverified + ". См. счётчик поиска.";
           emit(run, "progress", result.stats);
-          log(run, "run_done", { count: result.items.length, candidates: run.store.all().length, budget: run.budget.snapshot() });
+          log(run, "run_done", { count: result.items.length, candidates: result.stats.candidates, budget: run.budget.snapshot() });
           stop(run);
           stage = "done";
           emit(run, "result", { result: result, intent: intent, mode: run.args.mode, dictionaries: run.dictionaries });
@@ -2921,6 +2997,7 @@
           controller = createController({ Lampa: L, request: request, routerai: routerai, session: createSession(), clock: clock, diagnostics: diagnostics, onEvent: function(event) {
             if (destroyed) return;
             if (event.type === "stage") screen.setStage(event.data.stage);
+            else if (event.type === "progress") screen.setProgress(event.data);
             else if (event.type === "error") {
               screen.setStage("error");
               screen.setMessage(event.data.message);
@@ -2993,7 +3070,7 @@
         if (!doc.getElementById("aip-style")) {
           var style = doc.createElement("style");
           style.id = "aip-style";
-          style.textContent = true ? ".aip-picks{padding:1.8em 2em 4em;color:inherit;font-family:inherit;max-width:76em}\n.aip-picks *{box-sizing:border-box}\n.aip-picks [hidden]{display:none!important}\n.aip-picks .aip-heading{position:relative;margin-bottom:1.7em;padding-right:12em}\n.aip-picks .aip-title{font-size:2.1em;line-height:1.18;font-weight:600;margin:0 0 .35em}\n.aip-picks .aip-intro{max-width:48em;line-height:1.5;opacity:.8;margin:0}\n.aip-picks .aip-control{font:inherit;color:inherit;text-align:left;cursor:pointer;line-height:1.4;border:0;border-radius:.6em;padding:.8em 1.1em;background:rgba(255,255,255,.08);min-height:2.8em;transition:background .15s ease-out,color .15s ease-out}\n.aip-picks .aip-control.focus,.aip-picks .aip-control:focus,.aip-picks .aip-control:hover{background:#fff;color:#151515;outline:2px solid #fff;outline-offset:2px}\n.aip-picks .aip-control:disabled{opacity:.45;cursor:default;outline:none}\n.aip-picks .aip-settings{position:absolute;right:0;top:0}\n.aip-picks .aip-query{width:100%;min-height:6em;padding:1.2em 1.4em;font-size:1.15em;line-height:1.5;white-space:normal;overflow-wrap:break-word;margin-bottom:1.6em}\n.aip-picks .aip-query:not(.aip-query--filled){color:#c4c4c4}\n.aip-picks .aip-query:not(.aip-query--filled).focus,.aip-picks .aip-query:not(.aip-query--filled):focus,.aip-picks .aip-query:not(.aip-query--filled):hover{color:#333}\n.aip-picks .aip-examples{margin-bottom:1.25em}\n.aip-picks .aip-label{font-size:1em;font-weight:600;margin:0 0 .65em}\n.aip-picks .aip-example-list{display:flex;flex-wrap:wrap}\n.aip-picks .aip-example{margin:0 .6em .6em 0}\n.aip-picks .aip-filters{display:flex;flex-wrap:wrap;margin-top:.8em}\n.aip-picks .aip-filters .aip-control{margin:0 .6em .6em 0}\n.aip-picks .aip-summary{font-size:.88em;line-height:1.5;opacity:.78;margin:1em 0 1.4em}\n.aip-picks .aip-actions{display:flex;flex-wrap:wrap}\n.aip-picks .aip-actions .aip-control{margin:0 .7em .7em 0}\n.aip-picks .aip-primary{background:#fff;color:#151515;font-weight:600;min-width:11em;text-align:center}\n.aip-picks .aip-status{min-height:1.5em;line-height:1.5;margin:.7em 0 0;max-width:65ch}\n.aip-picks .aip-result-host{margin-top:2em}\n@media(max-width:700px){.aip-picks{padding:1.2em 1em 3em}.aip-picks .aip-heading{padding-right:0}.aip-picks .aip-settings{position:static;margin-top:.8em}.aip-picks .aip-title{font-size:1.7em}.aip-picks .aip-query{font-size:1em}.aip-picks .aip-filters .aip-control{width:100%;margin-right:0}}\n@media(prefers-reduced-motion:reduce){.aip-picks .aip-control{transition:none}}\n\n.aip-picks .aip-results-title{font-size:1.4em;font-weight:600;margin:0 0 .75em}\n.aip-picks .aip-results-notice{opacity:.8;line-height:1.5;margin:0 0 1.2em}\n.aip-picks .aip-grid{display:flex;flex-wrap:wrap;margin:0 -.6em}\n.aip-picks .aip-pick{width:20%;padding:0 .6em;margin-bottom:1.5em;min-width:0}\n.aip-picks .aip-pick>.card{width:100%;margin:0}\n.aip-picks .aip-pick>.aip-control{width:100%;margin-top:.6em;font-size:.82em;text-align:center}\n.aip-picks .aip-result-actions{display:flex;flex-wrap:wrap;margin-top:.5em}\n.aip-picks .aip-result-actions .aip-control{margin:0 .7em .7em 0}\n@media(max-width:1100px){.aip-picks .aip-pick{width:25%}}\n@media(max-width:800px){.aip-picks .aip-pick{width:33.333%}}\n@media(max-width:500px){.aip-picks .aip-pick{width:50%}}\n" : "";
+          style.textContent = true ? ".aip-picks{padding:1.8em 2em 4em;color:inherit;font-family:inherit;max-width:76em}\n.aip-picks *{box-sizing:border-box}\n.aip-picks [hidden]{display:none!important}\n.aip-picks .aip-heading{position:relative;margin-bottom:1.7em;padding-right:12em}\n.aip-picks .aip-title{font-size:2.1em;line-height:1.18;font-weight:600;margin:0 0 .35em}\n.aip-picks .aip-intro{max-width:48em;line-height:1.5;opacity:.8;margin:0}\n.aip-picks .aip-control{font:inherit;color:inherit;text-align:left;cursor:pointer;line-height:1.4;border:0;border-radius:.6em;padding:.8em 1.1em;background:rgba(255,255,255,.08);min-height:2.8em;transition:background .15s ease-out,color .15s ease-out}\n.aip-picks .aip-control.focus,.aip-picks .aip-control:focus,.aip-picks .aip-control:hover{background:#fff;color:#151515;outline:2px solid #fff;outline-offset:2px}\n.aip-picks .aip-control:disabled{opacity:.45;cursor:default;outline:none}\n.aip-picks .aip-settings{position:absolute;right:0;top:0}\n.aip-picks .aip-query{width:100%;min-height:6em;padding:1.2em 1.4em;font-size:1.15em;line-height:1.5;white-space:normal;overflow-wrap:break-word;margin-bottom:1.6em}\n.aip-picks .aip-query:not(.aip-query--filled){color:#c4c4c4}\n.aip-picks .aip-query:not(.aip-query--filled).focus,.aip-picks .aip-query:not(.aip-query--filled):focus,.aip-picks .aip-query:not(.aip-query--filled):hover{color:#333}\n.aip-picks .aip-examples{margin-bottom:1.25em}\n.aip-picks .aip-label{font-size:1em;font-weight:600;margin:0 0 .65em}\n.aip-picks .aip-example-list{display:flex;flex-wrap:wrap}\n.aip-picks .aip-example{margin:0 .6em .6em 0}\n.aip-picks .aip-filters{display:flex;flex-wrap:wrap;margin-top:.8em}\n.aip-picks .aip-filters .aip-control{margin:0 .6em .6em 0}\n.aip-picks .aip-summary{font-size:.88em;line-height:1.5;opacity:.78;margin:1em 0 1.4em}\n.aip-picks .aip-actions{display:flex;flex-wrap:wrap}\n.aip-picks .aip-actions .aip-control{margin:0 .7em .7em 0}\n.aip-picks .aip-primary{background:#fff;color:#151515;font-weight:600;min-width:11em;text-align:center}\n.aip-picks .aip-status{min-height:1.5em;line-height:1.5;margin:.7em 0 0;max-width:65ch}\n.aip-picks .aip-result-host{margin-top:2em}\n@media(max-width:700px){.aip-picks{padding:1.2em 1em 3em}.aip-picks .aip-heading{padding-right:0}.aip-picks .aip-settings{position:static;margin-top:.8em}.aip-picks .aip-title{font-size:1.7em}.aip-picks .aip-query{font-size:1em}.aip-picks .aip-filters .aip-control{width:100%;margin-right:0}}\n@media(prefers-reduced-motion:reduce){.aip-picks .aip-control{transition:none}}\n\n.aip-picks .aip-results-title{font-size:1.4em;font-weight:600;margin:0 0 .75em}\n.aip-picks .aip-results-notice{opacity:.8;line-height:1.5;margin:0 0 1.2em}\n.aip-picks .aip-grid{display:flex;flex-wrap:wrap;margin:0 -.6em}\n.aip-picks .aip-pick{width:20%;padding:0 .6em;margin-bottom:1.5em;min-width:0}\n.aip-picks .aip-pick>.card{width:100%;margin:0}\n.aip-picks .aip-pick>.aip-control{width:100%;margin-top:.6em;font-size:.82em;text-align:center}\n.aip-picks .aip-result-actions{display:flex;flex-wrap:wrap;margin-top:.5em}\n.aip-picks .aip-result-actions .aip-control{margin:0 .7em .7em 0}\n@media(max-width:1100px){.aip-picks .aip-pick{width:25%}}\n@media(max-width:800px){.aip-picks .aip-pick{width:33.333%}}\n@media(max-width:500px){.aip-picks .aip-pick{width:50%}}\n\n.aip-picks .aip-progress{font-size:.9em;line-height:1.65;white-space:pre-line;margin:1em 0 0;padding:.8em 1em;border-left:2px solid rgba(255,255,255,.4);font-variant-numeric:tabular-nums}\n" : "";
           doc.head.appendChild(style);
         }
         win.__aipPicksPlugin = { open: open, settings: settings, diagnostics: diagnostics };
