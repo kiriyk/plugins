@@ -1,18 +1,18 @@
-/* KADR History 0.1.0 | Lampa + KADR: resume, next episode and watch history sync.
+/* Sled 0.1.0 | Lampa + KADR: resume, next episode and watch history sync.
  * The profile key stays in Lampa storage on this device; KADR receives only a per-playback token.
  */
 (function () {
     'use strict';
-    if (window.KadrHistory) return;
+    if (window.Sled) return;
 
     var L;
     var REWIND_MS = 10000, RESUME_MIN_MS = 10000, PENDING_TTL_MS = 12 * 3600000, NEXT_RECHECK_MS = 3000, INTENT_TTL_MS = 30 * 60000;
-    var KH = window.KadrHistory = {version: '0.1.0'};
+    var KH = window.Sled = {version: '0.1.0'};
     var syncing = false, waiting = [], captured = null, pending = null, intent = null;
 
     // ==== basics ====
-    function get(name, fallback) { return L.Storage.get('kh_' + name, fallback); }
-    function put(name, value) { L.Storage.set('kh_' + name, value); }
+    function get(name, fallback) { return L.Storage.get('sled_' + name, fallback); }
+    function put(name, value) { L.Storage.set('sled_' + name, value); }
     function now() { return Date.now(); }
     function clean(text) { return String(text == null ? '' : text).replace(/[​\s]+/g, ' ').replace(/^\s+|\s+$/g, ''); }
     function uid(prefix) {
@@ -125,7 +125,7 @@
         var calls = waiting;
         waiting = [];
         calls.forEach(function (fn) { fn(state, error); });
-        if (!error && L.Listener && L.Listener.send) L.Listener.send('kadr_history', {type: 'synced'});
+        if (!error && L.Listener && L.Listener.send) L.Listener.send('sled', {type: 'synced'});
     }
     function sync(done) {
         if (done) waiting.push(done);
@@ -234,12 +234,12 @@
     }
     function wrapPlaylist() {
         var original = L.Player.playlist;
-        if (typeof original !== 'function' || original.__kadrHistory) return;
+        if (typeof original !== 'function' || original.__sled) return;
         var wrapped = function (list) {
             captured = Array.isArray(list) ? list : null;
             return original.apply(this, arguments);
         };
-        wrapped.__kadrHistory = true;
+        wrapped.__sled = true;
         L.Player.playlist = wrapped;
     }
     function external() {
@@ -413,13 +413,13 @@
 
     // ==== settings ====
     function param(name, type, title, description, value, onChange) {
-        L.SettingsApi.addParam({component: 'kadr_history',
-            param: {name: 'kh_' + name, type: type, values: '', 'default': value, placeholder: ''},
+        L.SettingsApi.addParam({component: 'sled',
+            param: {name: 'sled_' + name, type: type, values: '', 'default': value, placeholder: ''},
             field: {name: title, description: description}, onChange: onChange});
     }
     function saveProfile() {
         var key = clean(get('profile_key', ''));
-        if (!/^kadr_[A-Za-z0-9_-]{20,}$/.test(key)) return notify('KADR: вставьте ключ профиля, он начинается с kadr_');
+        if (!/^kadr_[A-Za-z0-9_-]{20,}$/.test(key)) return notify('Sled: вставьте ключ профиля, он начинается с kadr_');
         api('/v1/profile', null, function (profile) {
             var name = String(profile.name || 'Профиль');
             var list = profiles().filter(function (item) { return item.name !== name; });
@@ -427,16 +427,16 @@
             put('profiles', list);
             put('active', name);
             put('profile_key', '');
-            notify('KADR: профиль «' + name + '» сохранён');
+            notify('Sled: профиль «' + name + '» сохранён');
             sync();
         }, function (error) {
             put('profile_key', '');
-            notify('KADR: сервер не принял ключ' + (error && error.status ? ' (код ' + error.status + ')' : ''));
+            notify('Sled: сервер не принял ключ' + (error && error.status ? ' (код ' + error.status + ')' : ''));
         }, key);
     }
     function switchProfile() {
         var list = profiles(), current = activeProfile();
-        if (!list.length) return notify('KADR: профилей нет. Добавьте ключ профиля.');
+        if (!list.length) return notify('Sled: профилей нет. Добавьте ключ профиля.');
         var items = list.map(function (item) {
             return {title: item.name + (current && current.name === item.name ? ' ✓' : ''), name: item.name};
         });
@@ -457,15 +457,15 @@
     function checkConnection() {
         api('/v1/profile', null, function (profile) {
             var threshold = profile.settings && profile.settings.watched_threshold;
-            notify('KADR: сервер доступен, профиль «' + profile.name + '», порог ' + threshold + '%');
+            notify('Sled: сервер доступен, профиль «' + profile.name + '», порог ' + threshold + '%');
         }, function (error) {
-            if (error && error.error === 'not_configured') return notify('KADR: укажите адрес сервера и профиль');
-            notify('KADR: сервер недоступен' + (error && error.status ? ' (код ' + error.status + ')' : ''));
+            if (error && error.error === 'not_configured') return notify('Sled: укажите адрес сервера и профиль');
+            notify('Sled: сервер недоступен' + (error && error.status ? ' (код ' + error.status + ')' : ''));
         });
     }
     function addSettings() {
         if (!L.SettingsApi) return;
-        L.SettingsApi.addComponent({component: 'kadr_history', name: 'KADR: история',
+        L.SettingsApi.addComponent({component: 'sled', name: 'Sled',
             icon: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/></svg>'});
         param('enabled', 'trigger', 'Продолжение через KADR',
             'Перехватывать запуск во внешнем плеере Android: меню «Продолжить / Сначала», передача позиции и истории в KADR.', true);

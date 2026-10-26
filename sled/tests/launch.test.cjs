@@ -87,7 +87,7 @@ test('progress under 10 seconds starts from zero without asking', async () => {
 });
 
 test('inner player, disabled plugin and unknown episodes are not intercepted', async () => {
-    for (const storage of [{player: 'inner'}, {kh_enabled: false}]) {
+    for (const storage of [{player: 'inner'}, {sled_enabled: false}]) {
         const h = setup({storage});
         await tick();
         const data = startEpisode(h, 5, 10);
@@ -114,7 +114,7 @@ test('without the server KADR still gets the start position, without a token', a
     assert.equal(f.get('next'), '1');
     assert.equal(f.get('tok'), null);
     assert.equal(f.get('pid'), null);
-    assert.equal(h.storage.kh_pending.registered, false);
+    assert.equal(h.storage.sled_pending.registered, false);
 
     const none = setup({noProfile: true});
     await tick();

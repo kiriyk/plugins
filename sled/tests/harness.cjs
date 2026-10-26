@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const FILE = path.join(__dirname, '../kadr-history.js');
+const FILE = path.join(__dirname, '../sled.js');
 const KEY = 'kadr_' + 'a'.repeat(43);
 const RICK = {id: 60625, source: 'tmdb', title: 'Рик и Морти', name: 'Рик и Морти', original_name: 'Rick and Morty',
     number_of_seasons: 9, poster_path: '/rm.jpg', first_air_date: '2013-12-02'};
@@ -32,9 +32,9 @@ function listener() {
 
 function setup(options = {}) {
     const code = fs.readFileSync(FILE, 'utf8');
-    const storage = {player: 'android', kh_server: 'https://kadr.test', kh_profiles: [{name: 'A', key: KEY}], kh_active: 'A',
+    const storage = {player: 'android', sled_server: 'https://kadr.test', sled_profiles: [{name: 'A', key: KEY}], sled_active: 'A',
         ...options.storage};
-    if (options.noProfile) { delete storage.kh_profiles; delete storage.kh_active; }
+    if (options.noProfile) { delete storage.sled_profiles; delete storage.sled_active; }
     const sent = [], played = [], playlists = [], selects = [], notices = [], params = [], pushes = [];
     const routes = Object.assign({
         'GET /v1/changes': () => ({json: {cursor: 'c0', more: false, items: [], conflicts: [], prefs: [], playbacks: []}}),
@@ -84,11 +84,11 @@ function setup(options = {}) {
     vm.runInContext(code, vm.createContext({window, Lampa, console, setTimeout, clearTimeout, Date, JSON, Math, Object, Array,
         String, Number, encodeURIComponent, decodeURIComponent, parseInt}));
     return {
-        Lampa, KH: window.KadrHistory, storage, sent, routes, played, playlists, selects, notices, params, pushes, KEY,
+        Lampa, KH: window.Sled, storage, sent, routes, played, playlists, selects, notices, params, pushes, KEY,
         launched: () => played.filter(call => !call.aborted).map(call => call.data),
         press: name => params.find(p => p.param.name === name).onChange(),
         returned: (value, road) => timeline.send('update', {data: {hash: value, road}}),
-        state: () => { const key = Object.keys(storage).find(k => k.startsWith('kh_state_')); return key ? storage[key] : null; },
+        state: () => { const key = Object.keys(storage).find(k => k.startsWith('sled_state_')); return key ? storage[key] : null; },
     };
 }
 

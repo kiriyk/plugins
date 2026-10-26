@@ -18,12 +18,12 @@ test('sync keeps a cursor per profile and sends the profile key', async () => {
     assert.equal(h.KH.load().items['tmdb:tv:60625/s5e10'].position_ms, 60000);
 
     const keyB = 'kadr_' + 'b'.repeat(43);
-    h.storage.kh_profiles = [...h.storage.kh_profiles, {name: 'B', key: keyB}];
-    h.storage.kh_active = 'B';
+    h.storage.sled_profiles = [...h.storage.sled_profiles, {name: 'B', key: keyB}];
+    h.storage.sled_active = 'B';
     h.KH.sync(); await tick();
     assert.equal(h.sent.at(-1).query, '');
     assert.equal(h.sent.at(-1).headers.Authorization, 'Bearer ' + keyB);
-    assert.equal(Object.keys(h.storage).filter(k => k.startsWith('kh_state_')).length, 2);
+    assert.equal(Object.keys(h.storage).filter(k => k.startsWith('sled_state_')).length, 2);
     assert.ok(!JSON.stringify(Object.keys(h.storage)).includes(keyB));
 });
 

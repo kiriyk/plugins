@@ -82,7 +82,7 @@ test('the return reports the position Lampa received from KADR', async () => {
     assert.equal(progress.position_ms, 452000);
     assert.equal(progress.duration_ms, 6128000);
     assert.equal(progress.started, true);
-    assert.equal(h.storage.kh_pending, null);
+    assert.equal(h.storage.sled_pending, null);
 });
 
 test('a launch that could not be registered is registered on return, then reported', async () => {
