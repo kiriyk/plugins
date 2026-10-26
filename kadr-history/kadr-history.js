@@ -310,6 +310,68 @@
         captured = null;
     }
 
+    // ==== return ====
+    function onTimeline(event) {
+        var data = event && event.data || {};
+        var record = pending || get('pending', null);
+        if (!record || !record.hash || String(data.hash) !== String(record.hash)) return;
+        pending = null;
+        put('pending', null);
+        if (now() - record.started > PENDING_TTL_MS) return;
+        var road = data.road || {}, completed = road.percent >= 100;
+        reportFallback(record, road, completed);
+        sync(function (state, error) { afterReturn(record, completed, state, error, 0); });
+    }
+    function reportFallback(record, road, completed) {
+        if (!activeProfile() || !server()) return;
+        var duration = road.duration > 0 ? Math.round(road.duration * 1000) : record.duration_ms;
+        var position = completed ? duration : Math.round((road.time || 0) * 1000);
+        if (!position || !duration) return;
+        // Applied by the server only when KADR itself never reported this playback (sequence null).
+        var progress = {type: 'progress', playback_id: record.playback_id, sequence: null, position_ms: position,
+            duration_ms: duration, started: true};
+        if (record.registered) return enqueue(progress);
+        var state = load();
+        state.deferred.push({body: record.body, progress: progress});
+        if (state.deferred.length > 50) state.deferred = state.deferred.slice(-50);
+        save(state);
+    }
+    function afterReturn(record, completed, state, error, round) {
+        if (!completed || !record.next) return;
+        if (error || !record.registered) return askNext(record);
+        var playback = state.playbacks[record.playback_id];
+        if (playback && playback.next_requested) return playNext(record);
+        // KADR uploads in the background; give its next-episode event a moment to arrive.
+        if (round === 0) {
+            setTimeout(function () {
+                sync(function (fresh, failure) { afterReturn(record, completed, fresh, failure, 1); });
+            }, NEXT_RECHECK_MS);
+        }
+    }
+    function askNext(record) {
+        L.Select.show({title: 'Следующая серия?', items: [{title: 'Смотреть', play: true}, {title: 'Не сейчас', play: false}],
+            onSelect: function (choice) { L.Controller.toggle('content'); if (choice.play) playNext(record); },
+            onBack: function () { L.Controller.toggle('content'); }});
+    }
+    function copyItem(item) {
+        var copy = {};
+        Object.keys(item).forEach(function (key) { copy[key] = item[key]; });
+        copy.url = unmark(copy.url);
+        if (copy.quality && typeof copy.quality === 'object') {
+            var quality = {};
+            Object.keys(copy.quality).forEach(function (name) { quality[name] = unmark(copy.quality[name]); });
+            copy.quality = quality;
+        }
+        delete copy.__kadr;
+        return copy;
+    }
+    function playNext(record) {
+        var item = copyItem(record.next);
+        intent = {item_key: null, hash: item.timeline && item.timeline.hash ? String(item.timeline.hash) : null, mode: 'auto', at: now()};
+        L.Player.play(item);
+        if (record.playlist) L.Player.playlist(record.playlist);
+    }
+
     // ==== settings ====
     function param(name, type, title, description, value, onChange) {
         L.SettingsApi.addParam({component: 'kadr_history',
@@ -382,6 +444,7 @@
         L = window.Lampa;
         wrapPlaylist();
         L.Player.listener.follow('create', onCreate);
+        L.Timeline.listener.follow('update', onTimeline);
         addSettings();
         sync();
     }
