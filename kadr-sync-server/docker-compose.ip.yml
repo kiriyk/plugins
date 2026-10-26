@@ -1,0 +1,13 @@
+# Server reachable as http://<IP>:<port> without a domain or TLS (ports 80/443 already taken).
+# Usage: KADR_PORT=8090 docker compose -f docker-compose.ip.yml up -d --build
+services:
+  kadr-sync:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${KADR_PORT:-8090}:8080"
+    volumes:
+      - kadr-data:/data
+
+volumes:
+  kadr-data:
