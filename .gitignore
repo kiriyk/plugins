@@ -1,4 +1,4 @@
 .env
 docs/
 .DS_Store
-lampa-catalog-ratings/node_modules/
+__pycache__/
