@@ -14,7 +14,7 @@ function listener() {
 
 function setup(t, options = {}) {
     const storage = {...options.storage};
-    const playlists = [], params = [], notices = [];
+    const playlists = [], params = [], notices = [], sent = [];
     const Lampa = {
         Storage: {get: (key, fallback) => key in storage ? storage[key] : fallback,
                   set: (key, value) => {storage[key] = value;},
@@ -27,11 +27,19 @@ function setup(t, options = {}) {
         Noty: {show: message => notices.push(message)},
         Platform: {is: name => name === 'android'},
         Listener: {follow() {}},
+        Reguest: function () {
+            this.timeout = () => {};
+            this.native = (url, ok, fail, body) => {
+                sent.push({url, body: JSON.parse(body)});
+                if (options.sendError) fail({status: 0}); else ok({ok: true});
+            };
+        },
     };
     const window = {Lampa, appready: true};
     const context = vm.createContext({window, Lampa, console: {log() {}}, Date, JSON, Object, Array, String});
     vm.runInContext(code, context);
-    return {Lampa, storage, playlists, params, notices, log: () => storage.kadr_probe_log};
+    const press = name => params.find(p => p.param.name === name).onChange();
+    return {Lampa, storage, playlists, params, notices, sent, press, log: () => storage.kadr_probe_log};
 }
 
 test('create is logged with masked url, header values and trimmed card', t => {
@@ -118,4 +126,35 @@ test('clear button empties the log', t => {
     h.Lampa.Timeline.listener.send('update', {data: {hash: 1, road: {}}});
     h.params.find(p => p.param.name === 'kadr_probe_clear').onChange();
     assert.equal(h.log().length, 0); // array from the vm realm: compare by length
+});
+
+test('send posts the masked log and label to the computer and keeps the log', t => {
+    const h = setup(t, {storage: {player: 'android', kadr_probe_target: ' 192.168.1.10:8765 ', kadr_probe_label: 'C1 Online Mod'}});
+    h.Lampa.Timeline.listener.send('update', {data: {hash: 7, road: {time: 1}}});
+    h.press('kadr_probe_send');
+    assert.equal(h.sent.length, 1);
+    assert.equal(h.sent[0].url, 'http://192.168.1.10:8765/kadr-probe');
+    assert.equal(h.sent[0].body.label, 'C1 Online Mod');
+    assert.equal(h.sent[0].body.records.length, 1);
+    assert.equal(h.sent[0].body.records[0].hash, 7);
+    assert.match(h.notices.at(-1), /отправлен/);
+    assert.equal(h.log().length, 1);
+});
+
+test('send adds the default port and rejects anything but host[:port]', t => {
+    const h = setup(t, {storage: {player: 'android', kadr_probe_target: '192.168.1.10'}});
+    h.press('kadr_probe_send');
+    assert.equal(h.sent[0].url, 'http://192.168.1.10:8765/kadr-probe');
+    for (const bad of ['', 'http://evil.example/x', '1.2.3.4:8765/path', 'host:99999']) {
+        const b = setup(t, {storage: {kadr_probe_target: bad}});
+        b.press('kadr_probe_send');
+        assert.equal(b.sent.length, 0, bad);
+        assert.match(b.notices.at(-1), /адрес/i);
+    }
+});
+
+test('send reports a network failure', t => {
+    const h = setup(t, {storage: {kadr_probe_target: '192.168.1.10'}, sendError: true});
+    h.press('kadr_probe_send');
+    assert.match(h.notices.at(-1), /не удалось/i);
 });

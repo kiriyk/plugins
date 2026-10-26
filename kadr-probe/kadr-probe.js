@@ -1,4 +1,4 @@
-/* KADR Probe 0.1.0 | Lampa + KADR integration diagnostics.
+/* KADR Probe 0.2.0 | Lampa + KADR integration diagnostics.
  * Stores masked launch data only: no full URLs, query strings or header values.
  */
 (function () {
@@ -133,6 +133,29 @@
             L.Noty.show(text.slice(0, 500));
         }
     }
+    function targetUrl() {
+        var target = String(L.Storage.get('kadr_probe_target', '') || '').replace(/^\s+|\s+$/g, '');
+        var match = /^([A-Za-z0-9.-]+)(?::(\d{1,5}))?$/.exec(target);
+        if (!match || (match[2] && +match[2] > 65535)) return null;
+        return 'http://' + match[1] + ':' + (match[2] || '8765') + '/kadr-probe';
+    }
+    function sendLog() {
+        var url = targetUrl();
+        if (!url) {
+            L.Noty.show('KADR Probe: укажите адрес компьютера в виде 192.168.1.10 или 192.168.1.10:8765');
+            return;
+        }
+        var records = readLog();
+        var body = JSON.stringify({label: String(L.Storage.get('kadr_probe_label', '') || ''),
+            sent_at: new Date().toISOString(), records: records});
+        var request = new L.Reguest();
+        request.timeout(10000);
+        request.native(url, function () {
+            L.Noty.show('Журнал отправлен: ' + records.length + ' записей');
+        }, function () {
+            L.Noty.show('KADR Probe: не удалось отправить журнал на ' + url.replace('/kadr-probe', ''));
+        }, body);
+    }
     function addSettings() {
         if (!L.SettingsApi) return;
         L.SettingsApi.addComponent({component: 'kadr_probe', name: 'KADR Probe',
@@ -144,6 +167,15 @@
         L.SettingsApi.addParam({component: 'kadr_probe',
             param: {name: 'kadr_probe_show', type: 'button'},
             field: {name: 'Показать журнал'}, onChange: showLog});
+        L.SettingsApi.addParam({component: 'kadr_probe',
+            param: {name: 'kadr_probe_target', type: 'input', values: '', 'default': '', placeholder: '192.168.1.10:8765'},
+            field: {name: 'Адрес компьютера', description: 'IP компьютера с запущенным приёмником журнала, в той же сети.'}});
+        L.SettingsApi.addParam({component: 'kadr_probe',
+            param: {name: 'kadr_probe_label', type: 'input', values: '', 'default': '', placeholder: 'C1 Online Mod'},
+            field: {name: 'Метка проверки', description: 'Попадёт в имя файла на компьютере.'}});
+        L.SettingsApi.addParam({component: 'kadr_probe',
+            param: {name: 'kadr_probe_send', type: 'button'},
+            field: {name: 'Отправить журнал на компьютер'}, onChange: sendLog});
         L.SettingsApi.addParam({component: 'kadr_probe',
             param: {name: 'kadr_probe_clear', type: 'button'},
             field: {name: 'Очистить журнал'}, onChange: function () {
