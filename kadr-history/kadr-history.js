@@ -135,6 +135,55 @@
         flushDeferred(function () { flushOutbox(function () { pull(load(), 0, finishSync); }); });
     }
 
+    // ==== identity ====
+    function isTv(card) { return !!(card.number_of_seasons || card.original_name || card.first_air_date); }
+    function originalTitle(card) {
+        return isTv(card) ? (card.original_name || card.original_title || card.name || card.title)
+            : (card.original_title || card.title || card.name);
+    }
+    function episodeHash(season, episode, title) { return hash([season, season > 10 ? ':' : '', episode, title].join('')); }
+    function findEpisode(card, timelineHash, hint) {
+        var title = originalTitle(card);
+        if (hint && +hint.season > 0 && +hint.episode > 0 && episodeHash(+hint.season, +hint.episode, title) === timelineHash) {
+            return {season: +hint.season, episode: +hint.episode};
+        }
+        var seasons = Math.min(+card.number_of_seasons || 40, 60);
+        for (var season = 0; season <= seasons; season++) {
+            for (var episode = 1; episode <= 300; episode++) {
+                if (episodeHash(season, episode, title) === timelineHash) return {season: season, episode: episode};
+            }
+        }
+        return null;
+    }
+    function contentId(card) {
+        var source = String(card.source || 'tmdb').toLowerCase().replace(/[^a-z]/g, '');
+        if (source === 'cub' || source.length < 2) source = 'tmdb';
+        return source.slice(0, 8) + ':' + (isTv(card) ? 'tv' : 'movie') + ':' + String(card.id).replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 64);
+    }
+    function metaOf(card) {
+        var year = parseInt(String(card.release_date || card.first_air_date || '').slice(0, 4), 10);
+        var original = originalTitle(card), poster = card.poster_path || card.img;
+        return {title: (clean(card.title || card.name) || 'Без названия').slice(0, 300),
+            original_title: original ? clean(original).slice(0, 300) : null,
+            poster: poster ? String(poster).slice(0, 500) : null,
+            year: year >= 1880 && year <= 2100 ? year : null};
+    }
+    function identify(card, data) {
+        if (!card || !card.id) return null;
+        data = data || {};
+        var timelineHash = data.timeline && data.timeline.hash ? String(data.timeline.hash) : null;
+        var content = {content_id: contentId(card), episode_id: null, season: null, episode: null, meta: metaOf(card), hash: timelineHash};
+        if (isTv(card)) {
+            var found = timelineHash ? findEpisode(card, timelineHash, data) : null;
+            if (!found) return null;
+            content.season = found.season;
+            content.episode = found.episode;
+            content.episode_id = 's' + found.season + 'e' + found.episode;
+        }
+        content.item_key = content.content_id + (content.episode_id ? '/' + content.episode_id : '');
+        return content;
+    }
+
     // ==== settings ====
     function param(name, type, title, description, value, onChange) {
         L.SettingsApi.addParam({component: 'kadr_history',
@@ -212,6 +261,7 @@
     KH.sync = sync;
     KH.enqueue = enqueue;
     KH.clock = clock;
+    KH.identify = identify;
     if (window.appready) start();
     else if (window.Lampa && window.Lampa.Listener) {
         window.Lampa.Listener.follow('app', function (event) { if (event.type === 'ready') start(); });
