@@ -36,6 +36,8 @@ function setup(options = {}) {
         ...options.storage};
     if (options.noProfile) { delete storage.sled_profiles; delete storage.sled_active; }
     const sent = [], played = [], playlists = [], selects = [], notices = [], params = [], pushes = [];
+    let closed = 0;
+    const delay = ms => options.maxDelay === undefined ? ms : Math.min(ms || 0, options.maxDelay);
     const routes = Object.assign({
         'GET /v1/changes': () => ({json: {cursor: 'c0', more: false, items: [], conflicts: [], prefs: [], playbacks: []}}),
         'POST /v1/playbacks': req => ({json: {playback_id: req.body.playback_id, item_key: 'x', launch_token: 'kadrl_' + 't'.repeat(32),
@@ -56,7 +58,7 @@ function setup(options = {}) {
                  playlist(list) { playlists.push(list); }},
         Timeline: {listener: timeline},
         Activity: {active: () => activity, push(params) { pushes.push(params); }},
-        Select: {show(params) { selects.push(params); }},
+        Select: {show(params) { selects.push(params); }, close() { closed++; }},
         Controller: {toggle() {}},
         Noty: {show: message => notices.push(message)},
         Platform: {is: name => name === 'android'},
@@ -81,10 +83,11 @@ function setup(options = {}) {
         },
     };
     const window = {Lampa, appready: true};
-    vm.runInContext(code, vm.createContext({window, Lampa, console, setTimeout, clearTimeout, Date, JSON, Math, Object, Array,
+    vm.runInContext(code, vm.createContext({window, Lampa, console, setTimeout: (fn, ms) => setTimeout(fn, delay(ms)), clearTimeout, Date, JSON, Math, Object, Array,
         String, Number, encodeURIComponent, decodeURIComponent, parseInt}));
     return {
         Lampa, KH: window.Sled, storage, sent, routes, played, playlists, selects, notices, params, pushes, KEY,
+        get closed() { return closed; },
         launched: () => played.filter(call => !call.aborted).map(call => call.data),
         press: name => params.find(p => p.param.name === name).onChange(),
         returned: (value, road) => timeline.send('update', {data: {hash: value, road}}),

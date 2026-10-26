@@ -6,7 +6,7 @@
     if (window.Sled) return;
 
     var L;
-    var REWIND_MS = 10000, RESUME_MIN_MS = 10000, PENDING_TTL_MS = 12 * 3600000, NEXT_RECHECK_MS = 3000, INTENT_TTL_MS = 30 * 60000;
+    var PAIR_POLL_MS = 3000, PAIR_MAX_POLLS = 220, REWIND_MS = 10000, RESUME_MIN_MS = 10000, PENDING_TTL_MS = 12 * 3600000, NEXT_RECHECK_MS = 3000, INTENT_TTL_MS = 30 * 60000;
     var KH = window.Sled = {version: '0.1.0'};
     var syncing = false, waiting = [], captured = null, pending = null, intent = null;
 
@@ -44,13 +44,17 @@
 
     // ==== server ====
     function api(path, body, ok, fail, key) {
-        var profile = activeProfile(), secret = key || (profile && profile.key), base = server();
-        if (!base || !secret) { if (fail) fail({status: 0, error: 'not_configured'}); return; }
-        var headers = {Authorization: 'Bearer ' + secret};
+        var profile = activeProfile(), secret = key || (profile && profile.key);
+        if (!server() || !secret) { if (fail) fail({status: 0, error: 'not_configured'}); return; }
+        request(path, body, secret, ok, fail);
+    }
+    function request(path, body, secret, ok, fail) {
+        var headers = {};
+        if (secret) headers.Authorization = 'Bearer ' + secret;
         if (body) headers['Content-Type'] = 'application/json';
-        var request = new L.Reguest();
-        request.timeout(15000);
-        request.native(base + path, function (data) {
+        var call = new L.Reguest();
+        call.timeout(15000);
+        call.native(server() + path, function (data) {
             if (typeof data === 'string') {
                 try { data = JSON.parse(data); } catch (e) { if (fail) fail({status: 0, error: 'bad_json'}); return; }
             }
@@ -421,11 +425,7 @@
         var key = clean(get('profile_key', ''));
         if (!/^kadr_[A-Za-z0-9_-]{20,}$/.test(key)) return notify('Sled: вставьте ключ профиля, он начинается с kadr_');
         api('/v1/profile', null, function (profile) {
-            var name = String(profile.name || 'Профиль');
-            var list = profiles().filter(function (item) { return item.name !== name; });
-            list.push({name: name, key: key});
-            put('profiles', list);
-            put('active', name);
+            var name = rememberProfile(profile.name, key);
             put('profile_key', '');
             notify('Sled: профиль «' + name + '» сохранён');
             sync();
@@ -433,6 +433,60 @@
             put('profile_key', '');
             notify('Sled: сервер не принял ключ' + (error && error.status ? ' (код ' + error.status + ')' : ''));
         }, key);
+    }
+    function rememberProfile(rawName, key) {
+        var name = String(rawName || 'Профиль');
+        var list = profiles().filter(function (item) { return item.name !== name; });
+        list.push({name: name, key: key});
+        put('profiles', list);
+        put('active', name);
+        return name;
+    }
+    var pairingRun = 0;
+    function stopPairing() { pairingRun++; }
+    function closePairing() {
+        if (L.Select.close) L.Select.close();
+        L.Controller.toggle('settings_component');
+    }
+    function showPairing(run, pair) {
+        L.Select.show({title: 'Привязка Sled', items: [
+            {title: pair.code, subtitle: 'На компьютере с сервером: python -m kadr_sync.cli pair ' + pair.code + ' "Профиль"'},
+            {title: 'Отмена', cancel: true}],
+            onSelect: function (choice) {
+                if (choice.cancel || run !== pairingRun) { stopPairing(); L.Controller.toggle('settings_component'); }
+                else showPairing(run, pair);
+            },
+            onBack: function () { stopPairing(); L.Controller.toggle('settings_component'); }});
+    }
+    function pollPairing(run, pair, attempt) {
+        setTimeout(function () {
+            if (run !== pairingRun) return;
+            if (attempt > PAIR_MAX_POLLS) { stopPairing(); closePairing(); return notify('Sled: код истёк, начните привязку заново'); }
+            request('/v1/pair/poll', {poll_token: pair.poll_token}, null, function (answer) {
+                if (run !== pairingRun) return;
+                if (!answer || answer.status !== 'approved' || !answer.key) return pollPairing(run, pair, attempt + 1);
+                stopPairing();
+                var name = rememberProfile(answer.name, answer.key);
+                closePairing();
+                notify('Sled: устройство привязано к профилю «' + name + '»');
+                sync();
+            }, function (error) {
+                if (run !== pairingRun) return;
+                if (error && error.status === 404) { stopPairing(); closePairing(); return notify('Sled: код истёк, начните привязку заново'); }
+                pollPairing(run, pair, attempt + 1);
+            });
+        }, PAIR_POLL_MS);
+    }
+    function pairDevice() {
+        if (!server()) return notify('Sled: сначала укажите адрес сервера истории');
+        var run = ++pairingRun;
+        request('/v1/pair/start', {}, null, function (pair) {
+            if (run !== pairingRun || !pair || !pair.code || !pair.poll_token) return;
+            showPairing(run, pair);
+            pollPairing(run, pair, 1);
+        }, function (error) {
+            notify('Sled: сервер не выдал код привязки' + (error && error.status ? ' (код ' + error.status + ')' : ''));
+        });
     }
     function switchProfile() {
         var list = profiles(), current = activeProfile();
@@ -470,6 +524,7 @@
         param('enabled', 'trigger', 'Продолжение через KADR',
             'Перехватывать запуск во внешнем плеере Android: меню «Продолжить / Сначала», передача позиции и истории в KADR.', true);
         param('server', 'input', 'Адрес сервера истории', 'Например https://kadr.example.com', '');
+        param('pair', 'button', 'Привязать по коду', 'Покажет код; подтвердите его командой pair на компьютере с сервером.', '', pairDevice);
         param('profile_key', 'input', 'Ключ профиля', 'Ключ из команды create-profile. После сохранения поле очищается.', '');
         param('profile_save', 'button', 'Сохранить профиль', 'Проверяет ключ на сервере и делает профиль активным.', '', saveProfile);
         param('profile_switch', 'button', 'Сменить профиль', 'Выбор сохранённого профиля на этом устройстве.', '', switchProfile);
