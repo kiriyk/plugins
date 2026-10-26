@@ -158,3 +158,25 @@ test('send reports a network failure', t => {
     h.press('kadr_probe_send');
     assert.match(h.notices.at(-1), /не удалось/i);
 });
+
+test('probe mark is appended as a url fragment, also to quality urls', t => {
+    const h = setup(t, {storage: {player: 'android', kadr_probe_header: true}});
+    const data = {url: 'https://cdn.example/a.m3u8?t=1', quality: {'1080p': 'https://cdn.example/1080.m3u8', '720p': 'https://cdn.example/720.m3u8#x'}};
+    h.Lampa.Player.listener.send('create', {data});
+    const nonce = data.headers['X-Kadr-Probe'];
+    assert.equal(data.url, 'https://cdn.example/a.m3u8?t=1#kadr-probe=' + nonce);
+    assert.equal(data.quality['1080p'], 'https://cdn.example/1080.m3u8#kadr-probe=' + nonce);
+    assert.equal(data.quality['720p'], 'https://cdn.example/720.m3u8#x', 'an existing fragment is left alone');
+    assert.equal(h.log()[0].fragment, true);
+});
+
+test('no fragment without the setting or for the inner player', t => {
+    const off = setup(t, {storage: {player: 'android'}});
+    const d1 = {url: 'https://cdn.example/a.m3u8'};
+    off.Lampa.Player.listener.send('create', {data: d1});
+    assert.equal(d1.url, 'https://cdn.example/a.m3u8');
+    const inner = setup(t, {storage: {player: 'inner', kadr_probe_header: true}});
+    const d2 = {url: 'https://cdn.example/a.m3u8'};
+    inner.Lampa.Player.listener.send('create', {data: d2});
+    assert.equal(d2.url, 'https://cdn.example/a.m3u8');
+});

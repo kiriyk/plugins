@@ -1,4 +1,4 @@
-/* KADR Probe 0.2.0 | Lampa + KADR integration diagnostics.
+/* KADR Probe 0.3.0 | Lampa + KADR integration diagnostics.
  * Stores masked launch data only: no full URLs, query strings or header values.
  */
 (function () {
@@ -85,6 +85,9 @@
         };
     }
 
+    function withMark(url, nonce) {
+        return typeof url === 'string' && url.indexOf('#') === -1 ? url + '#kadr-probe=' + nonce : url;
+    }
     function onCreate(event) {
         var data = event && event.data;
         if (!data) return;
@@ -94,6 +97,15 @@
             if (!data.headers || typeof data.headers !== 'object') data.headers = {};
             data.headers[PROBE_HEADER] = nonce;
             payload.nonce = nonce;
+            // Lampa may swap data.url for a quality url after 'create', so mark those too.
+            var marked = withMark(data.url, nonce);
+            payload.fragment = marked !== data.url;
+            data.url = marked;
+            if (data.quality && typeof data.quality === 'object') {
+                Object.keys(data.quality).forEach(function (name) {
+                    data.quality[name] = withMark(data.quality[name], nonce);
+                });
+            }
         }
         payload.data = mask(data, '', 0);
         record('create', payload);
@@ -162,8 +174,8 @@
             icon: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/><path d="M10 8l6 4-6 4V8Z" fill="currentColor"/></svg>'});
         L.SettingsApi.addParam({component: 'kadr_probe',
             param: {name: 'kadr_probe_header', type: 'trigger', 'default': false},
-            field: {name: 'Передавать тестовый заголовок',
-                description: 'Добавляет X-Kadr-Probe при запуске во внешнем плеере Android, чтобы проверить его получение в KADR.'}});
+            field: {name: 'Передавать тестовую метку',
+                description: 'Добавляет метку в заголовок X-Kadr-Probe и в ссылку (#kadr-probe=…) при запуске во внешнем плеере Android, чтобы проверить её получение в KADR.'}});
         L.SettingsApi.addParam({component: 'kadr_probe',
             param: {name: 'kadr_probe_show', type: 'button'},
             field: {name: 'Показать журнал'}, onChange: showLog});
