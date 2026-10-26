@@ -372,6 +372,45 @@
         if (record.playlist) L.Player.playlist(record.playlist);
     }
 
+    // ==== history ====
+    var LAST_BALANSER_KEYS = {online_mod: 'online_mod_last_balanser', showy_free: 'online_last_balanser'};
+    function componentExists(name) {
+        try { return !!(L.Component && L.Component.get && L.Component.get(name)); } catch (e) { return false; }
+    }
+    function seedBalanser(adapter, card, balanser) {
+        if (!balanser) return;
+        L.Storage.set(BALANSER_KEYS[adapter], balanser);
+        var last = L.Storage.get(LAST_BALANSER_KEYS[adapter], {});
+        if (!last || typeof last !== 'object' || Array.isArray(last)) last = {};
+        last[card.id] = balanser;
+        L.Storage.set(LAST_BALANSER_KEYS[adapter], last);
+    }
+    function searchActivity(card, component) {
+        var title = card.title || card.name;
+        return {url: '', title: title, component: component, search: title, search_one: title,
+            search_two: card.original_title || card.original_name, movie: card, page: 1};
+    }
+    var OPENERS = {
+        online_mod: function (card, prefs) {
+            seedBalanser('online_mod', card, prefs.balanser);
+            L.Activity.push(searchActivity(card, 'online_mod'));
+        },
+        showy_free: function (card, prefs) {
+            seedBalanser('showy_free', card, prefs.balanser);
+            var activity = searchActivity(card, 'showy_free');
+            if (prefs.balanser) activity.balanser = prefs.balanser;
+            L.Activity.push(activity);
+        }
+    };
+    function open(card, item, mode) {
+        var prefs = load().prefs[item.content_id] || item.source || {};
+        intent = {item_key: item.item_key, hash: null, mode: mode === 'start' ? 'start' : 'resume', at: now()};
+        var opener = OPENERS[prefs.adapter];
+        if (opener && componentExists(prefs.adapter)) return opener(card, prefs);
+        L.Activity.push({url: '', component: 'full', id: card.id, method: isTv(card) ? 'tv' : 'movie', card: card,
+            source: card.source || 'tmdb'});
+    }
+
     // ==== settings ====
     function param(name, type, title, description, value, onChange) {
         L.SettingsApi.addParam({component: 'kadr_history',
@@ -453,6 +492,7 @@
     KH.enqueue = enqueue;
     KH.clock = clock;
     KH.identify = identify;
+    KH.open = open;
     if (window.appready) start();
     else if (window.Lampa && window.Lampa.Listener) {
         window.Lampa.Listener.follow('app', function (event) { if (event.type === 'ready') start(); });
