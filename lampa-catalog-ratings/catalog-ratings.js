@@ -1,4 +1,4 @@
-/* Catalog Ratings 1.1.0 | MIT | Lampa 3.x (target: 3.3.8).
+/* Catalog Ratings 1.2.0 | MIT | Lampa 3.x (target: 3.3.8).
  * No bundled API keys. Configure Settings > Ratings on posters.
  */
 (function () {
@@ -7,10 +7,11 @@
     window.__catalogRatingsLoaded = true;
 
     var L, records = [], queue = [], pending = {}, active = 0;
-    var cache = {}, revision = 0, blocked = false, pauseUntil = 0;
-    var CACHE_KEY = 'cr_cache_v2', MAX_CACHE = 500, MAX_FAILURES = 3, RETRY = 60000;
+    var cache = {}, revision = 0, kpBlocked = false, kpPauseUntil = 0, batch = null;
+    var CACHE_KEY = 'cr_cache_v3', MAX_CACHE = 500, MAX_FAILURES = 3, RETRY = 60000, MAX_ACTIVE = 4;
     var DAY = 86400000, API = 'https://kinopoiskapiunofficial.tech/api/v2.2/films';
-    var started = false, observer, resumeTimer, retryTimer, quotaNotified = false;
+    var IMDB_API = 'https://api.agregarr.org/api/ratings', BATCH_DELAY = 100, BATCH_SIZE = 20;
+    var started = false, observer, retryTimer, quotaNotified = false;
 
     function setting(name, fallback) {
         return L.Storage.get('cr_' + name, fallback);
@@ -77,29 +78,37 @@
         return type === 'tv' ? /^(TV_SERIES|MINI_SERIES|TV_SHOW)$/.test(kind) : /^(FILM|VIDEO)$/.test(kind);
     }
     function loadCache() {
-        try {
-            var old = L.Storage.get('cr_cache_v1', null);
-            if (old && typeof old === 'object' && Object.keys(old).length) L.Storage.set('cr_cache_v1', {});
-        } catch (e) { /* Old cache only takes space. */ }
+        ['cr_cache_v1', 'cr_cache_v2'].forEach(function (name) {
+            try {
+                var old = L.Storage.get(name, null);
+                if (old && typeof old === 'object' && Object.keys(old).length) L.Storage.set(name, {});
+            } catch (e) { /* Old cache only takes space. */ }
+        });
         try {
             var stored = L.Storage.get(CACHE_KEY, {});
             if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return;
             Object.keys(stored).slice(-MAX_CACHE).forEach(function (key) {
                 var entry = stored[key];
-                if (entry && typeof entry.expires === 'number' && entry.expires > Date.now()) {
-                    cache[key] = {kp: number(entry.kp), imdb: number(entry.imdb), expires: entry.expires};
-                }
+                if (!entry || typeof entry.kpUntil !== 'number' || typeof entry.imdbUntil !== 'number') return;
+                cache[key] = {kp: number(entry.kp), imdb: number(entry.imdb), kpUntil: entry.kpUntil, imdbUntil: entry.imdbUntil};
             });
         } catch (e) { cache = {}; }
     }
-    function cached(key) {
-        var entry = cache[key];
-        return entry && entry.expires > Date.now() ? entry : null;
+    // Known part of a cache entry: each source has its own expiry.
+    function known(key) {
+        var entry = key && cache[key], now = Date.now();
+        return {kp: entry && entry.kpUntil > now ? entry.kp : null, imdb: entry && entry.imdbUntil > now ? entry.imdb : null,
+            kpKnown: !!entry && entry.kpUntil > now, imdbKnown: !!entry && entry.imdbUntil > now};
     }
-    function remember(key, value) {
-        cache[key] = {kp: value.kp, imdb: value.imdb,
-            expires: Date.now() + (value.kp || value.imdb ? DAY * 7 : DAY / 2)};
-        var keys = Object.keys(cache).sort(function (a, b) { return cache[a].expires - cache[b].expires; });
+    function remember(key, out) {
+        if (!out.kpDone && !out.imdbDone) return;
+        var entry = cache[key] || {kp: null, imdb: null, kpUntil: 0, imdbUntil: 0}, now = Date.now();
+        if (out.kpDone) { entry.kp = out.kp; entry.kpUntil = now + (out.kp ? DAY * 30 : DAY / 2); }
+        if (out.imdbDone) { entry.imdb = out.imdb; entry.imdbUntil = now + (out.imdb ? DAY * 7 : DAY / 2); }
+        cache[key] = entry;
+        var keys = Object.keys(cache).sort(function (a, b) {
+            return Math.max(cache[a].kpUntil, cache[a].imdbUntil) - Math.max(cache[b].kpUntil, cache[b].imdbUntil);
+        });
         while (keys.length > MAX_CACHE) delete cache[keys.shift()];
         try { L.Storage.set(CACHE_KEY, cache); } catch (e) { /* A full TV storage must not break catalog. */ }
     }
@@ -138,7 +147,7 @@
         view.appendChild(container);
         record.root.classList.add('cr-has-ratings');
     }
-    function apiGet(path, key, callback) {
+    function httpGet(url, headers, callback) {
         var settled = false, network;
         var timer = setTimeout(function () { finish(null, 0); if (network && network.clear) network.clear(); }, 10000);
         function finish(value, error) {
@@ -149,27 +158,83 @@
             var Request = L.Reguest || L.Request;
             network = new Request();
             network.timeout(8000);
-            network.silent(API + path, function (data) {
+            network.silent(url, function (data) {
                 if (!data || typeof data !== 'object') finish(null, 0);
                 else finish(data, null);
             }, function (error) {
                 finish(null, error && error.status ? Number(error.status) : 0);
-            }, false, {headers: {'X-API-KEY': key, 'Accept': 'application/json'}});
+            }, false, {headers: headers});
         } catch (e) { finish(null, 0); }
     }
+    function apiGet(path, key, callback) {
+        httpGet(API + path, {'X-API-KEY': key, 'Accept': 'application/json'}, callback);
+    }
+    // IMDb ratings come from the free keyless Agregarr API, batched by exact IMDb ID.
+    function imdbRating(imdb, callback) {
+        if (!batch) batch = {ids: {}, timer: setTimeout(flush, BATCH_DELAY)};
+        (batch.ids[imdb] = batch.ids[imdb] || []).push(callback);
+        if (Object.keys(batch.ids).length >= BATCH_SIZE) flush();
+    }
+    function flush() {
+        var current = batch;
+        if (!current) return;
+        batch = null; clearTimeout(current.timer);
+        var ids = Object.keys(current.ids);
+        httpGet(IMDB_API + '?' + ids.map(function (id) { return 'id=' + encodeURIComponent(id); }).join('&'),
+            {'Accept': 'application/json'}, function (data, error) {
+                var found = {};
+                if (error === null && !Array.isArray(data)) error = 0;
+                if (error === null) data.forEach(function (row) {
+                    if (row && current.ids[row.imdbId]) found[row.imdbId] = number(row.rating);
+                });
+                ids.forEach(function (id) {
+                    current.ids[id].forEach(function (callback) { callback(error === null ? found[id] || null : null, error); });
+                });
+            });
+    }
+    function kpError(error) {
+        if (error === 401 || error === 403) {
+            if (!kpBlocked) notify('Рейтинги: API Кинопоиска отклонил ключ (HTTP ' + error + '). Проверьте ключ в настройках.');
+            kpBlocked = true;
+        } else if (error === 402 || error === 429) {
+            // 402: daily quota is over, 429: per-second limit. IMDb keeps working meanwhile.
+            if (error === 402 && !quotaNotified) notify('Рейтинги: исчерпан лимит запросов Кинопоиска. Повтор через час, IMDb продолжает работать.');
+            quotaNotified = quotaNotified || error === 402;
+            kpPauseUntil = Date.now() + (error === 402 ? DAY / 24 : RETRY);
+        }
+    }
     function resolve(job, callback) {
-        var id = job.id;
+        var id = job.id, data = job.data || {}, left = 0, kpImdb = null;
+        var out = {kp: null, imdb: null, kpDone: false, imdbDone: false, kpSkipped: false, error: null};
+        function failed(error) { if (out.error === null) out.error = error; }
+        function finish() {
+            if (--left) return;
+            // Kinopoisk also knows IMDb scores: a fallback when Agregarr has none.
+            if (!out.imdb && kpImdb) { out.imdb = kpImdb; out.imdbDone = true; }
+            callback(out);
+        }
+        function kpDone(film) {
+            out.kp = film ? number(film.ratingKinopoisk) : null; out.kpDone = true;
+            kpImdb = film ? number(film.ratingImdb) : null;
+            finish();
+        }
+        function kpFailed(error) {
+            kpError(error);
+            if (error === 402 || error === 429) out.kpSkipped = true;
+            else if (error !== 401 && error !== 403) failed(error);
+            finish();
+        }
         // Films without an IMDb match: strict title + year + type search, accepted only if unambiguous.
         function search(imdb) {
-            var data = job.data || {}, when = year(data.release_date || data.first_air_date);
+            var when = year(data.release_date || data.first_air_date);
             var titles = [data.title, data.name, data.original_title, data.original_name].map(normal)
                 .filter(function (title) { return title; });
             var keyword = data.title || data.name || data.original_title || data.original_name;
-            if (!when || !titles.length || !keyword) return callback({kp: null, imdb: null}, null);
+            if (!when || !titles.length || !keyword) return kpDone(null);
             apiGet('?keyword=' + encodeURIComponent(keyword) + '&yearFrom=' + (when - 1) + '&yearTo=' + (when + 1),
                 job.token, function (result, error) {
-                    if (error !== null) return callback(null, error);
-                    if (!Array.isArray(result.items)) return callback(null, 0);
+                    if (error !== null) return kpFailed(error);
+                    if (!Array.isArray(result.items)) return kpFailed(0);
                     var matches = result.items.filter(function (film) {
                         if (!film || !sameType(id.type, film)) return false;
                         if (imdb && film.imdbId && film.imdbId !== imdb) return false;
@@ -178,60 +243,59 @@
                             return name && titles.indexOf(normal(name)) !== -1;
                         });
                     });
-                    callback(matches.length === 1 ? ratings(matches[0]) : {kp: null, imdb: null}, null);
+                    kpDone(matches.length === 1 ? matches[0] : null);
                 });
         }
-        function find(imdb) {
-            if (job.revision !== revision) return callback(null, 0);
-            if (!imdb) return search('');
-            apiGet('?imdbId=' + encodeURIComponent(imdb), job.token, function (data, error) {
-                if (error !== null) return callback(null, error);
-                if (!Array.isArray(data.items)) return callback(null, 0);
-                var found = null;
-                data.items.some(function (film) {
-                    if (film && film.imdbId === imdb) { found = film; return true; }
-                    return false;
+        function kp(imdb) {
+            if (!job.need.kp || kpBlocked || !job.token) return finish();
+            if (kpPauseUntil > Date.now()) { out.kpSkipped = true; return finish(); }
+            if (id.kp) {
+                apiGet('/' + id.kp, job.token, function (film, error) {
+                    if (error !== null) return kpFailed(error);
+                    if (numericId(film.kinopoiskId) !== id.kp) return kpFailed(0);
+                    kpDone(film);
                 });
-                if (found) callback(ratings(found), null);
-                else search(imdb);
+            } else if (imdb) {
+                apiGet('?imdbId=' + encodeURIComponent(imdb), job.token, function (result, error) {
+                    if (error !== null) return kpFailed(error);
+                    if (!Array.isArray(result.items)) return kpFailed(0);
+                    var found = null;
+                    result.items.some(function (film) {
+                        if (film && film.imdbId === imdb) { found = film; return true; }
+                        return false;
+                    });
+                    if (found) kpDone(found);
+                    else search(imdb);
+                });
+            } else search('');
+        }
+        function imdbPart(imdb) {
+            if (!job.need.imdb) return finish();
+            if (!imdb) { out.imdbDone = true; return finish(); }
+            imdbRating(imdb, function (value, error) {
+                if (error !== null) failed(error);
+                else { out.imdb = value; out.imdbDone = true; }
+                finish();
             });
         }
-        if (id.kp) {
-            apiGet('/' + id.kp, job.token, function (data, error) {
-                if (error !== null) return callback(null, error);
-                if (numericId(data.kinopoiskId) !== id.kp) return callback(null, 0);
-                callback(ratings(data), null);
-            });
-        } else if (id.imdb) find(id.imdb);
-        else if (id.tmdb && L.Api && L.Api.sources.tmdb && L.Api.sources.tmdb.external_ids) {
-            var settled = false;
-            var timer = setTimeout(function () { done('', true); }, 10000);
-            function done(imdb, failed) {
-                if (settled) return;
-                settled = true; clearTimeout(timer);
-                if (failed) callback(null, 0);
-                else find(imdbId(imdb));
-            }
-            try {
-                L.Api.sources.tmdb.external_ids({id: Number(id.tmdb), type: id.type}, function (data) {
-                    done(data && data.imdb_id, false);
-                }, function () { done('', true); });
-            } catch (e) { done('', true); }
-        } else callback(null, 0);
-    }
-    function requestError(error) {
-        if (error === 401 || error === 403) {
-            if (!blocked) notify('Рейтинги: API отклонил ключ (HTTP ' + error + '). Проверьте ключ и лимит в настройках.');
-            blocked = true;
-        } else if (error === 402 || error === 429) {
-            // 402: daily quota is over, 429: per-second limit. Deferred cards return after the pause.
-            var pause = error === 402 ? DAY / 24 : RETRY;
-            if (error === 402 && !quotaNotified) notify('Рейтинги: исчерпан лимит запросов API. Повтор через час.');
-            quotaNotified = quotaNotified || error === 402;
-            pauseUntil = Date.now() + pause;
-            clearTimeout(resumeTimer);
-            resumeTimer = setTimeout(function () { pump(); }, pause);
+        function lookup(imdb) {
+            if (job.revision !== revision) return callback(out);
+            left = 2; imdbPart(imdb); kp(imdb);
         }
+        if (id.imdb || id.kp || !id.tmdb) return lookup(id.imdb);
+        if (!L.Api || !L.Api.sources.tmdb || !L.Api.sources.tmdb.external_ids) { failed(0); return callback(out); }
+        var settled = false;
+        var timer = setTimeout(function () { done('', true); }, 10000);
+        function done(imdb, error) {
+            if (settled) return;
+            settled = true; clearTimeout(timer);
+            if (error) { failed(0); callback(out); } else lookup(imdbId(imdb));
+        }
+        try {
+            L.Api.sources.tmdb.external_ids({id: Number(id.tmdb), type: id.type}, function (ids) {
+                done(ids && ids.imdb_id, false);
+            }, function () { done('', true); });
+        } catch (e) { done('', true); }
     }
     function retryLater(delay) {
         if (retryTimer) return;
@@ -244,8 +308,8 @@
         return job.revision === revision && enabled('enabled') && job.records.some(function (r) { return !r.dead; });
     }
     function pump() {
-        if (blocked || pauseUntil > Date.now() || !enabled('enabled')) return;
-        while (active < 2 && queue.length) {
+        if (!enabled('enabled')) return;
+        while (active < MAX_ACTIVE && queue.length) {
             var job = queue.shift();
             if (!wanted(job)) { if (pending[job.id.key] === job) delete pending[job.id.key]; continue; }
             run(job);
@@ -253,43 +317,49 @@
     }
     function run(job) {
         active++;
-        resolve(job, function (value, error) {
+        resolve(job, function (out) {
             active--;
             if (pending[job.id.key] === job) delete pending[job.id.key];
             if (job.revision === revision) {
-                if (error === null) remember(job.id.key, value);
-                else requestError(error);
+                remember(job.id.key, out);
                 job.records.forEach(function (record) {
                     if (record.dead) return;
                     record.loading = false;
-                    record.retryAt = error === null ? 0 : Math.max(Date.now() + RETRY, pauseUntil);
-                    if (error !== null && error !== 402 && error !== 429) record.failures++;
-                    if (value) record.value = merge(ratings(record.data), value);
+                    record.retryAt = out.error === null ? 0 : Date.now() + RETRY;
+                    if (out.error !== null) record.failures++;
+                    record.value = merge(merge(ratings(record.data), known(job.id.key)), out);
                     draw(record, record.value);
-                    if (error !== null) {
-                        record.deferred = true;
-                        if (!blocked && record.failures < MAX_FAILURES) retryLater(record.retryAt - Date.now());
-                    }
+                    var wait = out.kpSkipped ? kpPauseUntil - Date.now() : 0;
+                    if (out.error !== null && record.failures < MAX_FAILURES) wait = Math.max(wait, RETRY);
+                    if (wait > 0) { record.deferred = true; retryLater(wait); }
                 });
             }
             pump();
         });
     }
+    function needs(record) {
+        var base = ratings(record.data), id = identity(record.data), hit = known(id.key);
+        return {
+            imdb: !base.imdb && !hit.imdbKnown,
+            kp: !base.kp && !hit.kpKnown && !!token() && !kpBlocked
+        };
+    }
     function refresh(record) {
         if (record.dead || !record.visible) return;
-        var base = ratings(record.data), id = identity(record.data), hit = id.key && cached(id.key);
-        record.value = hit ? merge(base, hit) : base;
+        var id = identity(record.data);
+        record.value = merge(ratings(record.data), known(id.key));
         draw(record, record.value);
         record.deferred = false;
-        if (!enabled('enabled') || (record.value.kp && record.value.imdb) || hit || !id.key || !token() ||
-            record.loading || blocked || record.failures >= MAX_FAILURES) return;
-        var wait = Math.max(record.retryAt, pauseUntil) - Date.now();
-        if (wait > 0) { record.deferred = true; return retryLater(wait); }
+        if (!enabled('enabled') || !id.key || record.loading || record.failures >= MAX_FAILURES) return;
+        var need = needs(record), now = Date.now();
+        if (need.kp && kpPauseUntil > now && !need.imdb) { record.deferred = true; return retryLater(kpPauseUntil - now); }
+        if (!need.imdb && !need.kp) return;
+        if (record.retryAt > now) { record.deferred = true; return retryLater(record.retryAt - now); }
         record.loading = true;
         var job = pending[id.key];
         if (job && job.revision === revision) job.records.push(record);
         else {
-            job = {id: id, data: record.data, token: token(), revision: revision, records: [record]};
+            job = {id: id, data: record.data, need: need, token: token(), revision: revision, records: [record]};
             pending[id.key] = job; queue.push(job);
         }
         pump();
@@ -320,8 +390,8 @@
         onDestroy: function () { var root = rootNode(this.html); if (root) detach(root.__crRecord); }
     };
     function change() {
-        clearTimeout(resumeTimer); clearTimeout(retryTimer); retryTimer = null;
-        revision++; blocked = false; pauseUntil = 0; quotaNotified = false; pending = {}; queue = [];
+        clearTimeout(retryTimer); retryTimer = null;
+        revision++; kpBlocked = false; kpPauseUntil = 0; quotaNotified = false; pending = {}; queue = [];
         records.forEach(function (r) { r.loading = false; r.retryAt = 0; r.failures = 0; refresh(r); });
     }
     function checkApi() {
@@ -342,12 +412,12 @@
                 param: {name: 'cr_' + name, type: type, values: '', 'default': value, placeholder: ''},
                 field: {name: title, description: description}, onChange: callback || change});
         }
-        param('enabled', 'trigger', 'КП и IMDb на постерах', 'Заменять текущую оценку доступными рейтингами.', true);
+        param('enabled', 'trigger', 'КП и IMDb на постерах', 'Заменять текущую оценку доступными рейтингами. IMDb работает без ключа.', true);
         param('api_key', 'input', 'Ключ Kinopoisk API Unofficial',
-            'Получите ключ на kinopoiskapiunofficial.tech. Ключ хранится в настройках Lampa, в код добавлять его не нужно.', '');
+            'Нужен только для оценок КП. Получите ключ на kinopoiskapiunofficial.tech. Ключ хранится в настройках Lampa.', '');
         param('fallback', 'trigger', 'Оставлять исходную оценку', 'Когда КП и IMDb недоступны, показывать прежнюю оценку.', true);
         param('check', 'button', 'Проверить API', 'Один тестовый запрос для проверки ключа и доступа к API.', '', checkApi);
-        param('clear', 'button', 'Очистить кэш рейтингов', 'Успешные ответы: 7 дней. Нет оценок: 12 часов. До 500 записей.', '', function () {
+        param('clear', 'button', 'Очистить кэш рейтингов', 'КП: 30 дней, IMDb: 7 дней, нет оценки: 12 часов. До 500 записей.', '', function () {
             cache = {}; try { L.Storage.set(CACHE_KEY, {}); } catch (e) {}
             change(); notify('Кэш рейтингов очищен.');
         });

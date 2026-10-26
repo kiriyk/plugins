@@ -1,6 +1,6 @@
 {
   "name": "lampa-catalog-ratings",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Kinopoisk and IMDb ratings on Lampa 3.x catalog posters",
   "scripts": {"test": "node --test tests/*.test.cjs", "check": "node --check catalog-ratings.js"},
