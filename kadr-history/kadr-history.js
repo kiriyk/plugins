@@ -136,12 +136,76 @@
     }
 
     // ==== settings ====
+    function param(name, type, title, description, value, onChange) {
+        L.SettingsApi.addParam({component: 'kadr_history',
+            param: {name: 'kh_' + name, type: type, values: '', 'default': value, placeholder: ''},
+            field: {name: title, description: description}, onChange: onChange});
+    }
+    function saveProfile() {
+        var key = clean(get('profile_key', ''));
+        if (!/^kadr_[A-Za-z0-9_-]{20,}$/.test(key)) return notify('KADR: вставьте ключ профиля, он начинается с kadr_');
+        api('/v1/profile', null, function (profile) {
+            var name = String(profile.name || 'Профиль');
+            var list = profiles().filter(function (item) { return item.name !== name; });
+            list.push({name: name, key: key});
+            put('profiles', list);
+            put('active', name);
+            put('profile_key', '');
+            notify('KADR: профиль «' + name + '» сохранён');
+            sync();
+        }, function (error) {
+            put('profile_key', '');
+            notify('KADR: сервер не принял ключ' + (error && error.status ? ' (код ' + error.status + ')' : ''));
+        }, key);
+    }
+    function switchProfile() {
+        var list = profiles(), current = activeProfile();
+        if (!list.length) return notify('KADR: профилей нет. Добавьте ключ профиля.');
+        var items = list.map(function (item) {
+            return {title: item.name + (current && current.name === item.name ? ' ✓' : ''), name: item.name};
+        });
+        if (current) items.push({title: 'Удалить профиль «' + current.name + '» с этого устройства', remove: current.name});
+        L.Select.show({title: 'Профиль KADR', items: items, onSelect: function (choice) {
+            L.Controller.toggle('settings_component');
+            if (choice.remove) {
+                var key = stateKey();
+                if (key) put(key, null);
+                put('profiles', profiles().filter(function (item) { return item.name !== choice.remove; }));
+                put('active', (profiles()[0] || {}).name || '');
+            } else {
+                put('active', choice.name);
+            }
+            sync();
+        }, onBack: function () { L.Controller.toggle('settings_component'); }});
+    }
+    function checkConnection() {
+        api('/v1/profile', null, function (profile) {
+            var threshold = profile.settings && profile.settings.watched_threshold;
+            notify('KADR: сервер доступен, профиль «' + profile.name + '», порог ' + threshold + '%');
+        }, function (error) {
+            if (error && error.error === 'not_configured') return notify('KADR: укажите адрес сервера и профиль');
+            notify('KADR: сервер недоступен' + (error && error.status ? ' (код ' + error.status + ')' : ''));
+        });
+    }
+    function addSettings() {
+        if (!L.SettingsApi) return;
+        L.SettingsApi.addComponent({component: 'kadr_history', name: 'KADR: история',
+            icon: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/></svg>'});
+        param('enabled', 'trigger', 'Продолжение через KADR',
+            'Перехватывать запуск во внешнем плеере Android: меню «Продолжить / Сначала», передача позиции и истории в KADR.', true);
+        param('server', 'input', 'Адрес сервера истории', 'Например https://kadr.example.com', '');
+        param('profile_key', 'input', 'Ключ профиля', 'Ключ из команды create-profile. После сохранения поле очищается.', '');
+        param('profile_save', 'button', 'Сохранить профиль', 'Проверяет ключ на сервере и делает профиль активным.', '', saveProfile);
+        param('profile_switch', 'button', 'Сменить профиль', 'Выбор сохранённого профиля на этом устройстве.', '', switchProfile);
+        param('check', 'button', 'Проверить связь', 'Запрос к серверу с ключом активного профиля.', '', checkConnection);
+    }
 
     // ==== start ====
     function start() {
         if (start.done) return;
         start.done = true;
         L = window.Lampa;
+        addSettings();
         sync();
     }
     KH.load = function () { return load(); };
