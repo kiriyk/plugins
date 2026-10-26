@@ -184,6 +184,132 @@
         return content;
     }
 
+    // ==== launch ====
+    var BALANSER_KEYS = {online_mod: 'online_mod_balanser', showy_free: 'online_balanser'};
+    function unmark(url) { return typeof url === 'string' ? url.replace(/#kadr=.*$/, '') : url; }
+    function mark(url, fragment) {
+        if (typeof url !== 'string') return url;
+        url = unmark(url);
+        return url.indexOf('#') === -1 ? url + '#' + fragment : url;
+    }
+    function fragmentOf(record, token) {
+        var body = record.body;
+        var parts = ['kadr=1', 'mode=' + body.mode, 'pos=' + body.start_position_ms, 'next=' + (record.next ? 1 : 0)];
+        if (token) {
+            parts.push('pid=' + body.playback_id, 'tok=' + encodeURIComponent(token), 'srv=' + encodeURIComponent(server()),
+                'dev=' + body.device_id, 'cid=' + encodeURIComponent(body.content.content_id));
+        }
+        if (body.content.episode_id) parts.push('eid=' + body.content.episode_id);
+        return parts.join('&');
+    }
+    function nextOf(playlist, data, timelineHash) {
+        if (!Array.isArray(playlist)) return null;
+        var url = unmark(data.url);
+        for (var i = 0; i < playlist.length - 1; i++) {
+            var item = playlist[i] || {};
+            var same = (timelineHash && item.timeline && String(item.timeline.hash) === timelineHash) || unmark(item.url) === url;
+            if (same) {
+                var next = playlist[i + 1];
+                return next && typeof next.url === 'string' && next.url ? next : null;
+            }
+        }
+        return null;
+    }
+    function adapterName(component) {
+        return String(component || '').toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 32) || 'generic';
+    }
+    function qualityOf(data) {
+        if (!data.quality || typeof data.quality !== 'object') return null;
+        var names = Object.keys(data.quality);
+        for (var i = 0; i < names.length; i++) {
+            if (unmark(data.quality[names[i]]) === unmark(data.url)) return clean(names[i]).slice(0, 32) || null;
+        }
+        return null;
+    }
+    function sourceOf(data, component) {
+        var adapter = adapterName(component), key = BALANSER_KEYS[adapter];
+        var balanser = key ? clean(L.Storage.get(key, '')).slice(0, 64) : '';
+        return {adapter: adapter, balanser: balanser || null, voice: data.voice_name ? clean(data.voice_name).slice(0, 120) : null,
+            quality: qualityOf(data), ids: {}};
+    }
+    function wrapPlaylist() {
+        var original = L.Player.playlist;
+        if (typeof original !== 'function' || original.__kadrHistory) return;
+        var wrapped = function (list) {
+            captured = Array.isArray(list) ? list : null;
+            return original.apply(this, arguments);
+        };
+        wrapped.__kadrHistory = true;
+        L.Player.playlist = wrapped;
+    }
+    function external() {
+        var player = L.Storage.field ? L.Storage.field('player') : L.Storage.get('player');
+        return player === 'android' && !!(L.Platform && L.Platform.is && L.Platform.is('android'));
+    }
+    function onCreate(event) {
+        var data = event && event.data;
+        if (!data || data.__kadr || data.iptv || !enabled() || !external()) return;
+        var activity = L.Activity.active(), card = activity && (activity.movie || activity.card);
+        var content = identify(card, data);
+        if (!content) return;
+        event.abort();
+        captured = null;
+        setTimeout(function () { prepare(data, card, content, activity.component); }, 0);
+    }
+    function wanted(content) {
+        var want = intent && now() - intent.at < INTENT_TTL_MS
+            && ((intent.item_key && intent.item_key === content.item_key) || (intent.hash && intent.hash === content.hash)) ? intent.mode : null;
+        intent = null;
+        return want;
+    }
+    function prepare(data, card, content, component) {
+        var playlist = captured;
+        captured = null;
+        var item = load().items[content.item_key];
+        var resumable = item && !item.deleted && item.status === 'in_progress' && item.position_ms >= RESUME_MIN_MS ? item : null;
+        var info = {data: data, content: content, playlist: playlist, component: component,
+            revision: item ? item.revision : 0, duration_ms: item ? item.duration_ms : null};
+        var want = wanted(content);
+        if (want === 'start' || !resumable) return launch(info, null);
+        if (want === 'resume' || want === 'auto') return launch(info, resumable);
+        L.Select.show({
+            title: content.meta.title + (content.episode_id ? ' · ' + content.season + ' сезон, ' + content.episode + ' серия' : ''),
+            items: [{title: 'Продолжить с ' + clock(resumable.position_ms), resume: true}, {title: 'Сначала', resume: false}],
+            onSelect: function (choice) { L.Controller.toggle('content'); launch(info, choice.resume ? resumable : null); },
+            onBack: function () { L.Controller.toggle('content'); }
+        });
+    }
+    function launch(info, resume) {
+        var content = info.content, next = nextOf(info.playlist, info.data, content.hash), source = sourceOf(info.data, info.component);
+        var body = {playback_id: uid('pb'), device_id: deviceId(), mode: resume ? 'resume' : 'start',
+            start_position_ms: resume ? Math.max(0, resume.position_ms - REWIND_MS) : 0, base_revision: info.revision || 0,
+            has_next: !!next, source: source,
+            content: {content_id: content.content_id, episode_id: content.episode_id, season: content.season,
+                episode: content.episode, meta: content.meta}};
+        var record = {playback_id: body.playback_id, hash: content.hash, item_key: content.item_key, body: body, next: next,
+            playlist: info.playlist, duration_ms: info.duration_ms, started: now(), registered: false};
+        if (!activeProfile() || !server()) return handOver(record, info.data, null);
+        enqueue({type: 'prefs', content_id: content.content_id, prefs: source});
+        api('/v1/playbacks', body, function (answer) {
+            handOver(record, info.data, answer && typeof answer.launch_token === 'string' ? answer.launch_token : null);
+        }, function () { handOver(record, info.data, null); });
+    }
+    function handOver(record, data, token) {
+        var fragment = fragmentOf(record, token);
+        data.url = mark(data.url, fragment);
+        if (data.quality && typeof data.quality === 'object') {
+            Object.keys(data.quality).forEach(function (name) { data.quality[name] = mark(data.quality[name], fragment); });
+        }
+        data.__kadr = true;
+        record.registered = !!token;
+        pending = record;
+        put('pending', {playback_id: record.playback_id, hash: record.hash, item_key: record.item_key, body: record.body,
+            registered: record.registered, duration_ms: record.duration_ms, started: record.started});
+        L.Player.play(data);
+        if (record.playlist) L.Player.playlist(record.playlist);
+        captured = null;
+    }
+
     // ==== settings ====
     function param(name, type, title, description, value, onChange) {
         L.SettingsApi.addParam({component: 'kadr_history',
@@ -254,6 +380,8 @@
         if (start.done) return;
         start.done = true;
         L = window.Lampa;
+        wrapPlaylist();
+        L.Player.listener.follow('create', onCreate);
         addSettings();
         sync();
     }
