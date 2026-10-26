@@ -20,7 +20,16 @@ docker compose exec kadr-sync python -m kadr_sync.cli set-threshold "Кирил�
 docker compose exec kadr-sync python -m kadr_sync.cli list-profiles
 ```
 
-Ключ вводится в настройках плагина Lampa. Не размещайте ключи в URL, репозиториях и сообщениях.
+Ключ можно не вводить вручную: в Sled нажмите **Привязать по коду** — на экране появится код вида `K7M-4QX` (действует 10 минут). На сервере выполните:
+
+```bash
+docker compose exec kadr-sync python -m kadr_sync.cli pair K7M-4QX "Кирилл"            # профиль уже есть
+docker compose exec kadr-sync python -m kadr_sync.cli pair K7M-4QX "Гостиная" --create # создать профиль
+```
+
+Устройство получает собственный ключ этого профиля; ключ не выводится на экран и в консоль. `revoke-key` отзывает и ключи привязанных устройств, `rotate-key` меняет только основной ключ.
+
+Если ключ всё же вводится вручную — в настройках Sled. Не размещайте ключи в URL, репозиториях и сообщениях.
 
 ## Резервное копирование
 
@@ -33,7 +42,7 @@ docker compose cp kadr-sync:/data/backup-$(date +%F).sqlite3 ./
 
 ## API v1
 
-Все маршруты требуют `Authorization: Bearer <ключ>`.
+Все маршруты, кроме двух маршрутов привязки, требуют `Authorization: Bearer <ключ>`.
 
 | Маршрут | Назначение |
 | --- | --- |
@@ -45,6 +54,8 @@ docker compose cp kadr-sync:/data/backup-$(date +%F).sqlite3 ./
 | `POST /v1/events` | пакет событий `progress`, `status`, `delete`, `prefs`, `next_requested` |
 | `GET /v1/conflicts/{id}` | варианты конфликта |
 | `POST /v1/conflicts/{id}/resolve` | выбрать вариант (`current` или `playback`) для известной версии |
+| `POST /v1/pair/start` | без ключа: выдать код привязки и секрет опроса (не больше 20 ожидающих кодов) |
+| `POST /v1/pair/poll` | без ключа: по секрету опроса вернуть `pending` или, после `cli pair`, ключ устройства (один раз) |
 
 Launch-токен (`kadrl_…`, 12 часов) разрешает только события `progress` и `next_requested` своего запуска.
 

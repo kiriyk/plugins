@@ -7,7 +7,7 @@ import sqlite3
 import sys
 from typing import Optional
 
-from . import db, profiles
+from . import db, pairing, profiles
 
 
 def _check(path: str) -> int:
@@ -36,6 +36,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     commands.add_parser("list-profiles")
     commands.add_parser("check")
     commands.add_parser("backup").add_argument("target")
+    pair = commands.add_parser("pair", help="привязать устройство по коду с экрана Sled")
+    pair.add_argument("code")
+    pair.add_argument("name")
+    pair.add_argument("--create", action="store_true", help="создать профиль, если его нет")
     args = parser.parse_args(argv)
 
     if args.command == "check":
@@ -64,12 +68,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         elif args.command == "list-profiles":
             for name, active in profiles.list_profiles(conn):
                 print(f"{name}\t{'ключ активен' if active else 'ключ отозван'}")
+        elif args.command == "pair":
+            with db.write(conn):
+                name = pairing.approve(conn, args.code, args.name, db.now_ms(), create=args.create)
+            print(f"Устройство привязано к профилю «{name}». Sled на телевизоре подключится сам в течение нескольких секунд.")
         elif args.command == "backup":
             target = sqlite3.connect(args.target)
             conn.backup(target)
             target.close()
             print(f"Резервная копия: {args.target}")
-    except profiles.ProfileError as error:
+    except (profiles.ProfileError, pairing.PairingError) as error:
         print(str(error), file=sys.stderr)
         return 2
     finally:

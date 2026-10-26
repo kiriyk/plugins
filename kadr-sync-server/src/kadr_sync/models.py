@@ -107,3 +107,7 @@ class EventsIn(Strict):
 class ResolveIn(Strict):
     version: int = Field(ge=1)
     choice: Literal["current", "playback"]
+
+
+class PairPollIn(Strict):
+    poll_token: str = Field(min_length=20, max_length=100)

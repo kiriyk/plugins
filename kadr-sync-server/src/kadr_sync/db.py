@@ -83,6 +83,19 @@ CREATE TABLE IF NOT EXISTS changes(
     key TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS changes_profile ON changes(profile_id, seq);
+CREATE TABLE IF NOT EXISTS device_keys(
+    id INTEGER PRIMARY KEY,
+    profile_id INTEGER NOT NULL REFERENCES profiles(id),
+    key_hash TEXT NOT NULL UNIQUE,
+    created_ms INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS pairings(
+    code TEXT PRIMARY KEY,
+    poll_hash TEXT NOT NULL UNIQUE,
+    expires_ms INTEGER NOT NULL,
+    profile_name TEXT,
+    delivery TEXT
+);
 """
 
 

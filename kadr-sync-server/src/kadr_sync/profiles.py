@@ -47,6 +47,7 @@ def revoke_key(conn: sqlite3.Connection, name: str) -> None:
     profile_id = _profile_id(conn, name)
     conn.execute("UPDATE profiles SET key_hash=NULL WHERE id=?", (profile_id,))
     conn.execute("UPDATE playbacks SET token_hash=NULL WHERE profile_id=?", (profile_id,))
+    conn.execute("DELETE FROM device_keys WHERE profile_id=?", (profile_id,))
 
 
 def set_threshold(conn: sqlite3.Connection, name: str, percent: int) -> None:
@@ -67,7 +68,10 @@ def list_profiles(conn: sqlite3.Connection) -> list[tuple[str, bool]]:
 def profile_for_key(conn: sqlite3.Connection, key: str) -> Optional[int]:
     if not key.startswith("kadr_"):
         return None
-    row = conn.execute("SELECT id FROM profiles WHERE key_hash=?", (hash_secret(key),)).fetchone()
+    digest = hash_secret(key)
+    row = conn.execute("SELECT id FROM profiles WHERE key_hash=?", (digest,)).fetchone()
+    if row is None:
+        row = conn.execute("SELECT profile_id AS id FROM device_keys WHERE key_hash=?", (digest,)).fetchone()
     return row["id"] if row else None
 
 

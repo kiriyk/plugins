@@ -10,9 +10,9 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from . import conflicts, db, playbacks, profiles, queries
+from . import conflicts, db, pairing, playbacks, profiles, queries
 from .events import apply_events
-from .models import EventsIn, PlaybackIn, ResolveIn
+from .models import EventsIn, PairPollIn, PlaybackIn, ResolveIn
 
 MAX_BODY_BYTES = 256 * 1024
 
@@ -66,6 +66,23 @@ def create_app(db_path: str, clock: Callable[[], int] = db.now_ms) -> FastAPI:
         if who.playback_id is not None:
             raise HTTPException(status_code=403, detail="forbidden")
         return who
+
+    # Pairing works before the device has a key: see pairing.py for why this is safe.
+    @app.post("/v1/pair/start")
+    def pair_start(conn: sqlite3.Connection = Depends(connection)):
+        try:
+            with db.write(conn):
+                return pairing.start(conn, clock())
+        except pairing.TooManyPairings:
+            raise HTTPException(status_code=429, detail="too_many_pairings")
+
+    @app.post("/v1/pair/poll")
+    def pair_poll(body: PairPollIn, conn: sqlite3.Connection = Depends(connection)):
+        with db.write(conn):
+            result = pairing.poll(conn, body.poll_token, clock())
+        if result is None:
+            raise HTTPException(status_code=404, detail="not_found")
+        return result
 
     @app.get("/v1/profile")
     def get_profile(who: Principal = Depends(profile_principal),
