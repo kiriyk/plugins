@@ -28,7 +28,11 @@
         return (hours ? hours + ':' + (minutes < 10 ? '0' : '') : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
     }
     function enabled() { var value = get('enabled', true); return value === true || value === 'true'; }
-    function server() { return clean(get('server', '')).replace(/\/+$/, ''); }
+    // TV keyboards capitalise the first letter; scheme and host are case-insensitive, the path is not.
+    function server() {
+        return clean(get('server', '')).replace(/\/+$/, '')
+            .replace(/^[a-z][a-z0-9+.-]*:\/\/[^\/]*/i, function (origin) { return origin.toLowerCase(); });
+    }
     function deviceId() {
         var id = get('device', '');
         if (!/^[A-Za-z0-9_-]{8,64}$/.test(id)) { id = uid('tv'); put('device', id); }

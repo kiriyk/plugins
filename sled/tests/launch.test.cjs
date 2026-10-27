@@ -64,6 +64,15 @@ test('the fragment carries no percent escapes: LampaS encodes % once more on the
     assert.match(raw, /&cid=tmdb:tv:60625&/);
 });
 
+test('a TV keyboard capital in the scheme or host is normalised; the path keeps its case', async () => {
+    const h = setup({storage: {sled_server: ' Https://KADR.Test/s-AbC123/ '}});
+    await tick();
+    const data = startEpisode(h, 5, 10);
+    await tick();
+    assert.equal(fragment(data).get('srv'), 'https://kadr.test/s-AbC123');
+    assert.match(fragment(data).get('tok'), /^kadrl_/);
+});
+
 test('a server address that cannot travel in the fragment as is gets no reporting context', async () => {
     const h = setup({storage: {sled_server: 'https://kadr.test/a&b=c'}});
     await tick();
