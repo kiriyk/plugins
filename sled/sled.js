@@ -76,7 +76,13 @@
     }
     function save(state) { var key = stateKey(); if (key) put(key, state); }
     function merge(state, data) {
-        (data.items || []).forEach(function (item) { if (item && item.item_key) state.items[item.item_key] = item; });
+        // A delete still waiting in the queue wins over an older copy from the feed.
+        var removing = {};
+        state.outbox.forEach(function (event) { if (event.type === 'delete') removing[event.item_key] = true; });
+        (data.items || []).forEach(function (item) {
+            if (!item || !item.item_key) return;
+            state.items[item.item_key] = removing[item.item_key] ? Object.assign({}, item, {deleted: true}) : item;
+        });
         (data.prefs || []).forEach(function (pref) { if (pref && pref.content_id) state.prefs[pref.content_id] = pref.prefs; });
         (data.conflicts || []).forEach(function (conflict) {
             if (!conflict || !conflict.id) return;
@@ -418,6 +424,9 @@
         intent = {item_key: item.item_key, hash: null, mode: mode === 'start' ? 'start' : 'resume', at: now()};
         var opener = OPENERS[prefs.adapter];
         if (opener && componentExists(prefs.adapter)) return opener(card, prefs);
+        openFull(card);
+    }
+    function openFull(card) {
         L.Activity.push({url: '', component: 'full', id: card.id, method: isTv(card) ? 'tv' : 'movie', card: card,
             source: card.source || 'tmdb'});
     }
@@ -455,7 +464,9 @@
         var parts = String(item.content_id).split(':'), meta = item.meta || {}, tv = parts[1] === 'tv';
         var card = {id: /^\d+$/.test(parts[2]) ? Number(parts[2]) : parts[2], source: parts[0]};
         card[tv ? 'name' : 'title'] = meta.title;
-        if (meta.original_title) card[tv ? 'original_name' : 'original_title'] = meta.original_title;
+        // original_name also marks the card as a series for identify(), so a series always gets one.
+        if (tv) card.original_name = meta.original_title || meta.title;
+        else if (meta.original_title) card.original_title = meta.original_title;
         if (meta.year) card[tv ? 'first_air_date' : 'release_date'] = meta.year + '-01-01';
         if (/^\//.test(meta.poster || '')) card.poster_path = meta.poster;
         else if (/^https?:\/\//.test(meta.poster || '')) card.poster = meta.poster;
@@ -485,6 +496,58 @@
     function uiReport() {
         var support = uiSupport(), missing = Object.keys(UI_NAMES).filter(function (name) { return !support[name]; });
         return 'интерфейс: ' + (missing.length ? 'нет ' + missing.map(function (name) { return UI_NAMES[name]; }).join(', ') : 'всё подключено');
+    }
+
+    // ==== ui: actions ====
+    function choose(title, items) {
+        L.Select.show({title: title, items: items,
+            onSelect: function (choice) { L.Controller.toggle('content'); choice.run(); },
+            onBack: function () { L.Controller.toggle('content'); }});
+    }
+    function titleOf(item) {
+        var meta = item.meta || {};
+        return (meta.title || item.content_id) + (item.episode_id ? ' · ' + item.season + ' сезон, ' + item.episode + ' серия' : '');
+    }
+    function nextEpisodeOf(item) {
+        var episode = item.episode + 1;
+        return {item_key: item.content_id + '/s' + item.season + 'e' + episode, content_id: item.content_id,
+            season: item.season, episode: episode, source: item.source};
+    }
+    function changeItem(item, change, event) {
+        var state = load(), current = state.items[item.item_key] || item;
+        state.items[item.item_key] = Object.assign({}, current, change);
+        save(state);
+        enqueue(event);
+        sync();
+    }
+    function setStatus(item, status) {
+        changeItem(item, {status: status === 'watched' ? 'watched' : 'in_progress', manual: true},
+            {type: 'status', item_key: item.item_key, status: status});
+    }
+    function remove(item) { changeItem(item, {deleted: true}, {type: 'delete', item_key: item.item_key}); }
+    function itemMenu(item, card, upNext) {
+        card = card || cardOf(item);
+        var items = [];
+        if (item.status === 'in_progress' && item.position_ms >= RESUME_MIN_MS) {
+            items.push({title: 'Продолжить с ' + clock(item.position_ms), run: function () { open(card, item, 'resume'); }});
+        }
+        if (upNext) {
+            items.push({title: 'Следующая серия · ' + episodeCode(item.season, item.episode + 1),
+                run: function () { open(card, nextEpisodeOf(item), 'start'); }});
+        } else {
+            items.push({title: 'Сначала', run: function () { open(card, item, 'start'); }});
+        }
+        items.push({title: 'Выбрать источник', run: function () { openFull(card); }});
+        items.push(item.status === 'watched'
+            ? {title: 'Снять отметку «просмотрено»', run: function () { setStatus(item, 'unwatched'); }}
+            : {title: 'Отметить просмотренным', run: function () { setStatus(item, 'watched'); }});
+        items.push({title: 'Удалить из истории', run: function () {
+            var name = (item.meta && item.meta.title || item.content_id) + (item.episode_id ? ' · ' + episodeCode(item.season, item.episode) : '');
+            choose('Удалить «' + name + '» из истории?', [
+                {title: 'Удалить', run: function () { remove(item); }},
+                {title: 'Отмена', run: function () {}}]);
+        }});
+        choose(titleOf(item), items);
     }
 
     // ==== settings ====
@@ -626,6 +689,7 @@
     KH.progressOf = progressOf;
     KH.labelOf = labelOf;
     KH.pending = awaitingSync;
+    KH.itemMenu = itemMenu;
     if (window.appready) start();
     else if (window.Lampa && window.Lampa.Listener) {
         window.Lampa.Listener.follow('app', function (event) { if (event.type === 'ready') start(); });
