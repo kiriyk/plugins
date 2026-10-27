@@ -59,7 +59,7 @@ test('connection check reports the profile and threshold', async () => {
     await tick();
     h.press('sled_check');
     await tick();
-    assert.equal(h.notices.at(-1), 'Sled: сервер доступен, профиль «A», порог 95%');
+    assert.equal(h.notices.at(-1), 'Sled: сервер доступен, профиль «A», порог 95%, интерфейс: всё подключено');
     h.routes['GET /v1/profile'] = () => ({status: 502});
     h.press('sled_check');
     await tick();

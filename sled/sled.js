@@ -1,4 +1,4 @@
-/* Sled 0.1.0 | Lampa + KADR: resume, next episode and watch history sync.
+/* Sled 0.2.0 | Lampa + KADR: resume, next episode and watch history sync.
  * The profile key stays in Lampa storage on this device; KADR receives only a per-playback token.
  */
 (function () {
@@ -7,13 +7,17 @@
 
     var L;
     var PAIR_POLL_MS = 3000, PAIR_MAX_POLLS = 220, REWIND_MS = 10000, RESUME_MIN_MS = 10000, PENDING_TTL_MS = 12 * 3600000, NEXT_RECHECK_MS = 3000, INTENT_TTL_MS = 30 * 60000;
-    var KH = window.Sled = {version: '0.1.0'};
+    var KH = window.Sled = {version: '0.2.0'};
     var syncing = false, waiting = [], captured = null, pending = null, intent = null;
 
     // ==== basics ====
     function get(name, fallback) { return L.Storage.get('sled_' + name, fallback); }
     function put(name, value) { L.Storage.set('sled_' + name, value); }
     function now() { return Date.now(); }
+    function extend(target) {
+        for (var i = 1; i < arguments.length; i++) for (var key in arguments[i]) target[key] = arguments[i][key];
+        return target;
+    }
     function clean(text) { return String(text == null ? '' : text).replace(/[​\s]+/g, ' ').replace(/^\s+|\s+$/g, ''); }
     function uid(prefix) {
         var alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789', out = prefix;
@@ -74,9 +78,15 @@
         if (!Array.isArray(state.deferred)) state.deferred = [];
         return state;
     }
-    function save(state) { var key = stateKey(); if (key) put(key, state); }
+    function save(state) { var key = stateKey(); latestCache = null; if (key) put(key, state); }
     function merge(state, data) {
-        (data.items || []).forEach(function (item) { if (item && item.item_key) state.items[item.item_key] = item; });
+        // A delete still waiting in the queue wins over an older copy from the feed.
+        var removing = {};
+        state.outbox.forEach(function (event) { if (event.type === 'delete') removing[event.item_key] = true; });
+        (data.items || []).forEach(function (item) {
+            if (!item || !item.item_key) return;
+            state.items[item.item_key] = removing[item.item_key] ? extend({}, item, {deleted: true}) : item;
+        });
         (data.prefs || []).forEach(function (pref) { if (pref && pref.content_id) state.prefs[pref.content_id] = pref.prefs; });
         (data.conflicts || []).forEach(function (conflict) {
             if (!conflict || !conflict.id) return;
@@ -276,6 +286,11 @@
     function prepare(data, card, content, component) {
         var playlist = captured;
         captured = null;
+        var conflict = conflictFor(content.item_key);
+        if (conflict) return resolveConflict(conflict, function () { decide(data, content, component, playlist); });
+        decide(data, content, component, playlist);
+    }
+    function decide(data, content, component, playlist) {
         var item = load().items[content.item_key];
         var resumable = item && !item.deleted && item.status === 'in_progress' && item.position_ms >= RESUME_MIN_MS ? item : null;
         var info = {data: data, content: content, playlist: playlist, component: component,
@@ -418,8 +433,332 @@
         intent = {item_key: item.item_key, hash: null, mode: mode === 'start' ? 'start' : 'resume', at: now()};
         var opener = OPENERS[prefs.adapter];
         if (opener && componentExists(prefs.adapter)) return opener(card, prefs);
+        openFull(card);
+    }
+    function openFull(card) {
         L.Activity.push({url: '', component: 'full', id: card.id, method: isTv(card) ? 'tv' : 'movie', card: card,
             source: card.source || 'tmdb'});
+    }
+
+    // ==== ui: model ====
+    // Every entry point reads the local profile state, so the interface works offline and shows one history.
+    var SHELF_LIMIT = 20, PAGE_SIZE = 20;
+    function newer(a, b) { return (a.server_ms || 0) - (b.server_ms || 0) || (a.client_ms || 0) - (b.client_ms || 0); }
+    function visibleItems(state) {
+        return Object.keys(state.items).map(function (key) { return state.items[key]; })
+            .filter(function (item) { return item && !item.deleted; })
+            .sort(function (a, b) { return newer(b, a); });
+    }
+    function latestByContent(state) {
+        var seen = {};
+        return visibleItems(state).filter(function (item) {
+            if (seen[item.content_id]) return false;
+            seen[item.content_id] = true;
+            return true;
+        });
+    }
+    // Same rule as the server's queries._on_shelf: a finished episode stays to offer the next one.
+    function shelf(state) {
+        return latestByContent(state || load()).filter(function (item) {
+            return item.status === 'in_progress' ? item.position_ms > 0 : !!item.episode_id;
+        }).slice(0, SHELF_LIMIT).map(function (item) { return {item: item, upNext: item.status === 'watched'}; });
+    }
+    function historyPage(state, mode, page) {
+        var entries = mode === 'continue' ? shelf(state) : visibleItems(state).map(function (item) { return {item: item, upNext: false}; });
+        page = Math.max(1, page || 1);
+        return {page: page, total_pages: Math.ceil(entries.length / PAGE_SIZE),
+            results: entries.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(function (entry) { return cardOf(entry.item); })};
+    }
+    function cardOf(item) {
+        var parts = String(item.content_id).split(':'), meta = item.meta || {}, tv = parts[1] === 'tv';
+        var card = {id: /^\d+$/.test(parts[2]) ? Number(parts[2]) : parts[2], source: parts[0]};
+        card[tv ? 'name' : 'title'] = meta.title;
+        // original_name also marks the card as a series for identify(), so a series always gets one.
+        if (tv) card.original_name = meta.original_title || meta.title;
+        else if (meta.original_title) card.original_title = meta.original_title;
+        if (meta.year) card[tv ? 'first_air_date' : 'release_date'] = meta.year + '-01-01';
+        if (/^\//.test(meta.poster || '')) card.poster_path = meta.poster;
+        else if (/^https?:\/\//.test(meta.poster || '')) card.poster = meta.poster;
+        card.sled = {item_key: item.item_key};
+        return card;
+    }
+    function progressOf(item) {
+        if (item.status === 'watched') return 100;
+        if (!item.duration_ms) return 0;
+        return Math.min(100, Math.round(item.position_ms / item.duration_ms * 100));
+    }
+    function episodeCode(season, episode) { return 'S' + season + 'E' + episode; }
+    function labelOf(item, upNext) {
+        if (upNext) return 'Следующая: ' + episodeCode(item.season, item.episode + 1);
+        var where = item.episode_id ? episodeCode(item.season, item.episode) + ' · ' : '';
+        if (item.status === 'watched') return where + 'Просмотрено';
+        return where + clock(item.position_ms) + (item.duration_ms ? ' из ' + clock(item.duration_ms) : '');
+    }
+    function awaitingSync(state) { return !!(state.outbox.length || state.deferred.length); }
+    var UI_NAMES = {shelf: 'полки', menu: 'меню', card: 'кнопки в карточке', marks: 'отметок на постерах', history: 'истории'};
+    function uiSupport() {
+        var map = L.Maker && L.Maker.map && L.Maker.map('Card');
+        return {shelf: !!(L.ContentRows && L.ContentRows.add), menu: !!(L.Menu && L.Menu.addButton),
+            card: !!(L.Listener && L.Listener.follow), marks: !!(map && map.Card),
+            history: !!(L.Api && L.Api.sources && L.Activity)};
+    }
+    function uiReport() {
+        var support = uiSupport(), missing = Object.keys(UI_NAMES).filter(function (name) { return !support[name]; });
+        return 'интерфейс: ' + (missing.length ? 'нет ' + missing.map(function (name) { return UI_NAMES[name]; }).join(', ') : 'всё подключено');
+    }
+
+    // ==== ui: actions ====
+    function choose(title, items) {
+        L.Select.show({title: title, items: items,
+            onSelect: function (choice) { L.Controller.toggle('content'); choice.run(); },
+            onBack: function () { L.Controller.toggle('content'); }});
+    }
+    function titleOf(item) {
+        var meta = item.meta || {};
+        return (meta.title || item.content_id) + (item.episode_id ? ' · ' + item.season + ' сезон, ' + item.episode + ' серия' : '');
+    }
+    function nextEpisodeOf(item) {
+        var episode = item.episode + 1;
+        return {item_key: item.content_id + '/s' + item.season + 'e' + episode, content_id: item.content_id,
+            season: item.season, episode: episode, source: item.source};
+    }
+    function changeItem(item, change, event) {
+        var state = load(), current = state.items[item.item_key] || item;
+        state.items[item.item_key] = extend({}, current, change);
+        save(state);
+        enqueue(event);
+        sync();
+    }
+    function setStatus(item, status) {
+        changeItem(item, {status: status === 'watched' ? 'watched' : 'in_progress', manual: true},
+            {type: 'status', item_key: item.item_key, status: status});
+    }
+    function remove(item) { changeItem(item, {deleted: true}, {type: 'delete', item_key: item.item_key}); }
+    function conflictFor(itemKey) {
+        var conflicts = load().conflicts;
+        for (var id in conflicts) {
+            if (conflicts[id] && conflicts[id].status === 'open' && conflicts[id].item_key === itemKey) return conflicts[id];
+        }
+        return null;
+    }
+    function two(value) { return (value < 10 ? '0' : '') + value; }
+    function when(ms) {
+        var date = new Date(ms);
+        return two(date.getDate()) + '.' + two(date.getMonth() + 1) + ' ' + two(date.getHours()) + ':' + two(date.getMinutes());
+    }
+    function optionTitle(option) {
+        var device = option.device_id === deviceId() ? 'это устройство' : 'другое устройство (…' + String(option.device_id).slice(-4) + ')';
+        return (option.status === 'watched' ? 'Просмотрено' : clock(option.position_ms)) + ' · ' + device + ' · ' + when(option.client_ms);
+    }
+    function errorBody(error) {
+        try { return typeof error.responseText === 'string' ? JSON.parse(error.responseText) : error.responseJSON || null; }
+        catch (e) { return null; }
+    }
+    // Both positions with their device and time; the server applies the choice to the version that was shown.
+    function resolveConflict(conflict, done) {
+        var items = [];
+        ['current', 'playback'].forEach(function (choice) {
+            var option = conflict.options && conflict.options[choice];
+            if (option) items.push({title: optionTitle(option), run: function () { submit(choice); }});
+        });
+        function submit(choice) {
+            api('/v1/conflicts/' + encodeURIComponent(conflict.id) + '/resolve', {version: conflict.version, choice: choice}, function (answer) {
+                var state = load();
+                if (answer.item && answer.item.item_key) state.items[answer.item.item_key] = answer.item;
+                delete state.conflicts[conflict.id];
+                save(state);
+                sync();
+                done(answer.item || null);
+            }, function (error) {
+                var body = error && error.status === 409 ? errorBody(error) : null;
+                if (body && body.error === 'conflict_changed' && body.conflict) {
+                    var state = load();
+                    state.conflicts[conflict.id] = body.conflict;
+                    save(state);
+                    notify('Sled: варианты изменились, выберите ещё раз');
+                    return resolveConflict(body.conflict, done);
+                }
+                notify('Sled: сервер недоступен, выбор не сохранён');
+                done(null);
+            });
+        }
+        choose('Позиции разошлись · ' + titleOf(conflict.options.current || conflict.options.playback), items);
+    }
+    function itemMenu(item, card, upNext) {
+        card = card || cardOf(item);
+        var items = [], conflict = conflictFor(item.item_key);
+        if (conflict) {
+            items.push({title: 'Позиции разошлись — выбрать', run: function () {
+                resolveConflict(conflict, function (chosen) { itemMenu(chosen || load().items[item.item_key] || item, card, upNext); });
+            }});
+        }
+        if (item.status === 'in_progress' && item.position_ms >= RESUME_MIN_MS) {
+            items.push({title: 'Продолжить с ' + clock(item.position_ms), run: function () { open(card, item, 'resume'); }});
+        }
+        if (upNext) {
+            items.push({title: 'Следующая серия · ' + episodeCode(item.season, item.episode + 1),
+                run: function () { open(card, nextEpisodeOf(item), 'start'); }});
+        } else {
+            items.push({title: 'Сначала', run: function () { open(card, item, 'start'); }});
+        }
+        items.push({title: 'Выбрать источник', run: function () { openFull(card); }});
+        items.push(item.status === 'watched'
+            ? {title: 'Снять отметку «просмотрено»', run: function () { setStatus(item, 'unwatched'); }}
+            : {title: 'Отметить просмотренным', run: function () { setStatus(item, 'watched'); }});
+        items.push({title: 'Удалить из истории', run: function () {
+            var name = (item.meta && item.meta.title || item.content_id) + (item.episode_id ? ' · ' + episodeCode(item.season, item.episode) : '');
+            choose('Удалить «' + name + '» из истории?', [
+                {title: 'Удалить', run: function () { remove(item); }},
+                {title: 'Отмена', run: function () {}}]);
+        }});
+        choose(titleOf(item), items);
+    }
+
+    // ==== ui: lampa ====
+    // Each entry point hooks into Lampa on its own; a failure in one never breaks Lampa or the others.
+    function guarded(fn) {
+        return function () {
+            try { return fn.apply(this, arguments); } catch (e) { if (window.console) console.log('Sled', 'ui error', e && e.message); }
+        };
+    }
+    function waitingSuffix(state) { return awaitingSync(state) ? ' · ждёт синхронизации' : ''; }
+    function enterable(card, item, upNext) {
+        card.params = {emit: {onlyEnter: guarded(function () { itemMenu(item, card, upNext); })}};
+        return card;
+    }
+    function addShelf() {
+        L.ContentRows.add({name: 'sled_continue', title: 'Продолжить просмотр (Sled)', index: 0, screen: ['main'],
+            call: guarded(function () {
+                var state = load(), entries = shelf(state);
+                if (!entries.length) return;
+                return function (call) {
+                    call({title: 'Продолжить просмотр' + waitingSuffix(state), results: entries.map(function (entry) {
+                        return enterable(cardOf(entry.item), entry.item, entry.upNext);
+                    })});
+                };
+            })});
+    }
+
+    var HISTORY_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    var HISTORY_TITLES = {continue: 'Продолжить просмотр', all: 'Вся история'};
+    function addHistory() {
+        // category_full asks Api.sources[source].list for each page; the pages come from local state.
+        L.Api.sources.sled = {list: guarded(function (params, oncomplite, onerror) {
+            var state = load(), mode = params.url === 'continue' ? 'continue' : 'all';
+            var page = historyPage(state, mode, params.page);
+            if (!page.results.length) return onerror();
+            page.results.forEach(function (card) {
+                var item = state.items[card.sled.item_key];
+                if (mode === 'all' && item.episode_id) card.name = card.name + ' · ' + episodeCode(item.season, item.episode);
+                enterable(card, item, mode === 'continue' && item.status === 'watched');
+            });
+            oncomplite(page);
+        })};
+        L.Menu.addButton(HISTORY_ICON, 'История', guarded(function () {
+            var suffix = waitingSuffix(load());
+            choose('История Sled', ['continue', 'all'].map(function (mode) {
+                return {title: HISTORY_TITLES[mode], run: function () {
+                    L.Activity.push({url: mode, title: HISTORY_TITLES[mode] + suffix, component: 'category_full', source: 'sled', page: 1});
+                }};
+            }));
+        }));
+    }
+
+    var MARK_STYLE = '.sled-mark{position:absolute;left:0;right:0;bottom:0;height:.3em;background:rgba(0,0,0,.5);z-index:2}'
+        + '.sled-mark__bar{height:100%;background:#ffc107}'
+        + '.sled-mark--watched{left:auto;right:.4em;bottom:auto;top:.4em;width:1.6em;height:1.6em;border-radius:50%;'
+        + 'background:#ffc107;color:#000;font-size:1em;line-height:1.6em;text-align:center}';
+    // Lampa passes jQuery in the full card event and native elements in card modules.
+    function one(root, selector) {
+        if (!root) return null;
+        if (root.jquery) return root.find(selector)[0] || null;
+        return root.querySelector ? root.querySelector(selector) : null;
+    }
+    function element(tag, className, text) {
+        var node = document.createElement(tag);
+        node.className = className;
+        if (text) node.textContent = text;
+        return node;
+    }
+    function onEnter(node, fn) {
+        if (window.$) window.$(node).on('hover:enter', fn); else node.addEventListener('hover:enter', fn);
+    }
+    // Every poster asks for its record; reading and sorting the whole profile state per card is too slow on a TV.
+    var latestCache = null;
+    function latestFor(id) {
+        var key = stateKey();
+        if (!latestCache || latestCache.key !== key) {
+            var index = {};
+            latestByContent(load()).forEach(function (item) { index[item.content_id] = item; });
+            latestCache = {key: key, index: index};
+        }
+        return latestCache.index.hasOwnProperty(id) ? latestCache.index[id] : null;
+    }
+    function entryFor(card) {
+        if (!card || card.id === undefined || card.id === null || card.id === '') return null;
+        var item = latestFor(contentId(card));
+        return item ? {item: item, upNext: item.status === 'watched' && !!item.episode_id} : null;
+    }
+    function addCardButton() {
+        L.Listener.follow('full', guarded(function (event) {
+            if (!event || event.type !== 'complite') return;
+            var movie = event.data && event.data.movie, entry = entryFor(movie);
+            var box = one(event.body, '.full-start-new__buttons') || one(event.body, '.full-start__buttons');
+            if (!entry || !box || one(box, '.sled-button')) return;
+            var button = element('div', 'full-start__button selector sled-button', 'Sled · ' + labelOf(entry.item, entry.upNext));
+            onEnter(button, guarded(function () { itemMenu(entry.item, movie, entry.upNext); }));
+            box.appendChild(button);
+        }));
+    }
+    function paintMark(mark, item) {
+        var watched = item.status === 'watched' && !item.episode_id;
+        mark.className = 'sled-mark' + (watched ? ' sled-mark--watched' : '');
+        mark.textContent = watched ? '✓' : '';
+        if (!watched) {
+            var bar = element('div', 'sled-mark__bar');
+            bar.style.width = progressOf(item) + '%';
+            mark.appendChild(bar);
+        }
+    }
+    function drawMark(card) {
+        var entry = entryFor(card.data), view = entry && one(card.html, '.card__view');
+        if (!view) return;
+        var mark = element('div', 'sled-mark');
+        mark.setAttribute('data-sled', entry.item.content_id);
+        paintMark(mark, entry.item);
+        view.appendChild(mark);
+    }
+    function refreshMarks() {
+        var marks = document.querySelectorAll('.sled-mark');
+        for (var i = 0; i < marks.length; i++) {
+            var mark = marks[i], item = latestFor(mark.getAttribute('data-sled'));
+            if (!item) { mark.remove(); continue; }
+            var fresh = element('div', 'sled-mark');
+            fresh.setAttribute('data-sled', item.content_id);
+            paintMark(fresh, item);
+            mark.parentNode.appendChild(fresh);
+            mark.remove();
+        }
+    }
+    // Card modules are read from this map whenever Lampa creates a card, so wrapping it reaches every poster.
+    function addPosterMarks() {
+        var module = L.Maker.map('Card').Card, original = module.onCreate;
+        if (original && original.__sled) return;
+        var draw = guarded(drawMark);
+        var wrapped = function () {
+            var result = original ? original.apply(this, arguments) : undefined;
+            draw(this);
+            return result;
+        };
+        wrapped.__sled = true;
+        module.onCreate = wrapped;
+        if (!document.getElementById('sled-style')) {
+            var style = document.createElement('style');
+            style.id = 'sled-style';
+            style.textContent = MARK_STYLE;
+            document.head.appendChild(style);
+        }
+        L.Listener.follow('sled', guarded(function (event) { if (event && event.type === 'synced') { latestCache = null; refreshMarks(); } }));
     }
 
     // ==== settings ====
@@ -518,7 +857,7 @@
     function checkConnection() {
         api('/v1/profile', null, function (profile) {
             var threshold = profile.settings && profile.settings.watched_threshold;
-            notify('Sled: сервер доступен, профиль «' + profile.name + '», порог ' + threshold + '%');
+            notify('Sled: сервер доступен, профиль «' + profile.name + '», порог ' + threshold + '%, ' + uiReport());
         }, function (error) {
             if (error && error.error === 'not_configured') return notify('Sled: укажите адрес сервера и профиль');
             notify('Sled: сервер недоступен' + (error && error.status ? ' (код ' + error.status + ')' : ''));
@@ -547,6 +886,11 @@
         L.Player.listener.follow('create', onCreate);
         L.Timeline.listener.follow('update', onTimeline);
         addSettings();
+        var support = uiSupport();
+        if (support.shelf) guarded(addShelf)();
+        if (support.history && support.menu) guarded(addHistory)();
+        if (support.card) guarded(addCardButton)();
+        if (support.marks) guarded(addPosterMarks)();
         sync();
     }
     KH.load = function () { return load(); };
@@ -555,6 +899,13 @@
     KH.clock = clock;
     KH.identify = identify;
     KH.open = open;
+    KH.shelf = function () { return shelf(load()); };
+    KH.historyPage = function (mode, page) { return historyPage(load(), mode, page); };
+    KH.cardOf = cardOf;
+    KH.progressOf = progressOf;
+    KH.labelOf = labelOf;
+    KH.pending = awaitingSync;
+    KH.itemMenu = itemMenu;
     if (window.appready) start();
     else if (window.Lampa && window.Lampa.Listener) {
         window.Lampa.Listener.follow('app', function (event) { if (event.type === 'ready') start(); });
