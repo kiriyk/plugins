@@ -196,12 +196,15 @@
         url = unmark(url);
         return url.indexOf('#') === -1 ? url + '#' + fragment : url;
     }
+    // Values go unescaped: LampaS escapes '%' once more on the way to KADR, which would break srv.
+    // ':' and '/' are valid in a fragment; anything that is not is left out rather than escaped.
+    var FRAGMENT_SAFE = /^[A-Za-z0-9._~:\/-]+$/;
     function fragmentOf(record, token) {
-        var body = record.body;
+        var body = record.body, address = server();
         var parts = ['kadr=1', 'mode=' + body.mode, 'pos=' + body.start_position_ms, 'next=' + (record.next ? 1 : 0)];
-        if (token) {
-            parts.push('pid=' + body.playback_id, 'tok=' + encodeURIComponent(token), 'srv=' + encodeURIComponent(server()),
-                'dev=' + body.device_id, 'cid=' + encodeURIComponent(body.content.content_id));
+        if (token && FRAGMENT_SAFE.test(token) && /^https?:\/\//.test(address) && FRAGMENT_SAFE.test(address)) {
+            parts.push('pid=' + body.playback_id, 'tok=' + token, 'srv=' + address, 'dev=' + body.device_id);
+            if (FRAGMENT_SAFE.test(body.content.content_id)) parts.push('cid=' + body.content.content_id);
         }
         if (body.content.episode_id) parts.push('eid=' + body.content.episode_id);
         return parts.join('&');

@@ -69,10 +69,13 @@ function setup(options = {}) {
             this.timeout = () => {};
             this.native = (url, ok, fail, body, settings) => {
                 const parsed = new URL(url), method = body ? 'POST' : 'GET';
-                const request = {method, path: parsed.pathname, query: parsed.search, body: body ? JSON.parse(body) : null,
+                // A server address may carry a path prefix (a reverse proxy); routes are relative to it.
+                const prefix = new URL(storage.sled_server || 'https://kadr.test').pathname.replace(/\/+$/, '');
+                const pathname = parsed.pathname.slice(prefix.length);
+                const request = {method, path: pathname, query: parsed.search, body: body ? JSON.parse(body) : null,
                     headers: (settings && settings.headers) || {}};
                 sent.push(request);
-                const handler = routes[method + ' ' + parsed.pathname];
+                const handler = routes[method + ' ' + pathname];
                 setTimeout(() => {
                     if (!handler) return fail({status: 0});
                     const answer = handler(request);
