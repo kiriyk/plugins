@@ -14,6 +14,10 @@
     function get(name, fallback) { return L.Storage.get('sled_' + name, fallback); }
     function put(name, value) { L.Storage.set('sled_' + name, value); }
     function now() { return Date.now(); }
+    function extend(target) {
+        for (var i = 1; i < arguments.length; i++) for (var key in arguments[i]) target[key] = arguments[i][key];
+        return target;
+    }
     function clean(text) { return String(text == null ? '' : text).replace(/[​\s]+/g, ' ').replace(/^\s+|\s+$/g, ''); }
     function uid(prefix) {
         var alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789', out = prefix;
@@ -81,7 +85,7 @@
         state.outbox.forEach(function (event) { if (event.type === 'delete') removing[event.item_key] = true; });
         (data.items || []).forEach(function (item) {
             if (!item || !item.item_key) return;
-            state.items[item.item_key] = removing[item.item_key] ? Object.assign({}, item, {deleted: true}) : item;
+            state.items[item.item_key] = removing[item.item_key] ? extend({}, item, {deleted: true}) : item;
         });
         (data.prefs || []).forEach(function (pref) { if (pref && pref.content_id) state.prefs[pref.content_id] = pref.prefs; });
         (data.conflicts || []).forEach(function (conflict) {
@@ -520,7 +524,7 @@
     }
     function changeItem(item, change, event) {
         var state = load(), current = state.items[item.item_key] || item;
-        state.items[item.item_key] = Object.assign({}, current, change);
+        state.items[item.item_key] = extend({}, current, change);
         save(state);
         enqueue(event);
         sync();
@@ -660,6 +664,97 @@
         }));
     }
 
+    var MARK_STYLE = '.sled-mark{position:absolute;left:0;right:0;bottom:0;height:.3em;background:rgba(0,0,0,.5);z-index:2}'
+        + '.sled-mark__bar{height:100%;background:#ffc107}'
+        + '.sled-mark--watched{left:auto;right:.4em;bottom:auto;top:.4em;width:1.6em;height:1.6em;border-radius:50%;'
+        + 'background:#ffc107;color:#000;font-size:1em;line-height:1.6em;text-align:center}';
+    // Lampa passes jQuery in the full card event and native elements in card modules.
+    function one(root, selector) {
+        if (!root) return null;
+        if (root.jquery) return root.find(selector)[0] || null;
+        return root.querySelector ? root.querySelector(selector) : null;
+    }
+    function element(tag, className, text) {
+        var node = document.createElement(tag);
+        node.className = className;
+        if (text) node.textContent = text;
+        return node;
+    }
+    function onEnter(node, fn) {
+        if (window.$) window.$(node).on('hover:enter', fn); else node.addEventListener('hover:enter', fn);
+    }
+    function latestFor(id) {
+        var items = latestByContent(load());
+        for (var i = 0; i < items.length; i++) if (items[i].content_id === id) return items[i];
+        return null;
+    }
+    function entryFor(card) {
+        if (!card || card.id === undefined || card.id === null || card.id === '') return null;
+        var item = latestFor(contentId(card));
+        return item ? {item: item, upNext: item.status === 'watched' && !!item.episode_id} : null;
+    }
+    function addCardButton() {
+        L.Listener.follow('full', guarded(function (event) {
+            if (!event || event.type !== 'complite') return;
+            var movie = event.data && event.data.movie, entry = entryFor(movie);
+            var box = one(event.body, '.full-start-new__buttons') || one(event.body, '.full-start__buttons');
+            if (!entry || !box || one(box, '.sled-button')) return;
+            var button = element('div', 'full-start__button selector sled-button', 'Sled · ' + labelOf(entry.item, entry.upNext));
+            onEnter(button, guarded(function () { itemMenu(entry.item, movie, entry.upNext); }));
+            box.appendChild(button);
+        }));
+    }
+    function paintMark(mark, item) {
+        var watched = item.status === 'watched' && !item.episode_id;
+        mark.className = 'sled-mark' + (watched ? ' sled-mark--watched' : '');
+        mark.textContent = watched ? '✓' : '';
+        if (!watched) {
+            var bar = element('div', 'sled-mark__bar');
+            bar.style.width = progressOf(item) + '%';
+            mark.appendChild(bar);
+        }
+    }
+    function drawMark(card) {
+        var entry = entryFor(card.data), view = entry && one(card.html, '.card__view');
+        if (!view) return;
+        var mark = element('div', 'sled-mark');
+        mark.setAttribute('data-sled', entry.item.content_id);
+        paintMark(mark, entry.item);
+        view.appendChild(mark);
+    }
+    function refreshMarks() {
+        var marks = document.querySelectorAll('.sled-mark');
+        for (var i = 0; i < marks.length; i++) {
+            var mark = marks[i], item = latestFor(mark.getAttribute('data-sled'));
+            if (!item) { mark.remove(); continue; }
+            var fresh = element('div', 'sled-mark');
+            fresh.setAttribute('data-sled', item.content_id);
+            paintMark(fresh, item);
+            mark.parentNode.appendChild(fresh);
+            mark.remove();
+        }
+    }
+    // Card modules are read from this map whenever Lampa creates a card, so wrapping it reaches every poster.
+    function addPosterMarks() {
+        var module = L.Maker.map('Card').Card, original = module.onCreate;
+        if (original && original.__sled) return;
+        var draw = guarded(drawMark);
+        var wrapped = function () {
+            var result = original ? original.apply(this, arguments) : undefined;
+            draw(this);
+            return result;
+        };
+        wrapped.__sled = true;
+        module.onCreate = wrapped;
+        if (!document.getElementById('sled-style')) {
+            var style = document.createElement('style');
+            style.id = 'sled-style';
+            style.textContent = MARK_STYLE;
+            document.head.appendChild(style);
+        }
+        L.Listener.follow('sled', guarded(function (event) { if (event && event.type === 'synced') refreshMarks(); }));
+    }
+
     // ==== settings ====
     function param(name, type, title, description, value, onChange) {
         L.SettingsApi.addParam({component: 'sled',
@@ -788,6 +883,8 @@
         var support = uiSupport();
         if (support.shelf) guarded(addShelf)();
         if (support.history && support.menu) guarded(addHistory)();
+        if (support.card) guarded(addCardButton)();
+        if (support.marks) guarded(addPosterMarks)();
         sync();
     }
     KH.load = function () { return load(); };

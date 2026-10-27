@@ -24,6 +24,52 @@ function hash(input) {
 const episodeHash = (season, episode, title) => hash([season, season > 10 ? ':' : '', episode, title].join(''));
 const tick = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms + 5));
 
+
+// Just enough DOM for the plugin's card button and poster marks: class selectors (".a" or ".a .b"),
+// attributes, events. "$" mimics the jQuery calls the plugin and Lampa's full card use.
+class FakeElement {
+    constructor(tag) { this.tagName = String(tag).toUpperCase(); this.className = ''; this.textContent = ''; this.style = {};
+        this.children = []; this.attributes = {}; this.listeners = {}; this.parentNode = null; }
+    get classList() {
+        const el = this, names = () => el.className.split(/\s+/).filter(Boolean);
+        return {contains: name => names().includes(name), add: (...add) => { el.className = [...new Set([...names(), ...add])].join(' '); },
+            remove: (...gone) => { el.className = names().filter(n => !gone.includes(n)).join(' '); },
+            toggle: (name, on) => { if (on) el.classList.add(name); else el.classList.remove(name); }};
+    }
+    setAttribute(name, value) { this.attributes[name] = String(value); }
+    getAttribute(name) { return name in this.attributes ? this.attributes[name] : null; }
+    appendChild(child) { child.parentNode = this; this.children.push(child); return child; }
+    remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(c => c !== this); }
+    addEventListener(name, fn) { (this.listeners[name] = this.listeners[name] || []).push(fn); }
+    dispatch(name) { (this.listeners[name] || []).forEach(fn => fn({type: name})); }
+    descendants() { return this.children.flatMap(child => [child, ...child.descendants()]); }
+    querySelectorAll(selector) {
+        const chain = selector.trim().split(/\s+/).map(part => part.replace(/^\./, ''));
+        const matches = (el, i) => el.classList.contains(chain[i]);
+        const walk = (roots, i) => {
+            const found = roots.flatMap(root => root.descendants().filter(el => matches(el, i)));
+            return i === chain.length - 1 ? found : walk(found, i + 1);
+        };
+        return [...new Set(walk([this], 0))];
+    }
+    querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+}
+function fakeDocument() {
+    const body = new FakeElement('body'), head = new FakeElement('head');
+    return {body, head, createElement: tag => new FakeElement(tag), getElementById: id => head.children.find(el => el.id === id) || null,
+        querySelectorAll: selector => body.querySelectorAll(selector)};
+}
+function fakeJquery(target) {
+    const list = Array.isArray(target) ? target : target ? [target] : [];
+    const wrapped = {jquery: '3-fake', length: list.length,
+        find: selector => fakeJquery(list.flatMap(el => el.querySelectorAll(selector))),
+        on: (name, fn) => { list.forEach(el => el.addEventListener(name, fn)); return wrapped; },
+        trigger: name => { list.forEach(el => el.dispatch(name)); return wrapped; },
+        append: child => { list[0].appendChild(child.jquery ? child[0] : child); return wrapped; }};
+    list.forEach((el, i) => { wrapped[i] = el; });
+    return wrapped;
+}
+
 function listener() {
     const map = {};
     return {follow(name, fn) { (map[name] = map[name] || []).push(fn); },
@@ -36,7 +82,7 @@ function setup(options = {}) {
         ...options.storage};
     if (options.noProfile) { delete storage.sled_profiles; delete storage.sled_active; }
     const sent = [], played = [], playlists = [], selects = [], notices = [], params = [], pushes = [];
-    let closed = 0;
+    let closed = 0, cardCreated = 0;
     const delay = ms => options.maxDelay === undefined ? ms : Math.min(ms || 0, options.maxDelay);
     const routes = Object.assign({
         'GET /v1/changes': () => ({json: {cursor: 'c0', more: false, items: [], conflicts: [], prefs: [], playbacks: []}}),
@@ -46,7 +92,7 @@ function setup(options = {}) {
         'GET /v1/profile': () => ({json: {name: 'A', settings: {watched_threshold: 95}}}),
     }, options.routes);
     const player = listener(), timeline = listener(), events = listener();
-    const rows = [], buttons = [], cardMap = {Card: {onCreate() {}}}, sources = {};
+    const rows = [], buttons = [], cardMap = {Card: {onCreate() { cardCreated++; }}}, sources = {};
     const activity = options.activity === undefined ? {component: 'online_mod', movie: RICK} : options.activity;
     const Lampa = {
         Storage: {get: (key, fallback) => key in storage ? storage[key] : fallback,
@@ -92,13 +138,15 @@ function setup(options = {}) {
         },
     };
     (options.missing || []).forEach(name => { delete Lampa[name]; });
-    const window = {Lampa, appready: true};
+    const document = fakeDocument();
+    const window = {Lampa, appready: true, document, $: fakeJquery};
     vm.runInContext(code, vm.createContext({window, Lampa, console, setTimeout: (fn, ms) => setTimeout(fn, delay(ms)), clearTimeout, Date, JSON, Math, Object, Array,
-        String, Number, encodeURIComponent, decodeURIComponent, parseInt}));
+        String, Number, encodeURIComponent, decodeURIComponent, parseInt, document, $: fakeJquery}));
     return {
         Lampa, KH: window.Sled, storage, sent, routes, played, playlists, selects, notices, params, pushes, KEY,
-        rows, buttons, cardMap, sources, events,
+        rows, buttons, cardMap, sources, events, document, $: fakeJquery, FakeElement,
         get closed() { return closed; },
+        get cardCreated() { return cardCreated; },
         launched: () => played.filter(call => !call.aborted).map(call => call.data),
         press: name => params.find(p => p.param.name === name).onChange(),
         returned: (value, road) => timeline.send('update', {data: {hash: value, road}}),
