@@ -282,6 +282,11 @@
     function prepare(data, card, content, component) {
         var playlist = captured;
         captured = null;
+        var conflict = conflictFor(content.item_key);
+        if (conflict) return resolveConflict(conflict, function () { decide(data, content, component, playlist); });
+        decide(data, content, component, playlist);
+    }
+    function decide(data, content, component, playlist) {
         var item = load().items[content.item_key];
         var resumable = item && !item.deleted && item.status === 'in_progress' && item.position_ms >= RESUME_MIN_MS ? item : null;
         var info = {data: data, content: content, playlist: playlist, component: component,
@@ -525,9 +530,64 @@
             {type: 'status', item_key: item.item_key, status: status});
     }
     function remove(item) { changeItem(item, {deleted: true}, {type: 'delete', item_key: item.item_key}); }
+    function conflictFor(itemKey) {
+        var conflicts = load().conflicts;
+        for (var id in conflicts) {
+            if (conflicts[id] && conflicts[id].status === 'open' && conflicts[id].item_key === itemKey) return conflicts[id];
+        }
+        return null;
+    }
+    function two(value) { return (value < 10 ? '0' : '') + value; }
+    function when(ms) {
+        var date = new Date(ms);
+        return two(date.getDate()) + '.' + two(date.getMonth() + 1) + ' ' + two(date.getHours()) + ':' + two(date.getMinutes());
+    }
+    function optionTitle(option) {
+        var device = option.device_id === deviceId() ? 'это устройство' : 'другое устройство (…' + String(option.device_id).slice(-4) + ')';
+        return (option.status === 'watched' ? 'Просмотрено' : clock(option.position_ms)) + ' · ' + device + ' · ' + when(option.client_ms);
+    }
+    function errorBody(error) {
+        try { return typeof error.responseText === 'string' ? JSON.parse(error.responseText) : error.responseJSON || null; }
+        catch (e) { return null; }
+    }
+    // Both positions with their device and time; the server applies the choice to the version that was shown.
+    function resolveConflict(conflict, done) {
+        var items = [];
+        ['current', 'playback'].forEach(function (choice) {
+            var option = conflict.options && conflict.options[choice];
+            if (option) items.push({title: optionTitle(option), run: function () { submit(choice); }});
+        });
+        function submit(choice) {
+            api('/v1/conflicts/' + encodeURIComponent(conflict.id) + '/resolve', {version: conflict.version, choice: choice}, function (answer) {
+                var state = load();
+                if (answer.item && answer.item.item_key) state.items[answer.item.item_key] = answer.item;
+                delete state.conflicts[conflict.id];
+                save(state);
+                sync();
+                done(answer.item || null);
+            }, function (error) {
+                var body = error && error.status === 409 ? errorBody(error) : null;
+                if (body && body.error === 'conflict_changed' && body.conflict) {
+                    var state = load();
+                    state.conflicts[conflict.id] = body.conflict;
+                    save(state);
+                    notify('Sled: варианты изменились, выберите ещё раз');
+                    return resolveConflict(body.conflict, done);
+                }
+                notify('Sled: сервер недоступен, выбор не сохранён');
+                done(null);
+            });
+        }
+        choose('Позиции разошлись · ' + titleOf(conflict.options.current || conflict.options.playback), items);
+    }
     function itemMenu(item, card, upNext) {
         card = card || cardOf(item);
-        var items = [];
+        var items = [], conflict = conflictFor(item.item_key);
+        if (conflict) {
+            items.push({title: 'Позиции разошлись — выбрать', run: function () {
+                resolveConflict(conflict, function (chosen) { itemMenu(chosen || load().items[item.item_key] || item, card, upNext); });
+            }});
+        }
         if (item.status === 'in_progress' && item.position_ms >= RESUME_MIN_MS) {
             items.push({title: 'Продолжить с ' + clock(item.position_ms), run: function () { open(card, item, 'resume'); }});
         }

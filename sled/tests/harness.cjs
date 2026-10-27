@@ -85,7 +85,8 @@ function setup(options = {}) {
                     if (!handler) return fail({status: 0});
                     const answer = handler(request);
                     if ((answer.status || 200) === 200) ok(answer.raw !== undefined ? answer.raw : answer.json);
-                    else fail({status: answer.status});
+                    // Lampa hands the error body over as text; the plugin parses it when it needs the details.
+                    else fail({status: answer.status, responseText: answer.json ? JSON.stringify(answer.json) : ''});
                 }, 0);
             };
         },
