@@ -635,6 +635,31 @@
             })});
     }
 
+    var HISTORY_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    var HISTORY_TITLES = {continue: 'Продолжить просмотр', all: 'Вся история'};
+    function addHistory() {
+        // category_full asks Api.sources[source].list for each page; the pages come from local state.
+        L.Api.sources.sled = {list: guarded(function (params, oncomplite, onerror) {
+            var state = load(), mode = params.url === 'continue' ? 'continue' : 'all';
+            var page = historyPage(state, mode, params.page);
+            if (!page.results.length) return onerror();
+            page.results.forEach(function (card) {
+                var item = state.items[card.sled.item_key];
+                if (mode === 'all' && item.episode_id) card.name = card.name + ' · ' + episodeCode(item.season, item.episode);
+                enterable(card, item, mode === 'continue' && item.status === 'watched');
+            });
+            oncomplite(page);
+        })};
+        L.Menu.addButton(HISTORY_ICON, 'История', guarded(function () {
+            var suffix = waitingSuffix(load());
+            choose('История Sled', ['continue', 'all'].map(function (mode) {
+                return {title: HISTORY_TITLES[mode], run: function () {
+                    L.Activity.push({url: mode, title: HISTORY_TITLES[mode] + suffix, component: 'category_full', source: 'sled', page: 1});
+                }};
+            }));
+        }));
+    }
+
     // ==== settings ====
     function param(name, type, title, description, value, onChange) {
         L.SettingsApi.addParam({component: 'sled',
@@ -762,6 +787,7 @@
         addSettings();
         var support = uiSupport();
         if (support.shelf) guarded(addShelf)();
+        if (support.history && support.menu) guarded(addHistory)();
         sync();
     }
     KH.load = function () { return load(); };
