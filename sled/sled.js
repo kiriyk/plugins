@@ -78,7 +78,7 @@
         if (!Array.isArray(state.deferred)) state.deferred = [];
         return state;
     }
-    function save(state) { var key = stateKey(); if (key) put(key, state); }
+    function save(state) { var key = stateKey(); latestCache = null; if (key) put(key, state); }
     function merge(state, data) {
         // A delete still waiting in the queue wins over an older copy from the feed.
         var removing = {};
@@ -683,10 +683,16 @@
     function onEnter(node, fn) {
         if (window.$) window.$(node).on('hover:enter', fn); else node.addEventListener('hover:enter', fn);
     }
+    // Every poster asks for its record; reading and sorting the whole profile state per card is too slow on a TV.
+    var latestCache = null;
     function latestFor(id) {
-        var items = latestByContent(load());
-        for (var i = 0; i < items.length; i++) if (items[i].content_id === id) return items[i];
-        return null;
+        var key = stateKey();
+        if (!latestCache || latestCache.key !== key) {
+            var index = {};
+            latestByContent(load()).forEach(function (item) { index[item.content_id] = item; });
+            latestCache = {key: key, index: index};
+        }
+        return latestCache.index.hasOwnProperty(id) ? latestCache.index[id] : null;
     }
     function entryFor(card) {
         if (!card || card.id === undefined || card.id === null || card.id === '') return null;
@@ -752,7 +758,7 @@
             style.textContent = MARK_STYLE;
             document.head.appendChild(style);
         }
-        L.Listener.follow('sled', guarded(function (event) { if (event && event.type === 'synced') refreshMarks(); }));
+        L.Listener.follow('sled', guarded(function (event) { if (event && event.type === 'synced') { latestCache = null; refreshMarks(); } }));
     }
 
     // ==== settings ====

@@ -88,3 +88,15 @@ test('the card module is wrapped once and the style is added once', async () => 
     assert.equal(h.cardMap.Card.onCreate.__sled, true);
     assert.equal(h.document.head.children.filter(el => el.id === 'sled-style').length, 1);
 });
+
+test('drawing many posters reads the profile state once, not per card', async () => {
+    const items = Array.from({length: 300}, (_, i) => record('tmdb:movie:' + (i + 1), {meta: {title: 'Фильм ' + i}}));
+    const h = setup(seeded(items));
+    await tick();
+    const get = h.Lampa.Storage.get;
+    let reads = 0;
+    h.Lampa.Storage.get = (key, fallback) => { if (key === STATE) reads++; return get(key, fallback); };
+    for (let i = 1; i <= 200; i++) poster(h, {id: i, title: 'Фильм', source: 'tmdb'});
+    assert.ok(reads <= 1, 'state read ' + reads + ' times');
+    assert.equal(h.document.querySelectorAll('.sled-mark').length, 200);
+});
