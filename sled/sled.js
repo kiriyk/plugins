@@ -610,6 +610,31 @@
         choose(titleOf(item), items);
     }
 
+    // ==== ui: lampa ====
+    // Each entry point hooks into Lampa on its own; a failure in one never breaks Lampa or the others.
+    function guarded(fn) {
+        return function () {
+            try { return fn.apply(this, arguments); } catch (e) { if (window.console) console.log('Sled', 'ui error', e && e.message); }
+        };
+    }
+    function waitingSuffix(state) { return awaitingSync(state) ? ' · ждёт синхронизации' : ''; }
+    function enterable(card, item, upNext) {
+        card.params = {emit: {onlyEnter: guarded(function () { itemMenu(item, card, upNext); })}};
+        return card;
+    }
+    function addShelf() {
+        L.ContentRows.add({name: 'sled_continue', title: 'Продолжить просмотр (Sled)', index: 0, screen: ['main'],
+            call: guarded(function () {
+                var state = load(), entries = shelf(state);
+                if (!entries.length) return;
+                return function (call) {
+                    call({title: 'Продолжить просмотр' + waitingSuffix(state), results: entries.map(function (entry) {
+                        return enterable(cardOf(entry.item), entry.item, entry.upNext);
+                    })});
+                };
+            })});
+    }
+
     // ==== settings ====
     function param(name, type, title, description, value, onChange) {
         L.SettingsApi.addParam({component: 'sled',
@@ -735,6 +760,8 @@
         L.Player.listener.follow('create', onCreate);
         L.Timeline.listener.follow('update', onTimeline);
         addSettings();
+        var support = uiSupport();
+        if (support.shelf) guarded(addShelf)();
         sync();
     }
     KH.load = function () { return load(); };
