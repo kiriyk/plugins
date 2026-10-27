@@ -45,7 +45,8 @@ function setup(options = {}) {
         'POST /v1/events': req => ({json: {results: req.body.events.map(e => ({event_id: e.event_id, status: 'applied'}))}}),
         'GET /v1/profile': () => ({json: {name: 'A', settings: {watched_threshold: 95}}}),
     }, options.routes);
-    const player = listener(), timeline = listener();
+    const player = listener(), timeline = listener(), events = listener();
+    const rows = [], buttons = [], cardMap = {Card: {onCreate() {}}}, sources = {};
     const activity = options.activity === undefined ? {component: 'online_mod', movie: RICK} : options.activity;
     const Lampa = {
         Storage: {get: (key, fallback) => key in storage ? storage[key] : fallback,
@@ -63,7 +64,11 @@ function setup(options = {}) {
         Noty: {show: message => notices.push(message)},
         Platform: {is: name => name === 'android'},
         SettingsApi: {addComponent() {}, addParam(param) { params.push(param); }},
-        Listener: {follow() {}, send() {}},
+        Listener: events,
+        ContentRows: {add(row) { rows.push(row); }},
+        Menu: {addButton(icon, title, action) { buttons.push({icon, title, action}); }},
+        Maker: {map: name => name === 'Card' ? cardMap : {}},
+        Api: {sources},
         Component: {get: name => ['online_mod', 'showy_free'].includes(name) ? {} : undefined},
         Reguest: function () {
             this.timeout = () => {};
@@ -85,11 +90,13 @@ function setup(options = {}) {
             };
         },
     };
+    (options.missing || []).forEach(name => { delete Lampa[name]; });
     const window = {Lampa, appready: true};
     vm.runInContext(code, vm.createContext({window, Lampa, console, setTimeout: (fn, ms) => setTimeout(fn, delay(ms)), clearTimeout, Date, JSON, Math, Object, Array,
         String, Number, encodeURIComponent, decodeURIComponent, parseInt}));
     return {
         Lampa, KH: window.Sled, storage, sent, routes, played, playlists, selects, notices, params, pushes, KEY,
+        rows, buttons, cardMap, sources, events,
         get closed() { return closed; },
         launched: () => played.filter(call => !call.aborted).map(call => call.data),
         press: name => params.find(p => p.param.name === name).onChange(),
@@ -98,4 +105,7 @@ function setup(options = {}) {
     };
 }
 
-module.exports = {setup, tick, hash, episodeHash, RICK, MOVIE, KEY};
+// Profile state of the default profile, for seeding history: setup({storage: {[STATE]: {...}}}).
+const STATE = 'sled_state_' + hash(KEY);
+
+module.exports = {setup, tick, hash, episodeHash, RICK, MOVIE, KEY, STATE};

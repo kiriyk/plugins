@@ -422,6 +422,71 @@
             source: card.source || 'tmdb'});
     }
 
+    // ==== ui: model ====
+    // Every entry point reads the local profile state, so the interface works offline and shows one history.
+    var SHELF_LIMIT = 20, PAGE_SIZE = 20;
+    function newer(a, b) { return (a.server_ms || 0) - (b.server_ms || 0) || (a.client_ms || 0) - (b.client_ms || 0); }
+    function visibleItems(state) {
+        return Object.keys(state.items).map(function (key) { return state.items[key]; })
+            .filter(function (item) { return item && !item.deleted; })
+            .sort(function (a, b) { return newer(b, a); });
+    }
+    function latestByContent(state) {
+        var seen = {};
+        return visibleItems(state).filter(function (item) {
+            if (seen[item.content_id]) return false;
+            seen[item.content_id] = true;
+            return true;
+        });
+    }
+    // Same rule as the server's queries._on_shelf: a finished episode stays to offer the next one.
+    function shelf(state) {
+        return latestByContent(state || load()).filter(function (item) {
+            return item.status === 'in_progress' ? item.position_ms > 0 : !!item.episode_id;
+        }).slice(0, SHELF_LIMIT).map(function (item) { return {item: item, upNext: item.status === 'watched'}; });
+    }
+    function historyPage(state, mode, page) {
+        var entries = mode === 'continue' ? shelf(state) : visibleItems(state).map(function (item) { return {item: item, upNext: false}; });
+        page = Math.max(1, page || 1);
+        return {page: page, total_pages: Math.ceil(entries.length / PAGE_SIZE),
+            results: entries.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(function (entry) { return cardOf(entry.item); })};
+    }
+    function cardOf(item) {
+        var parts = String(item.content_id).split(':'), meta = item.meta || {}, tv = parts[1] === 'tv';
+        var card = {id: /^\d+$/.test(parts[2]) ? Number(parts[2]) : parts[2], source: parts[0]};
+        card[tv ? 'name' : 'title'] = meta.title;
+        if (meta.original_title) card[tv ? 'original_name' : 'original_title'] = meta.original_title;
+        if (meta.year) card[tv ? 'first_air_date' : 'release_date'] = meta.year + '-01-01';
+        if (/^\//.test(meta.poster || '')) card.poster_path = meta.poster;
+        else if (/^https?:\/\//.test(meta.poster || '')) card.poster = meta.poster;
+        card.sled = {item_key: item.item_key};
+        return card;
+    }
+    function progressOf(item) {
+        if (item.status === 'watched') return 100;
+        if (!item.duration_ms) return 0;
+        return Math.min(100, Math.round(item.position_ms / item.duration_ms * 100));
+    }
+    function episodeCode(season, episode) { return 'S' + season + 'E' + episode; }
+    function labelOf(item, upNext) {
+        if (upNext) return 'Следующая: ' + episodeCode(item.season, item.episode + 1);
+        var where = item.episode_id ? episodeCode(item.season, item.episode) + ' · ' : '';
+        if (item.status === 'watched') return where + 'Просмотрено';
+        return where + clock(item.position_ms) + (item.duration_ms ? ' из ' + clock(item.duration_ms) : '');
+    }
+    function awaitingSync(state) { return !!(state.outbox.length || state.deferred.length); }
+    var UI_NAMES = {shelf: 'полки', menu: 'меню', card: 'кнопки в карточке', marks: 'отметок на постерах', history: 'истории'};
+    function uiSupport() {
+        var map = L.Maker && L.Maker.map && L.Maker.map('Card');
+        return {shelf: !!(L.ContentRows && L.ContentRows.add), menu: !!(L.Menu && L.Menu.addButton),
+            card: !!(L.Listener && L.Listener.follow), marks: !!(map && map.Card),
+            history: !!(L.Api && L.Api.sources && L.Activity)};
+    }
+    function uiReport() {
+        var support = uiSupport(), missing = Object.keys(UI_NAMES).filter(function (name) { return !support[name]; });
+        return 'интерфейс: ' + (missing.length ? 'нет ' + missing.map(function (name) { return UI_NAMES[name]; }).join(', ') : 'всё подключено');
+    }
+
     // ==== settings ====
     function param(name, type, title, description, value, onChange) {
         L.SettingsApi.addParam({component: 'sled',
@@ -518,7 +583,7 @@
     function checkConnection() {
         api('/v1/profile', null, function (profile) {
             var threshold = profile.settings && profile.settings.watched_threshold;
-            notify('Sled: сервер доступен, профиль «' + profile.name + '», порог ' + threshold + '%');
+            notify('Sled: сервер доступен, профиль «' + profile.name + '», порог ' + threshold + '%, ' + uiReport());
         }, function (error) {
             if (error && error.error === 'not_configured') return notify('Sled: укажите адрес сервера и профиль');
             notify('Sled: сервер недоступен' + (error && error.status ? ' (код ' + error.status + ')' : ''));
@@ -555,6 +620,12 @@
     KH.clock = clock;
     KH.identify = identify;
     KH.open = open;
+    KH.shelf = function () { return shelf(load()); };
+    KH.historyPage = function (mode, page) { return historyPage(load(), mode, page); };
+    KH.cardOf = cardOf;
+    KH.progressOf = progressOf;
+    KH.labelOf = labelOf;
+    KH.pending = awaitingSync;
     if (window.appready) start();
     else if (window.Lampa && window.Lampa.Listener) {
         window.Lampa.Listener.follow('app', function (event) { if (event.type === 'ready') start(); });
