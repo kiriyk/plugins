@@ -8,48 +8,83 @@
 2. `cp .env.example .env` и указать `KADR_DOMAIN`.
 3. `docker compose up -d --build`.
 
-## Запуск на своём сервере по IP, без домена и сертификата
+## Запуск на своём сервере по IP, без домена
 
-Для случая, когда домена нет, а порты 80 и 443 уже заняты (например, на сервере работает Caddy с сайтом). Сервис слушает отдельный порт, по умолчанию 8090, и доступен как `http://<IP сервера>:8090`. Работающий Caddy не затрагивается.
+Домен не нужен: Let's Encrypt выдаёт сертификаты на IP-адрес (короткие, на 6 дней; Caddy продлевает их сам). Сервис слушает только `127.0.0.1:8090`, наружу его отдаёт Caddy по HTTPS под секретным путём, а на любой другой адрес соединение обрывается. Так сервис не видно ни по открытому порту, ни по имени в журналах сертификатов (Certificate Transparency), а ключи и токены идут по HTTPS.
 
-> **Без HTTPS ключи и токены просмотра идут по сети открытым текстом.** Их может увидеть любой, кто способен перехватить трафик между телевизором и сервером: провайдер, владелец публичного Wi-Fi. Для домашнего использования это допустимый компромисс на время. Ограничьте доступ к порту и при появлении домена переходите на HTTPS (см. конец раздела).
+Проверено на Ubuntu 26.04, Caddy 2.11 и телевизоре на Android 9.
 
-Все команды выполняются на сервере, подключившись по SSH: `ssh user@<IP сервера>`.
+Все команды выполняются на сервере по SSH: `ssh root@<IP>`.
 
-1. Проверить Docker:
+1. Docker и Caddy (Caddy нужен 2.10 или новее; если он уже стоит с сайтом — пропустите его установку):
 
    ```bash
-   docker compose version
+   curl -fsSL https://get.docker.com | sh
+   apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg
+   curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+   curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt > /etc/apt/sources.list.d/caddy-stable.list
+   apt-get update && apt-get install -y caddy
+   caddy version
    ```
 
-   Если команды нет — установить Docker официальным скриптом: `curl -fsSL https://get.docker.com | sh`. Затем выйти из SSH и зайти снова.
-
-2. Скачать код и выбрать порт:
+2. Сервис, только на локальном интерфейсе:
 
    ```bash
    git clone https://github.com/kiriyk/plugins.git ~/kadr
    cd ~/kadr/kadr-sync-server
-   ss -ltn | grep -q ':8090 ' && echo "порт 8090 занят — выберите другой" || echo "порт 8090 свободен"
-   echo "KADR_PORT=8090" > .env
+   echo "KADR_PORT=127.0.0.1:8090" > .env
+   docker compose -f docker-compose.ip.yml up -d --build
+   echo "alias kadr='docker compose -f ~/kadr/kadr-sync-server/docker-compose.ip.yml'" >> ~/.bashrc && . ~/.bashrc
+   curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8090/v1/profile   # 401
    ```
 
-   Файл `.env` запоминает порт: compose читает его сам.
-
-3. Запустить:
+3. Секретный путь — случайная строка, которую знаете только вы:
 
    ```bash
-   docker compose -f docker-compose.ip.yml up -d --build
-   alias kadr='docker compose -f ~/kadr/kadr-sync-server/docker-compose.ip.yml'
-   echo "alias kadr='docker compose -f ~/kadr/kadr-sync-server/docker-compose.ip.yml'" >> ~/.bashrc
+   echo "s-$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 18)"
    ```
 
-   Дальше вместо длинной команды можно писать `kadr …`.
+4. Caddy. В `/etc/caddy/Caddyfile` (если там уже есть сайт — добавьте блоки к нему; `default_sni` — в общий блок в начале файла):
 
-4. Открыть порт снаружи. Порты Docker обходят правила `ufw`, поэтому доступ ограничивайте в панели провайдера (облачный файрвол / security group): разрешите TCP 8090 только со своего домашнего IP, если он постоянный. Если файрвола у провайдера нет — порт будет открыт всем, и защитой остаются только ключи.
+   ```caddyfile
+   {
+   	default_sni 203.0.113.10
+   }
 
-5. Проверить с домашнего компьютера: `curl -s -o /dev/null -w '%{http_code}\n' http://<IP сервера>:8090/v1/profile` должен вывести `401` (сервер работает и без ключа ничего не отдаёт).
+   203.0.113.10 {
+   	tls {
+   		issuer acme {
+   			profile shortlived
+   		}
+   	}
+   	handle_path /s-СЕКРЕТНЫЙ-ПУТЬ/* {
+   		header -Server
+   		header X-Robots-Tag "noindex, nofollow"
+   		reverse_proxy 127.0.0.1:8090
+   	}
+   	handle {
+   		abort
+   	}
+   }
+   ```
 
-6. Подключить телевизор: в Lampa **Настройки → Sled** → адрес `http://<IP сервера>:8090` → **Привязать по коду**. На сервере подтвердить код с экрана:
+   `203.0.113.10` замените на IP сервера. **`default_sni` обязателен:** клиенты не передают имя сервера (SNI), когда подключаются по IP, и без этой строки Caddy обрывает все соединения. Затем:
+
+   ```bash
+   caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile && systemctl reload caddy
+   journalctl -u caddy -n 30 -o cat | grep -i "certificate obtained"
+   ```
+
+   Порты 80 и 443 должны быть открыты: на них Let's Encrypt проверяет IP.
+
+5. Проверить с домашнего компьютера:
+
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' https://203.0.113.10/s-СЕКРЕТНЫЙ-ПУТЬ/v1/profile   # 401
+   curl -s -o /dev/null -w '%{http_code}\n' https://203.0.113.10/                              # 000: соединение оборвано
+   ```
+
+6. Подключить телевизор: в Lampa **Настройки → Sled** → адрес `https://203.0.113.10/s-СЕКРЕТНЫЙ-ПУТЬ` → **Привязать по коду**. На сервере подтвердить код с экрана:
 
    ```bash
    kadr exec kadr-sync python -m kadr_sync.cli pair K7M-4QX "Дом" --create
@@ -70,17 +105,24 @@
    kadr cp kadr-sync:/data/backup-$(date +%F).sqlite3 ~/
    ```
 
-Журнал: `kadr logs -f kadr-sync` — ключи и токены в него не пишутся.
+Журнал сервиса: `kadr logs -f kadr-sync` — ключи и токены в него не пишутся.
 
-**Переход на HTTPS позже.** Когда появится домен (подойдёт и бесплатный, например от DuckDNS), направьте его на IP сервера и добавьте в уже работающий Caddyfile блок, затем перезагрузите Caddy:
+Чтобы не засветить адрес: не открывайте его в браузере (Яндекс.Браузер и Chrome отправляют посещённые адреса), не пересылайте в мессенджерах (они запрашивают ссылку для превью), не пишите путь в `robots.txt` и не коммитьте его.
+
+**Если HTTPS не работает на старом телевизоре.** Android 7.0 и старше не доверяет корневому сертификату Let's Encrypt — Sled покажет «код 0» при проверке связи. Тогда временно добавьте вход по HTTP с тем же путём (ключи пойдут открытым текстом):
 
 ```caddyfile
-kadr.example.com {
-	reverse_proxy 127.0.0.1:8090
+http://203.0.113.10 {
+	handle_path /s-СЕКРЕТНЫЙ-ПУТЬ/* {
+		reverse_proxy 127.0.0.1:8090
+	}
+	handle {
+		abort
+	}
 }
 ```
 
-В Sled поменяйте адрес на `https://kadr.example.com`; история и привязанные устройства сохранятся. После этого порт 8090 снаружи можно закрыть.
+**С доменом.** Если домен есть, вместо IP укажите его в блоке сайта и уберите `tls { … }` и `default_sni`: Caddy выпустит обычный сертификат. Имя домена при этом попадёт в журналы Certificate Transparency.
 
 ## Профили
 
