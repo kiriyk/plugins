@@ -419,7 +419,10 @@
         if (now() - record.started > PENDING_TTL_MS) return;
         var road = data.road || {}, completed = road.percent >= 100;
         reportFallback(record, road, completed);
-        sync(function (state, error) { afterReturn(record, completed, state, error, 0); });
+        sync(function (state, error) {
+            guarded(offerRating)(record, road, error);
+            afterReturn(record, completed, state, error, 0);
+        });
     }
     function reportFallback(record, road, completed) {
         if (!activeProfile() || !server()) return;
@@ -735,7 +738,7 @@
     }
 
     function ratingTitle(content) { return (content.meta && content.meta.title) || content.content_id; }
-    function pickScore(content, done) {
+    function pickScore(content, done, title, extra) {
         var items = [];
         for (var score = 10; score >= 1; score--) {
             items.push({title: '★ ' + score, run: (function (value) {
@@ -746,7 +749,7 @@
                 };
             }(score))});
         }
-        choose('Оценка · ' + ratingTitle(content), items);
+        choose(title || 'Оценка · ' + ratingTitle(content), items.concat(extra || []));
     }
     function canComment() { return !!(L.Input && L.Input.edit); }
     function editComment(content, done) {
@@ -757,6 +760,24 @@
             if (fresh) setRating(content, fresh.score, text);
             if (done) done();
         });
+    }
+    // After a finished movie (not an episode), once per movie, unless it already has a score.
+    var RATE_PERCENT = 95;
+    function offerRating(record, road, error) {
+        var content = record.body && record.body.content, state = load();
+        if (!content || content.episode_id || ratingOf(state, content.content_id) || state.offered[content.content_id]) return;
+        // The server marks the movie watched by the profile's threshold; offline the timeline is all there is.
+        var item = state.items[record.item_key];
+        var finished = error ? (road.percent || 0) >= RATE_PERCENT : !!(item && !item.deleted && item.status === 'watched');
+        if (!finished) return;
+        state.offered[content.content_id] = true;
+        save(state);
+        var rated = {content_id: content.content_id, meta: content.meta};
+        pickScore(rated, function (score) {
+            var next = [{title: 'Готово', run: function () {}}];
+            if (canComment()) next.unshift({title: 'Добавить впечатления', run: function () { editComment(rated); }});
+            choose('Оценка сохранена · ★ ' + score, next);
+        }, 'Оценить «' + ratingTitle(rated) + '»?', [{title: 'Не сейчас', run: function () {}}]);
     }
     // changed() lets the caller refresh what it shows (the card button) after any edit.
     function ratingMenu(content, card, extra, changed) {

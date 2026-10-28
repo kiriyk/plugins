@@ -23,6 +23,10 @@ function hash(input) {
 }
 const episodeHash = (season, episode, title) => hash([season, season > 10 ? ':' : '', episode, title].join(''));
 const tick = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms + 5));
+// For long chains of async hops: waits for the outcome instead of a fixed time, so a loaded machine does not fail the test.
+async function until(check, ms = 2000) {
+    for (const end = Date.now() + ms; !check() && Date.now() < end;) await tick();
+}
 
 
 // Just enough DOM for the plugin's card button and poster marks: class selectors (".a" or ".a .b"),
@@ -160,4 +164,4 @@ function setup(options = {}) {
 // Profile state of the default profile, for seeding history: setup({storage: {[STATE]: {...}}}).
 const STATE = 'sled_state_' + hash(KEY);
 
-module.exports = {setup, tick, hash, episodeHash, RICK, MOVIE, KEY, STATE};
+module.exports = {setup, tick, until, hash, episodeHash, RICK, MOVIE, KEY, STATE};

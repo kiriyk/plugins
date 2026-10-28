@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {setup, tick, hash, episodeHash, MOVIE} = require('./harness.cjs');
+const {setup, tick, until, hash, episodeHash, MOVIE} = require('./harness.cjs');
 
 function episode(season, number) {
     const url = `http://cdn.test/rm-s${season}e${number}.m3u8`;
@@ -28,7 +28,7 @@ test('after KADR asked for the next episode the plugin plays it without a menu',
     const pid = fragment(data).get('pid');
     h.routes['GET /v1/changes'] = changes([], [{playback_id: pid, next_requested: true}]);
     h.returned(H510, {time: 0, duration: 0, percent: 100});
-    await tick(40);
+    await until(() => h.launched().length > 1);
     const next = h.launched().at(-1);
     assert.equal(next.url.split('#')[0], 'http://cdn.test/rm-s5e11.m3u8');
     assert.equal(next.url.split('#').length, 2);
