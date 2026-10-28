@@ -703,6 +703,8 @@
     function ratingOf(state, id) { var record = state.ratings[id]; return record && !record.deleted ? record : null; }
     function contentOf(card) { return {content_id: contentId(card), meta: metaOf(card)}; }
     function changeRating(id, record, event) {
+        // Without a paired profile there is nowhere to keep it.
+        if (!stateKey()) return;
         var state = load();
         state.ratings[id] = record;
         save(state);
@@ -765,10 +767,12 @@
     var RATE_PERCENT = 95;
     function offerRating(record, road, error) {
         var content = record.body && record.body.content, state = load();
-        if (!content || content.episode_id || ratingOf(state, content.content_id) || state.offered[content.content_id]) return;
-        // The server marks the movie watched by the profile's threshold; offline the timeline is all there is.
+        if (!stateKey() || !content || content.episode_id || ratingOf(state, content.content_id) || state.offered[content.content_id]) return;
+        // KADR's own report may still be on its way, so the position Lampa got back counts too;
+        // a watched record only counts when this playback made it (an old one says nothing about tonight).
         var item = state.items[record.item_key];
-        var finished = error ? (road.percent || 0) >= RATE_PERCENT : !!(item && !item.deleted && item.status === 'watched');
+        var finished = (road.percent || 0) >= RATE_PERCENT || !!(!error && item && !item.deleted && item.status === 'watched'
+            && item.playback_id === record.playback_id);
         if (!finished) return;
         state.offered[content.content_id] = true;
         save(state);
@@ -917,7 +921,7 @@
                 onEnter(button, guarded(function () { itemMenu(entry.item, movie, entry.upNext); }));
                 box.appendChild(button);
             }
-            if (!one(box, '.sled-rate')) addRateButton(box, movie);
+            if (activeProfile() && !one(box, '.sled-rate')) addRateButton(box, movie);
         }));
     }
     // Any movie or series can be rated, with or without watch history.
@@ -946,11 +950,14 @@
         badge.setAttribute('data-sled-score', id);
         return badge;
     }
+    // Every poster remembers its title, so a rating made later can still put a badge on it.
     function drawScore(card) {
-        var data = card.data;
-        if (!data || data.id === undefined || data.id === null || data.id === '') return;
-        var id = contentId(data), value = scoreFor(id), view = value && one(card.html, '.card__view');
-        if (view) view.appendChild(scoreBadge(id, value));
+        var data = card.data, view = one(card.html, '.card__view');
+        if (!view || !data || data.id === undefined || data.id === null || data.id === '') return;
+        var id = contentId(data), value = scoreFor(id);
+        view.className += ' sled-card';
+        view.setAttribute('data-sled-card', id);
+        if (value) view.appendChild(scoreBadge(id, value));
     }
     function drawMark(card) {
         var entry = entryFor(card.data), view = entry && one(card.html, '.card__view');
@@ -971,11 +978,11 @@
             mark.parentNode.appendChild(fresh);
             mark.remove();
         }
-        var badges = document.querySelectorAll('.sled-score');
-        for (var j = 0; j < badges.length; j++) {
-            var badge = badges[j], id = badge.getAttribute('data-sled-score'), value = scoreFor(id);
-            if (value) badge.parentNode.appendChild(scoreBadge(id, value));
-            badge.remove();
+        var views = document.querySelectorAll('.sled-card');
+        for (var j = 0; j < views.length; j++) {
+            var view = views[j], id = view.getAttribute('data-sled-card'), value = scoreFor(id), old = one(view, '.sled-score');
+            if (old) old.remove();
+            if (value) view.appendChild(scoreBadge(id, value));
         }
     }
     // Card modules are read from this map whenever Lampa creates a card, so wrapping it reaches every poster.

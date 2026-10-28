@@ -84,3 +84,16 @@ test('poster drawing still reads the state once', async () => {
     assert.ok(reads <= 1, 'state read ' + reads + ' times');
     assert.equal(h.document.querySelectorAll('.sled-score').length, 200);
 });
+
+test('a poster drawn before the rating gets its badge after the sync', async () => {
+    const h = setup();
+    await tick();
+    const movie = poster(h, MOVIE);
+    assert.equal(movie.querySelector('.sled-score'), null);
+    h.KH.rate({content_id: 'tmdb:movie:1400940', meta: {title: 'Клэйфейс'}}, 8);
+    await tick();
+    assert.equal(movie.querySelectorAll('.sled-score').length, 1);
+    assert.equal(movie.querySelector('.sled-score').textContent, '★ 8');
+    h.events.send('sled', {type: 'synced'});
+    assert.equal(movie.querySelectorAll('.sled-score').length, 1);
+});

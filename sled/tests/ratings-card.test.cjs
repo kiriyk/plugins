@@ -93,3 +93,13 @@ test('the rate button is added once per card and coexists with the Sled button',
     assert.equal(card.buttons.querySelectorAll('.sled-rate').length, 1);
     assert.equal(card.buttons.querySelectorAll('.sled-button').length, 1);
 });
+
+test('without a paired profile the card has no rate button', async () => {
+    const h = setup({noProfile: true});
+    await tick();
+    const card = fullCard(h, MOVIE);
+    card.send();
+    assert.equal(card.buttons.querySelectorAll('.sled-rate').length, 0);
+    h.KH.rate({content_id: 'tmdb:movie:7', meta: {title: 'Фильм'}}, 8);
+    assert.equal(h.KH.ratings().length, 0);
+});

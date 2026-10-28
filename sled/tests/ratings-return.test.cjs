@@ -86,3 +86,19 @@ test('offline, the timeline percent decides', async () => {
     await watch(h, {time: 5900, duration: 6128, percent: 96});
     assert.equal(asks(h).length, 1);
 });
+
+test('without a paired profile there is no rating window', async () => {
+    const h = movieSetup({noProfile: true});
+    await tick();
+    await watch(h, {time: 6000, duration: 6128, percent: 97});
+    assert.equal(asks(h).length, 0);
+});
+
+test('only this playback counts: an old watched record does not ask, a late KADR report does not hide it', async () => {
+    const h = movieSetup();
+    await tick();
+    await watch(h, {time: 60, duration: 6128, percent: 1}, changes([{...film('watched'), playback_id: 'pbolderplayback0000000'}]));
+    assert.equal(asks(h).length, 0);
+    await watch(h, {time: 6000, duration: 6128, percent: 97}, changes([film('in_progress')]));
+    assert.equal(asks(h).length, 1);
+});

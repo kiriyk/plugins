@@ -77,3 +77,20 @@ def test_ratings_list_newest_first_and_pages(server):
         ["tmdb:movie:3", "tmdb:movie:2", "tmdb:movie:1"]
     page = ratings(client, keys["a"], "?limit=2&offset=2")
     assert (len(page["ratings"]), page["total"]) == (1, 3)
+
+
+def test_a_stale_edit_brings_the_winner_back_to_the_sender(server):
+    client, keys, _ = server
+    send(client, keys["a"], rating("tmdb:movie:7", 8, 2000))
+    cursor = client.get("/v1/changes", headers=auth(keys["a"])).json()["cursor"]
+    assert send(client, keys["a"], rating("tmdb:movie:7", 4, 1000))[0]["status"] == "stale"
+    again = client.get("/v1/changes?cursor=" + cursor, headers=auth(keys["a"])).json()["ratings"]
+    assert [r["score"] for r in again] == [8]
+
+
+def test_a_clock_far_ahead_does_not_lock_the_rating(server):
+    client, keys, _ = server
+    now = 1_800_000_000_000
+    send(client, keys["a"], rating("tmdb:movie:7", 8, now + 10 ** 12))
+    assert send(client, keys["a"], rating("tmdb:movie:7", 5, now + 1))[0]["status"] == "applied"
+    assert ratings(client, keys["a"])["ratings"][0]["score"] == 5

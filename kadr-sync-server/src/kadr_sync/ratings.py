@@ -24,8 +24,12 @@ def _write(conn: sqlite3.Connection, profile_id: int, content_id: str, client_ms
            score: Optional[int], comment: Optional[str], meta_json: Optional[str]) -> dict:
     row = conn.execute("SELECT rated_ms, meta_json FROM ratings WHERE profile_id=? AND content_id=?",
                        (profile_id, content_id)).fetchone()
+    # A device clock running ahead must not lock the title against everyone else.
+    client_ms = min(client_ms, now_ms)
     # Equal times: the edit that arrived later wins.
     if row is not None and client_ms < row["rated_ms"]:
+        # The sender already shows its losing edit; a fresh change brings the winner back to it.
+        changes.record(conn, profile_id, "rating", content_id)
         return {"status": "stale"}
     # A delete keeps the title so other devices can still name what was removed; a delete with no rating
     # leaves a tombstone, so an older rating that arrives later loses to it.
