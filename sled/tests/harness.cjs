@@ -117,19 +117,21 @@ function setup(options = {}) {
         Api: {sources},
         Component: {get: name => ['online_mod', 'showy_free'].includes(name) ? {} : undefined},
         Reguest: function () {
-            this.timeout = () => {};
+            let limit = null;
+            this.timeout = ms => { limit = ms; };
             this.native = (url, ok, fail, body, settings) => {
                 const parsed = new URL(url), method = body ? 'POST' : 'GET';
                 // A server address may carry a path prefix (a reverse proxy); routes are relative to it.
                 const prefix = new URL(storage.sled_server || 'https://kadr.test').pathname.replace(/\/+$/, '');
                 const pathname = parsed.pathname.slice(prefix.length);
                 const request = {method, path: pathname, query: parsed.search, body: body ? JSON.parse(body) : null,
-                    headers: (settings && settings.headers) || {}};
+                    headers: (settings && settings.headers) || {}, timeout: limit};
                 sent.push(request);
                 const handler = routes[method + ' ' + pathname];
                 setTimeout(() => {
                     if (!handler) return fail({status: 0});
                     const answer = handler(request);
+                    if (answer.hang) return;
                     if ((answer.status || 200) === 200) ok(answer.raw !== undefined ? answer.raw : answer.json);
                     // Lampa hands the error body over as text; the plugin parses it when it needs the details.
                     else fail({status: answer.status, responseText: answer.json ? JSON.stringify(answer.json) : ''});

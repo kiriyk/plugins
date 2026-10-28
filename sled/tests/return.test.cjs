@@ -109,3 +109,14 @@ test('updates for other hashes or without a launch are ignored', async () => {
     await tick();
     assert.equal(h.sent.filter(r => r.path === '/v1/events').length, 0);
 });
+
+test('when KADR got no reporting context, a finished episode asks about the next one', async () => {
+    const h = setup({storage: {sled_server: 'https://kadr.test/a&b=c'}});
+    await tick();
+    const {data} = startEpisode(h, 5, 10);
+    await tick();
+    assert.equal(fragment(data).get('tok'), null);
+    h.returned(H510, {time: 0, duration: 0, percent: 100});
+    await tick(40);
+    assert.equal(h.selects.at(-1) && h.selects.at(-1).title, 'Следующая серия?');
+});

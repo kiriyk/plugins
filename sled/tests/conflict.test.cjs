@@ -74,3 +74,31 @@ test('the actions menu offers the conflict first and returns to the menu after t
     await tick();
     assert.equal(titles(h.selects.at(-1))[0], 'Продолжить с 15:00');
 });
+
+test('a conflict already resolved on another device is dropped instead of shown again', async () => {
+    const resolved = {...conflict(2, at(600000, 'tvthisdevice00'), at(900000, 'tvotherk3f9')), status: 'resolved'};
+    const h = setup(seeded({'POST /v1/conflicts/cf1/resolve': () => ({status: 409, json: {error: 'conflict_changed', conflict: resolved}})}));
+    await tick();
+    play(h);
+    await tick();
+    choose(h, 1);
+    await tick();
+    assert.equal(h.selects.filter(s => s.title.startsWith('Позиции разошлись')).length, 1);
+    assert.equal(h.state().conflicts.cf1, undefined);
+    assert.equal(h.notices.at(-1), 'Sled: позиции уже выбраны на другом устройстве');
+    assert.match(titles(h.selects.at(-1))[0], /^Продолжить с /);
+});
+
+test('a conflict the server no longer knows is dropped locally', async () => {
+    const h = setup(seeded({'POST /v1/conflicts/cf1/resolve': () => ({status: 404, json: {detail: 'not_found'}})}));
+    await tick();
+    play(h);
+    await tick();
+    choose(h, 1);
+    await tick();
+    assert.equal(h.state().conflicts.cf1, undefined);
+    assert.equal(h.notices.at(-1), 'Sled: позиции уже выбраны на другом устройстве');
+    play(h);
+    await tick();
+    assert.match(titles(h.selects.at(-1))[0], /^Продолжить с /);
+});

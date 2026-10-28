@@ -1,6 +1,6 @@
 {
   "name": "sled",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Lampa + KADR: resume, next episode and watch history sync",
   "scripts": {"test": "node --test tests/*.test.cjs", "check": "node --check sled.js"}
