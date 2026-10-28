@@ -85,7 +85,9 @@
         }, function (error) { if (fail) fail(error || {status: 0}); }, body ? JSON.stringify(body) : false, {headers: headers});
     }
     function stateKey() { var profile = activeProfile(); return profile ? 'state_' + hash(profile.key) : null; }
-    function emptyState() { return {cursor: '', items: {}, prefs: {}, conflicts: {}, playbacks: {}, outbox: [], deferred: [], synced: 0}; }
+    function emptyState() {
+        return {cursor: '', items: {}, prefs: {}, conflicts: {}, playbacks: {}, outbox: [], deferred: [], synced: 0, ratings: {}, offered: {}};
+    }
     // A sync passes its own key: the viewer may switch profiles while it waits for the server.
     function load(key) {
         key = key || stateKey();
@@ -93,13 +95,18 @@
         if (!state || typeof state !== 'object' || !state.items) return emptyState();
         if (!Array.isArray(state.outbox)) state.outbox = [];
         if (!Array.isArray(state.deferred)) state.deferred = [];
+        if (!state.ratings || typeof state.ratings !== 'object') state.ratings = {};
+        if (!state.offered || typeof state.offered !== 'object') state.offered = {};
         return state;
     }
     function save(state, key) { key = key || stateKey(); latestCache = null; if (key) put(key, state); }
     function merge(state, data) {
         // A delete still waiting in the queue wins over an older copy from the feed.
-        var removing = {};
-        state.outbox.forEach(function (event) { if (event.type === 'delete') removing[event.item_key] = true; });
+        var removing = {}, rating = {};
+        state.outbox.forEach(function (event) {
+            if (event.type === 'delete') removing[event.item_key] = true;
+            if (event.type === 'rating' || event.type === 'rating_delete') rating[event.content_id] = true;
+        });
         (data.items || []).forEach(function (item) {
             if (!item || !item.item_key) return;
             state.items[item.item_key] = removing[item.item_key] ? extend({}, item, {deleted: true}) : item;
@@ -108,6 +115,10 @@
         (data.conflicts || []).forEach(function (conflict) {
             if (!conflict || !conflict.id) return;
             if (conflict.status === 'open') state.conflicts[conflict.id] = conflict; else delete state.conflicts[conflict.id];
+        });
+        // A rating change still waiting in the queue is newer than any copy the feed can bring.
+        (data.ratings || []).forEach(function (record) {
+            if (record && record.content_id && !rating[record.content_id]) state.ratings[record.content_id] = record;
         });
         (data.playbacks || []).forEach(function (playback) { if (playback && playback.playback_id) state.playbacks[playback.playback_id] = playback; });
         if (data.cursor) state.cursor = data.cursor;
@@ -684,6 +695,45 @@
         choose(titleOf(item), items);
     }
 
+    // ==== ratings ====
+    // One score 1-10 and optional impressions per movie or whole series, keyed by content_id.
+    function ratingOf(state, id) { var record = state.ratings[id]; return record && !record.deleted ? record : null; }
+    function contentOf(card) { return {content_id: contentId(card), meta: metaOf(card)}; }
+    function changeRating(id, record, event) {
+        var state = load();
+        state.ratings[id] = record;
+        save(state);
+        enqueue(event);
+        sync();
+    }
+    function setRating(content, score, comment) {
+        comment = comment ? String(comment).replace(/^\s+|\s+$/g, '').slice(0, 2000) : '';
+        changeRating(content.content_id, {content_id: content.content_id, score: score, comment: comment || null, meta: content.meta,
+            rated_ms: now(), device_id: deviceId(), deleted: false},
+            {type: 'rating', content_id: content.content_id, score: score, comment: comment || null, meta: content.meta});
+    }
+    function removeRating(id) {
+        var current = load().ratings[id] || {content_id: id, meta: {}};
+        changeRating(id, extend({}, current, {score: null, comment: null, rated_ms: now(), deleted: true}),
+            {type: 'rating_delete', content_id: id});
+    }
+    function ratedList(state) {
+        return Object.keys(state.ratings).map(function (id) { return state.ratings[id]; })
+            .filter(function (record) { return record && !record.deleted; })
+            .sort(function (a, b) { return (b.rated_ms || 0) - (a.rated_ms || 0); });
+    }
+    function ratingPage(state, page) {
+        var list = ratedList(state);
+        page = Math.max(1, page || 1);
+        return {page: page, total_pages: Math.ceil(list.length / PAGE_SIZE),
+            results: list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(function (record) {
+                var card = cardOf(record), name = card.name ? 'name' : 'title';
+                card[name] = card[name] + ' · ★ ' + record.score;
+                card.sled = {content_id: record.content_id};
+                return card;
+            })};
+    }
+
     // ==== ui: lampa ====
     // Each entry point hooks into Lampa on its own; a failure in one never breaks Lampa or the others.
     function guarded(fn) {
@@ -976,6 +1026,10 @@
     KH.labelOf = labelOf;
     KH.pending = awaitingSync;
     KH.itemMenu = itemMenu;
+    KH.ratings = function () { return ratedList(load()); };
+    KH.ratingPage = function (page) { return ratingPage(load(), page); };
+    KH.rate = setRating;
+    KH.unrate = removeRating;
     if (window.appready) start();
     else if (window.Lampa && window.Lampa.Listener) {
         window.Lampa.Listener.follow('app', function (event) { if (event.type === 'ready') start(); });
