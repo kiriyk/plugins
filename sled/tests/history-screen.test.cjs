@@ -22,7 +22,7 @@ test('the menu button opens continue watching or the full history', async () => 
     button.action();
     const select = h.selects.at(-1);
     assert.equal(select.title, 'История Sled');
-    assert.equal(select.items.map(entry => entry.title).join('|'), 'Продолжить просмотр|Вся история');
+    assert.equal(select.items.map(entry => entry.title).join('|'), 'Продолжить просмотр|Вся история|Мои оценки');
     select.onSelect(select.items[1]);
     const pushed = h.pushes.at(-1);
     assert.equal(JSON.stringify([pushed.component, pushed.source, pushed.url, pushed.page, pushed.title]),

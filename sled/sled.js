@@ -825,11 +825,13 @@
     }
 
     var HISTORY_ICON = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-    var HISTORY_TITLES = {continue: 'Продолжить просмотр', all: 'Вся история'};
+    var HISTORY_TITLES = {continue: 'Продолжить просмотр', all: 'Вся история', rated: 'Мои оценки'};
     function addHistory() {
         // category_full asks Api.sources[source].list for each page; the pages come from local state.
         L.Api.sources.sled = {list: guarded(function (params, oncomplite, onerror) {
-            var state = load(), mode = params.url === 'continue' ? 'continue' : 'all';
+            var state = load();
+            if (params.url === 'rated') return ratedScreen(state, params, oncomplite, onerror);
+            var mode = params.url === 'continue' ? 'continue' : 'all';
             var page = historyPage(state, mode, params.page);
             if (!page.results.length) return onerror();
             page.results.forEach(function (card) {
@@ -841,7 +843,7 @@
         })};
         L.Menu.addButton(HISTORY_ICON, 'История', guarded(function () {
             var suffix = waitingSuffix(load());
-            choose('История Sled', ['continue', 'all'].map(function (mode) {
+            choose('История Sled', ['continue', 'all', 'rated'].map(function (mode) {
                 return {title: HISTORY_TITLES[mode], run: function () {
                     L.Activity.push({url: mode, title: HISTORY_TITLES[mode] + suffix, component: 'category_full', source: 'sled', page: 1});
                 }};
@@ -849,10 +851,25 @@
         }));
     }
 
+    function ratedScreen(state, params, oncomplite, onerror) {
+        var page = ratingPage(state, params.page);
+        if (!page.results.length) return onerror();
+        page.results.forEach(function (card) {
+            var record = state.ratings[card.sled.content_id];
+            card.params = {emit: {onlyEnter: guarded(function () {
+                ratingMenu(record, card, [{title: 'Открыть карточку', run: function () { openFull(cardOf(record)); }}]);
+            })}};
+        });
+        oncomplite(page);
+    }
+
     var MARK_STYLE = '.sled-mark{position:absolute;left:0;right:0;bottom:0;height:.3em;background:rgba(0,0,0,.5);z-index:2}'
         + '.sled-mark__bar{height:100%;background:#ffc107}'
         + '.sled-mark--watched{left:auto;right:.4em;bottom:auto;top:.4em;width:1.6em;height:1.6em;border-radius:50%;'
-        + 'background:#ffc107;color:#000;font-size:1em;line-height:1.6em;text-align:center}';
+        + 'background:#ffc107;color:#000;font-size:1em;line-height:1.6em;text-align:center}'
+        // Same size as the catalog-ratings badge, which sits at the bottom right.
+        + '.sled-score{position:absolute;left:.35em;top:.35em;z-index:5;font-size:1.17em;line-height:1.15;font-weight:700;'
+        + 'border-radius:.25em;padding:.28em .42em;background:rgba(0,0,0,.6);color:#ffc107;pointer-events:none}';
     // Lampa passes jQuery in the full card event and native elements in card modules.
     function one(root, selector) {
         if (!root) return null;
@@ -873,11 +890,16 @@
     function latestFor(id) {
         var key = stateKey();
         if (!latestCache || latestCache.key !== key) {
-            var index = {};
-            latestByContent(load()).forEach(function (item) { index[item.content_id] = item; });
-            latestCache = {key: key, index: index};
+            var index = {}, state = load(), scores = {};
+            latestByContent(state).forEach(function (item) { index[item.content_id] = item; });
+            ratedList(state).forEach(function (record) { scores[record.content_id] = record.score; });
+            latestCache = {key: key, index: index, scores: scores};
         }
         return latestCache.index.hasOwnProperty(id) ? latestCache.index[id] : null;
+    }
+    function scoreFor(id) {
+        latestFor(id);
+        return latestCache.scores.hasOwnProperty(id) ? latestCache.scores[id] : null;
     }
     function entryFor(card) {
         if (!card || card.id === undefined || card.id === null || card.id === '') return null;
@@ -919,6 +941,17 @@
             mark.appendChild(bar);
         }
     }
+    function scoreBadge(id, value) {
+        var badge = element('div', 'sled-score', '★ ' + value);
+        badge.setAttribute('data-sled-score', id);
+        return badge;
+    }
+    function drawScore(card) {
+        var data = card.data;
+        if (!data || data.id === undefined || data.id === null || data.id === '') return;
+        var id = contentId(data), value = scoreFor(id), view = value && one(card.html, '.card__view');
+        if (view) view.appendChild(scoreBadge(id, value));
+    }
     function drawMark(card) {
         var entry = entryFor(card.data), view = entry && one(card.html, '.card__view');
         if (!view) return;
@@ -938,15 +971,22 @@
             mark.parentNode.appendChild(fresh);
             mark.remove();
         }
+        var badges = document.querySelectorAll('.sled-score');
+        for (var j = 0; j < badges.length; j++) {
+            var badge = badges[j], id = badge.getAttribute('data-sled-score'), value = scoreFor(id);
+            if (value) badge.parentNode.appendChild(scoreBadge(id, value));
+            badge.remove();
+        }
     }
     // Card modules are read from this map whenever Lampa creates a card, so wrapping it reaches every poster.
     function addPosterMarks() {
         var module = L.Maker.map('Card').Card, original = module.onCreate;
         if (original && original.__sled) return;
-        var draw = guarded(drawMark);
+        var draw = guarded(drawMark), score = guarded(drawScore);
         var wrapped = function () {
             var result = original ? original.apply(this, arguments) : undefined;
             draw(this);
+            score(this);
             return result;
         };
         wrapped.__sled = true;
