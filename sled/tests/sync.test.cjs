@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {setup, tick} = require('./harness.cjs');
+const {setup, tick, hash, KEY, STATE} = require('./harness.cjs');
 
 const ITEM = {item_key: 'tmdb:tv:60625/s5e10', content_id: 'tmdb:tv:60625', position_ms: 60000, status: 'in_progress',
     revision: 1, deleted: false};
@@ -73,4 +73,82 @@ test('without a profile nothing is requested', async () => {
     assert.equal(result.error, 'not_configured');
     assert.equal(h.KH.clock(1540000), '25:40');
     assert.equal(h.KH.clock(3723000), '1:02:03');
+});
+
+const applied = req => ({json: {results: req.body.events.map(e => ({event_id: e.event_id, status: 'applied'}))}});
+
+test('an unauthorized or missing endpoint keeps the queue; a rejected batch drops only the bad event', async () => {
+    const h = setup();
+    await tick();
+    ['watched', 'bad', 'unwatched'].forEach(status => h.KH.enqueue({type: 'status', item_key: 'tmdb:movie:7', status}));
+    for (const status of [401, 403, 404]) {
+        h.routes['POST /v1/events'] = () => ({status});
+        h.KH.sync(); await tick();
+        assert.equal(h.KH.load().outbox.length, 3, 'kept after ' + status);
+    }
+    const accepted = [];
+    h.routes['POST /v1/events'] = req => {
+        if (req.body.events.some(e => e.status === 'bad')) return {status: 422};
+        accepted.push(...req.body.events.map(e => e.status));
+        return applied(req);
+    };
+    h.KH.sync(); await tick(30);
+    assert.equal(h.KH.load().outbox.length, 0);
+    assert.equal(accepted.join(), 'watched,unwatched');
+});
+
+test('events queued while a batch is on its way survive the queue limit', async () => {
+    const h = setup();
+    await tick();
+    h.KH.enqueue({type: 'status', item_key: 'tmdb:movie:1', status: 'watched'});
+    let calls = 0;
+    h.routes['POST /v1/events'] = req => {
+        if (++calls > 1) return {status: 503};
+        for (let i = 0; i < 500; i++) h.KH.enqueue({type: 'status', item_key: 'tmdb:movie:' + (i + 2), status: 'watched'});
+        return applied(req);
+    };
+    h.KH.sync(); await tick(20);
+    const outbox = h.KH.load().outbox;
+    assert.equal(outbox.length, 500);
+    assert.equal(outbox[0].item_key, 'tmdb:movie:2');
+});
+
+test('an event queued while the feed is loading is not lost', async () => {
+    const h = setup();
+    await tick();
+    h.routes['GET /v1/changes'] = () => {
+        h.KH.enqueue({type: 'status', item_key: 'tmdb:movie:7', status: 'watched'});
+        return page('c7')();
+    };
+    h.routes['POST /v1/events'] = () => ({status: 503});
+    h.KH.sync(); await tick(20);
+    assert.equal(h.KH.load().outbox.length, 1);
+    assert.equal(h.KH.load().cursor, 'c7');
+});
+
+test('a stale cursor starts the feed over instead of failing forever', async () => {
+    const h = setup({storage: {[STATE]: {cursor: 'gone', items: {}, prefs: {}, conflicts: {}, playbacks: {},
+        outbox: [], deferred: [], synced: 1}}, routes: {'GET /v1/changes': req => req.query ? {status: 400, json: {detail: 'bad_cursor'}} : page('c1')()}});
+    let result = 'none';
+    h.KH.sync((state, error) => { result = error; });
+    await tick(20);
+    assert.equal(result, null);
+    assert.equal(h.KH.load().cursor, 'c1');
+    assert.equal(h.KH.load().items['tmdb:tv:60625/s5e10'].position_ms, 60000);
+});
+
+test('switching the profile while a sync runs keeps the histories apart', async () => {
+    const keyB = 'kadr_' + 'b'.repeat(43);
+    const h = setup({storage: {sled_profiles: [{name: 'A', key: KEY}, {name: 'B', key: keyB}]},
+        routes: {'GET /v1/changes': req => {
+            // The viewer switches to B while A's page is on its way.
+            if (req.headers.Authorization === 'Bearer ' + KEY) { h.storage.sled_active = 'B'; return page('cA')(); }
+            return {json: {cursor: 'cB', more: false, items: [], conflicts: [], prefs: [], playbacks: []}};
+        }}});
+    await tick(30);
+    const stateA = h.storage['sled_state_' + hash(h.KEY)], stateB = h.storage['sled_state_' + hash(keyB)];
+    assert.equal(stateA.cursor, 'cA');
+    assert.ok(stateA.items['tmdb:tv:60625/s5e10']);
+    assert.equal(stateB.cursor, 'cB');
+    assert.equal(Object.keys(stateB.items).length, 0);
 });

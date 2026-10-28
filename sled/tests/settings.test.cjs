@@ -65,3 +65,19 @@ test('connection check reports the profile and threshold', async () => {
     await tick();
     assert.equal(h.notices.at(-1), 'Sled: сервер недоступен (код 502)');
 });
+
+test('names from the server reach Lampa menus and notices as text, not markup', async () => {
+    const evil = '<img src=x onerror=alert(1)>';
+    const h = setup({noProfile: true, routes: {'GET /v1/profile': () => ({json: {name: evil, settings: {watched_threshold: 95}}})}});
+    await tick();
+    h.storage.sled_profile_key = 'kadr_' + 'c'.repeat(43);
+    h.press('sled_profile_save');
+    await tick();
+    assert.equal(h.notices.at(-1), 'Sled: профиль «&lt;img src=x onerror=alert(1)&gt;» сохранён');
+    h.press('sled_profile_switch');
+    assert.equal(h.selects.at(-1).items[0].title, '&lt;img src=x onerror=alert(1)&gt; ✓');
+    const item = {item_key: 'tmdb:movie:7', content_id: 'tmdb:movie:7', status: 'in_progress', position_ms: 60000,
+        duration_ms: 100000, meta: {title: 'A & <b>B</b>'}};
+    h.KH.itemMenu(item);
+    assert.equal(h.selects.at(-1).title, 'A &amp; &lt;b&gt;B&lt;/b&gt;');
+});

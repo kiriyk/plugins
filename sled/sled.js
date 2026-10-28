@@ -1,4 +1,4 @@
-/* Sled 0.2.0 | Lampa + KADR: resume, next episode and watch history sync.
+/* Sled 0.2.1 | Lampa + KADR: resume, next episode and watch history sync.
  * The profile key stays in Lampa storage on this device; KADR receives only a per-playback token.
  */
 (function () {
@@ -7,7 +7,8 @@
 
     var L;
     var PAIR_POLL_MS = 3000, PAIR_MAX_POLLS = 220, REWIND_MS = 10000, RESUME_MIN_MS = 10000, PENDING_TTL_MS = 12 * 3600000, NEXT_RECHECK_MS = 3000, INTENT_TTL_MS = 30 * 60000;
-    var KH = window.Sled = {version: '0.2.0'};
+    var SYNC_BEFORE_LAUNCH_MS = 2500, REGISTER_TIMEOUT_MS = 4000;
+    var KH = window.Sled = {version: '0.2.1'};
     var syncing = false, waiting = [], captured = null, pending = null, intent = null;
 
     // ==== basics ====
@@ -25,7 +26,19 @@
         return out;
     }
     function hash(text) { return String(L.Utils.hash(text)); }
-    function notify(text) { if (L.Noty && L.Noty.show) L.Noty.show(text); }
+    // Lampa renders notices and menu titles as HTML; names come from the server and from other devices.
+    function escapeHtml(text) {
+        return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function notify(text) { if (L.Noty && L.Noty.show) L.Noty.show(escapeHtml(text)); }
+    function show(params) {
+        params.title = escapeHtml(params.title);
+        params.items.forEach(function (item) {
+            item.title = escapeHtml(item.title);
+            if (item.subtitle) item.subtitle = escapeHtml(item.subtitle);
+        });
+        L.Select.show(params);
+    }
     function clock(ms) {
         var total = Math.floor(Math.max(0, ms) / 1000), hours = Math.floor(total / 3600);
         var minutes = Math.floor(total % 3600 / 60), seconds = total % 60;
@@ -48,20 +61,22 @@
         for (var i = 0; i < list.length; i++) if (list[i] && list[i].name === name) return list[i];
         return list[0] || null;
     }
-    function permanent(error) { var status = error && error.status; return status >= 400 && status < 500 && status !== 408 && status !== 429; }
+    // The server refused the request itself; sending it again changes nothing. 401/403/404 are not here:
+    // a revoked key or a wrong address is fixed in settings, and the queue must survive until then.
+    function rejected(error) { var status = error && error.status; return status === 400 || status === 413 || status === 422; }
 
     // ==== server ====
-    function api(path, body, ok, fail, key) {
+    function api(path, body, ok, fail, key, timeout) {
         var profile = activeProfile(), secret = key || (profile && profile.key);
         if (!server() || !secret) { if (fail) fail({status: 0, error: 'not_configured'}); return; }
-        request(path, body, secret, ok, fail);
+        request(path, body, secret, ok, fail, timeout);
     }
-    function request(path, body, secret, ok, fail) {
+    function request(path, body, secret, ok, fail, timeout) {
         var headers = {};
         if (secret) headers.Authorization = 'Bearer ' + secret;
         if (body) headers['Content-Type'] = 'application/json';
         var call = new L.Reguest();
-        call.timeout(15000);
+        call.timeout(timeout || 15000);
         call.native(server() + path, function (data) {
             if (typeof data === 'string') {
                 try { data = JSON.parse(data); } catch (e) { if (fail) fail({status: 0, error: 'bad_json'}); return; }
@@ -71,14 +86,16 @@
     }
     function stateKey() { var profile = activeProfile(); return profile ? 'state_' + hash(profile.key) : null; }
     function emptyState() { return {cursor: '', items: {}, prefs: {}, conflicts: {}, playbacks: {}, outbox: [], deferred: [], synced: 0}; }
-    function load() {
-        var key = stateKey(), state = key ? get(key, null) : null;
+    // A sync passes its own key: the viewer may switch profiles while it waits for the server.
+    function load(key) {
+        key = key || stateKey();
+        var state = key ? get(key, null) : null;
         if (!state || typeof state !== 'object' || !state.items) return emptyState();
         if (!Array.isArray(state.outbox)) state.outbox = [];
         if (!Array.isArray(state.deferred)) state.deferred = [];
         return state;
     }
-    function save(state) { var key = stateKey(); latestCache = null; if (key) put(key, state); }
+    function save(state, key) { key = key || stateKey(); latestCache = null; if (key) put(key, state); }
     function merge(state, data) {
         // A delete still waiting in the queue wins over an older copy from the feed.
         var removing = {};
@@ -96,47 +113,70 @@
         if (data.cursor) state.cursor = data.cursor;
         state.synced = now();
     }
-    function enqueue(event) {
-        var state = load();
+    function enqueue(event, key) {
+        var state = load(key);
         event.event_id = event.event_id || uid('ev');
         event.device_id = deviceId();
         event.client_ms = now();
         state.outbox.push(event);
         if (state.outbox.length > 500) state.outbox = state.outbox.slice(-500);
-        save(state);
+        save(state, key);
     }
-    function flushOutbox(done) {
-        var batch = load().outbox.slice(0, 100);
+    function flushOutbox(run, done, size) {
+        var batch = load(run.key).outbox.slice(0, size || 100), sent = {};
         if (!batch.length) return done();
-        var forget = function () { var fresh = load(); fresh.outbox = fresh.outbox.slice(batch.length); save(fresh); };
+        batch.forEach(function (event) { sent[event.event_id] = true; });
+        // By id: events queued meanwhile may have pushed the sent ones out of the queue already.
+        var forget = function () {
+            var fresh = load(run.key);
+            fresh.outbox = fresh.outbox.filter(function (event) { return !sent[event.event_id]; });
+            save(fresh, run.key);
+        };
         api('/v1/events', {events: batch}, function () {
             forget();
-            flushOutbox(done);
+            flushOutbox(run, done, size);
         }, function (error) {
-            if (permanent(error)) forget();
-            done();
-        });
+            if (!rejected(error)) return done();
+            // One malformed event must not take the rest of the batch with it: retry them one by one.
+            if (batch.length > 1) return flushOutbox(run, done, 1);
+            forget();
+            flushOutbox(run, done);
+        }, run.secret);
     }
-    function flushDeferred(done) {
-        var job = load().deferred[0];
+    function flushDeferred(run, done) {
+        var job = load(run.key).deferred[0];
         if (!job) return done();
-        var forget = function () { var fresh = load(); fresh.deferred.shift(); save(fresh); };
-        api('/v1/playbacks', job.body, function () {
+        var forget = function () { var fresh = load(run.key); fresh.deferred.shift(); save(fresh, run.key); };
+        var registered = function () {
             forget();
-            if (job.progress) enqueue(job.progress);
-            flushDeferred(done);
-        }, function (error) {
-            if (!permanent(error)) return done();
+            if (job.progress) enqueue(job.progress, run.key);
+            flushDeferred(run, done);
+        };
+        api('/v1/playbacks', job.body, registered, function (error) {
+            // 409: the first attempt reached the server after all, only its answer was lost.
+            if (error && error.status === 409) return registered();
+            if (!rejected(error)) return done();
             forget();
-            flushDeferred(done);
-        });
+            flushDeferred(run, done);
+        }, run.secret);
     }
-    function pull(state, round, done) {
-        api('/v1/changes' + (state.cursor ? '?cursor=' + encodeURIComponent(state.cursor) : ''), null, function (data) {
+    function pull(run, round, done) {
+        var cursor = load(run.key).cursor;
+        api('/v1/changes' + (cursor ? '?cursor=' + encodeURIComponent(cursor) : ''), null, function (data) {
+            var state = load(run.key);
             merge(state, data);
-            save(state);
-            if (data.more && round < 20) pull(state, round + 1, done); else done(state, null);
-        }, function (error) { done(state, error || {status: 0}); });
+            save(state, run.key);
+            if (data.more && round < 20) pull(run, round + 1, done); else done(state, null);
+        }, function (error) {
+            // A cursor the server no longer accepts (a restored database, say) would fail every sync: start over.
+            if (error && error.status === 400 && cursor && round < 20) {
+                var reset = load(run.key);
+                reset.cursor = '';
+                save(reset, run.key);
+                return pull(run, round + 1, done);
+            }
+            done(load(run.key), error || {status: 0});
+        }, run.secret);
     }
     function finishSync(state, error) {
         syncing = false;
@@ -148,9 +188,18 @@
     function sync(done) {
         if (done) waiting.push(done);
         if (syncing) return;
-        if (!activeProfile() || !server()) return finishSync(load(), {status: 0, error: 'not_configured'});
+        var profile = activeProfile();
+        if (!profile || !server()) return finishSync(load(), {status: 0, error: 'not_configured'});
         syncing = true;
-        flushDeferred(function () { flushOutbox(function () { pull(load(), 0, finishSync); }); });
+        var run = {key: stateKey(), secret: profile.key};
+        flushDeferred(run, function () {
+            flushOutbox(run, function () {
+                pull(run, 0, function (state, error) {
+                    finishSync(state, error);
+                    if (stateKey() !== run.key) sync();
+                });
+            });
+        });
     }
 
     // ==== identity ====
@@ -213,11 +262,16 @@
     // Values go unescaped: LampaS escapes '%' once more on the way to KADR, which would break srv.
     // ':' and '/' are valid in a fragment; anything that is not is left out rather than escaped.
     var FRAGMENT_SAFE = /^[A-Za-z0-9._~:\/-]+$/;
+    // Without these KADR cannot report the playback, so the plugin has to ask about the next episode itself.
+    function reportable(token) {
+        var address = server();
+        return !!token && FRAGMENT_SAFE.test(token) && /^https?:\/\//.test(address) && FRAGMENT_SAFE.test(address);
+    }
     function fragmentOf(record, token) {
-        var body = record.body, address = server();
+        var body = record.body;
         var parts = ['kadr=1', 'mode=' + body.mode, 'pos=' + body.start_position_ms, 'next=' + (record.next ? 1 : 0)];
-        if (token && FRAGMENT_SAFE.test(token) && /^https?:\/\//.test(address) && FRAGMENT_SAFE.test(address)) {
-            parts.push('pid=' + body.playback_id, 'tok=' + token, 'srv=' + address, 'dev=' + body.device_id);
+        if (reportable(token)) {
+            parts.push('pid=' + body.playback_id, 'tok=' + token, 'srv=' + server(), 'dev=' + body.device_id);
             if (FRAGMENT_SAFE.test(body.content.content_id)) parts.push('cid=' + body.content.content_id);
         }
         if (body.content.episode_id) parts.push('eid=' + body.content.episode_id);
@@ -284,11 +338,18 @@
         return want;
     }
     function prepare(data, card, content, component) {
-        var playlist = captured;
+        var playlist = captured, started = false;
         captured = null;
-        var conflict = conflictFor(content.item_key);
-        if (conflict) return resolveConflict(conflict, function () { decide(data, content, component, playlist); });
-        decide(data, content, component, playlist);
+        // Another device may have moved the position meanwhile; a slow server must not hold the player for long.
+        var go = function () {
+            if (started) return;
+            started = true;
+            var conflict = conflictFor(content.item_key);
+            if (conflict) return resolveConflict(conflict, function () { decide(data, content, component, playlist); });
+            decide(data, content, component, playlist);
+        };
+        setTimeout(go, SYNC_BEFORE_LAUNCH_MS);
+        sync(go);
     }
     function decide(data, content, component, playlist) {
         var item = load().items[content.item_key];
@@ -298,7 +359,7 @@
         var want = wanted(content);
         if (want === 'start' || !resumable) return launch(info, null);
         if (want === 'resume' || want === 'auto') return launch(info, resumable);
-        L.Select.show({
+        show({
             title: content.meta.title + (content.episode_id ? ' · ' + content.season + ' сезон, ' + content.episode + ' серия' : ''),
             items: [{title: 'Продолжить с ' + clock(resumable.position_ms), resume: true}, {title: 'Сначала', resume: false}],
             onSelect: function (choice) { L.Controller.toggle('content'); launch(info, choice.resume ? resumable : null); },
@@ -318,7 +379,7 @@
         enqueue({type: 'prefs', content_id: content.content_id, prefs: source});
         api('/v1/playbacks', body, function (answer) {
             handOver(record, info.data, answer && typeof answer.launch_token === 'string' ? answer.launch_token : null);
-        }, function () { handOver(record, info.data, null); });
+        }, function () { handOver(record, info.data, null); }, null, REGISTER_TIMEOUT_MS);
     }
     function handOver(record, data, token) {
         var fragment = fragmentOf(record, token);
@@ -328,9 +389,10 @@
         }
         data.__kadr = true;
         record.registered = !!token;
+        record.linked = reportable(token);
         pending = record;
         put('pending', {playback_id: record.playback_id, hash: record.hash, item_key: record.item_key, body: record.body,
-            registered: record.registered, duration_ms: record.duration_ms, started: record.started});
+            registered: record.registered, linked: record.linked, duration_ms: record.duration_ms, started: record.started});
         L.Player.play(data);
         if (record.playlist) L.Player.playlist(record.playlist);
         captured = null;
@@ -364,7 +426,7 @@
     }
     function afterReturn(record, completed, state, error, round) {
         if (!completed || !record.next) return;
-        if (error || !record.registered) return askNext(record);
+        if (error || !record.linked) return askNext(record);
         var playback = state.playbacks[record.playback_id];
         if (playback && playback.next_requested) return playNext(record);
         // KADR uploads in the background; give its next-episode event a moment to arrive.
@@ -375,7 +437,7 @@
         }
     }
     function askNext(record) {
-        L.Select.show({title: 'Следующая серия?', items: [{title: 'Смотреть', play: true}, {title: 'Не сейчас', play: false}],
+        show({title: 'Следующая серия?', items: [{title: 'Смотреть', play: true}, {title: 'Не сейчас', play: false}],
             onSelect: function (choice) { L.Controller.toggle('content'); if (choice.play) playNext(record); },
             onBack: function () { L.Controller.toggle('content'); }});
     }
@@ -509,7 +571,7 @@
 
     // ==== ui: actions ====
     function choose(title, items) {
-        L.Select.show({title: title, items: items,
+        show({title: title, items: items,
             onSelect: function (choice) { L.Controller.toggle('content'); choice.run(); },
             onBack: function () { L.Controller.toggle('content'); }});
     }
@@ -570,13 +632,21 @@
                 sync();
                 done(answer.item || null);
             }, function (error) {
-                var body = error && error.status === 409 ? errorBody(error) : null;
-                if (body && body.error === 'conflict_changed' && body.conflict) {
+                var body = error && error.status === 409 ? errorBody(error) : null, changed = body && body.error === 'conflict_changed' && body.conflict;
+                // Resolved elsewhere (or gone): showing it again would loop, the feed brings the chosen position.
+                if ((changed && changed.status !== 'open') || (error && error.status === 404)) {
+                    var stale = load();
+                    delete stale.conflicts[conflict.id];
+                    save(stale);
+                    notify('Sled: позиции уже выбраны на другом устройстве');
+                    return sync(function () { done(null); });
+                }
+                if (changed) {
                     var state = load();
-                    state.conflicts[conflict.id] = body.conflict;
+                    state.conflicts[conflict.id] = changed;
                     save(state);
                     notify('Sled: варианты изменились, выберите ещё раз');
-                    return resolveConflict(body.conflict, done);
+                    return resolveConflict(changed, done);
                 }
                 notify('Sled: сервер недоступен, выбор не сохранён');
                 done(null);
@@ -795,7 +865,7 @@
         L.Controller.toggle('settings_component');
     }
     function showPairing(run, pair) {
-        L.Select.show({title: 'Привязка Sled', items: [
+        show({title: 'Привязка Sled', items: [
             {title: pair.code, subtitle: 'На компьютере с сервером: python -m kadr_sync.cli pair ' + pair.code + ' "Профиль"'},
             {title: 'Отмена', cancel: true}],
             onSelect: function (choice) {
@@ -841,7 +911,7 @@
             return {title: item.name + (current && current.name === item.name ? ' ✓' : ''), name: item.name};
         });
         if (current) items.push({title: 'Удалить профиль «' + current.name + '» с этого устройства', remove: current.name});
-        L.Select.show({title: 'Профиль KADR', items: items, onSelect: function (choice) {
+        show({title: 'Профиль KADR', items: items, onSelect: function (choice) {
             L.Controller.toggle('settings_component');
             if (choice.remove) {
                 var key = stateKey();

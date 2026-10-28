@@ -170,3 +170,31 @@ test('an existing fragment from an earlier launch is replaced, not doubled', asy
     await tick();
     assert.equal(foreign.url, 'http://cdn.test/rm-s5e10.m3u8#t=10');
 });
+
+test('a launch syncs first, so the position from another device is offered', async () => {
+    const h = setup({routes: {'GET /v1/changes': changes([saved(600000)])}});
+    await tick();
+    h.routes['GET /v1/changes'] = changes([saved(900000, {revision: 5})]);
+    startEpisode(h, 5, 10);
+    await tick(20);
+    const menu = h.selects.at(-1);
+    assert.equal(menu.items[0].title, 'Продолжить с 15:00');
+    menu.onSelect(menu.items[0]);
+    await tick(20);
+    assert.equal(h.sent.filter(r => r.path === '/v1/playbacks').at(-1).body.base_revision, 5);
+});
+
+test('a hung server does not hold the launch, and registration waits at most 4 s', async () => {
+    const h = setup({maxDelay: 0, routes: {'GET /v1/changes': changes([saved(600000)])}});
+    await tick();
+    h.routes['GET /v1/changes'] = () => ({hang: true});
+    startEpisode(h, 5, 10);
+    await tick(20);
+    const menu = h.selects.at(-1);
+    assert.equal(menu.items[0].title, 'Продолжить с 10:00');
+    menu.onSelect(menu.items[0]);
+    await tick(20);
+    assert.equal(h.launched().length, 1);
+    const registration = h.sent.find(r => r.path === '/v1/playbacks');
+    assert.ok(registration.timeout > 0 && registration.timeout <= 4000, 'timeout ' + registration.timeout);
+});
