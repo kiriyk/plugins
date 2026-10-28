@@ -1,4 +1,4 @@
-/* Sled 0.2.1 | Lampa + KADR: resume, next episode and watch history sync.
+/* Sled 0.3.0 | Lampa + KADR: resume, next episode and watch history sync.
  * The profile key stays in Lampa storage on this device; KADR receives only a per-playback token.
  */
 (function () {
@@ -8,7 +8,7 @@
     var L;
     var PAIR_POLL_MS = 3000, PAIR_MAX_POLLS = 220, REWIND_MS = 10000, RESUME_MIN_MS = 10000, PENDING_TTL_MS = 12 * 3600000, NEXT_RECHECK_MS = 3000, INTENT_TTL_MS = 30 * 60000;
     var SYNC_BEFORE_LAUNCH_MS = 2500, REGISTER_TIMEOUT_MS = 4000;
-    var KH = window.Sled = {version: '0.2.1'};
+    var KH = window.Sled = {version: '0.3.0'};
     var syncing = false, waiting = [], captured = null, pending = null, intent = null;
 
     // ==== basics ====
