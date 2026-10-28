@@ -22,7 +22,12 @@ function hash(input) {
     return String(Math.abs(value));
 }
 const episodeHash = (season, episode, title) => hash([season, season > 10 ? ':' : '', episode, title].join(''));
-const tick = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms + 5));
+// Waits the given time, then lets every already scheduled zero-delay hop (fake requests, plugin steps) run,
+// ten rounds deep: on a loaded machine a fixed few milliseconds is not enough for a launch chain.
+async function tick(ms = 0) {
+    await new Promise(resolve => setTimeout(resolve, ms + 5));
+    for (let i = 0; i < 10; i++) await new Promise(resolve => setTimeout(resolve, 1));
+}
 // For long chains of async hops: waits for the outcome instead of a fixed time, so a loaded machine does not fail the test.
 async function until(check, ms = 2000) {
     for (const end = Date.now() + ms; !check() && Date.now() < end;) await tick();

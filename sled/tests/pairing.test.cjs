@@ -56,9 +56,11 @@ test('cancelling stops polling', async () => {
     await tick();
     const menu = h.selects.at(-1);
     menu.onSelect(menu.items[1]);
-    const after = polls;
+    // Counted when sent: a poll already on its way may still be answered after the cancel.
+    const sentPolls = () => h.sent.filter(r => r.path === '/v1/pair/poll').length;
+    const after = sentPolls();
     await tick(40);
-    assert.equal(polls, after);
+    assert.equal(sentPolls(), after);
 });
 
 test('pairing needs the server address first', async () => {
