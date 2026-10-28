@@ -81,7 +81,7 @@ function setup(options = {}) {
     const storage = {player: 'android', sled_server: 'https://kadr.test', sled_profiles: [{name: 'A', key: KEY}], sled_active: 'A',
         ...options.storage};
     if (options.noProfile) { delete storage.sled_profiles; delete storage.sled_active; }
-    const sent = [], played = [], playlists = [], selects = [], notices = [], params = [], pushes = [];
+    const sent = [], played = [], playlists = [], selects = [], notices = [], params = [], pushes = [], inputs = [];
     let closed = 0, cardCreated = 0;
     const delay = ms => options.maxDelay === undefined ? ms : Math.min(ms || 0, options.maxDelay);
     const routes = Object.assign({
@@ -108,6 +108,7 @@ function setup(options = {}) {
         Select: {show(params) { selects.push(params); }, close() { closed++; }},
         Controller: {toggle() {}},
         Noty: {show: message => notices.push(message)},
+        Input: {edit(params, done) { inputs.push({params, done}); }},
         Platform: {is: name => name === 'android'},
         SettingsApi: {addComponent() {}, addParam(param) { params.push(param); }},
         Listener: events,
@@ -146,7 +147,7 @@ function setup(options = {}) {
         String, Number, encodeURIComponent, decodeURIComponent, parseInt, document, $: fakeJquery}));
     return {
         Lampa, KH: window.Sled, storage, sent, routes, played, playlists, selects, notices, params, pushes, KEY,
-        rows, buttons, cardMap, sources, events, document, $: fakeJquery, FakeElement,
+        rows, buttons, cardMap, sources, events, document, inputs, $: fakeJquery, FakeElement,
         get closed() { return closed; },
         get cardCreated() { return cardCreated; },
         launched: () => played.filter(call => !call.aborted).map(call => call.data),

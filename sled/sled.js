@@ -734,6 +734,50 @@
             })};
     }
 
+    function ratingTitle(content) { return (content.meta && content.meta.title) || content.content_id; }
+    function pickScore(content, done) {
+        var items = [];
+        for (var score = 10; score >= 1; score--) {
+            items.push({title: '★ ' + score, run: (function (value) {
+                return function () {
+                    var current = ratingOf(load(), content.content_id);
+                    setRating(content, value, current && current.comment);
+                    if (done) done(value);
+                };
+            }(score))});
+        }
+        choose('Оценка · ' + ratingTitle(content), items);
+    }
+    function canComment() { return !!(L.Input && L.Input.edit); }
+    function editComment(content, done) {
+        var current = ratingOf(load(), content.content_id);
+        if (!current) return;
+        L.Input.edit({title: 'Впечатления', value: current.comment || '', free: true, nosave: true}, function (text) {
+            var fresh = ratingOf(load(), content.content_id);
+            if (fresh) setRating(content, fresh.score, text);
+            if (done) done();
+        });
+    }
+    // changed() lets the caller refresh what it shows (the card button) after any edit.
+    function ratingMenu(content, card, extra, changed) {
+        var current = ratingOf(load(), content.content_id), items = [];
+        changed = changed || function () {};
+        if (!current) {
+            items.push({title: 'Поставить оценку', run: function () { pickScore(content, changed); }});
+        } else {
+            items.push({title: 'Изменить оценку (★ ' + current.score + ')', run: function () { pickScore(content, changed); }});
+            if (canComment()) {
+                items.push({title: current.comment ? 'Впечатления' : 'Добавить впечатления', run: function () { editComment(content, changed); }});
+            }
+            items.push({title: 'Удалить оценку', run: function () {
+                choose('Удалить оценку «' + ratingTitle(content) + '»?', [
+                    {title: 'Удалить', run: function () { removeRating(content.content_id); changed(); }},
+                    {title: 'Отмена', run: function () {}}]);
+            }});
+        }
+        choose('Оценка · ' + ratingTitle(content), items.concat(extra || []));
+    }
+
     // ==== ui: lampa ====
     // Each entry point hooks into Lampa on its own; a failure in one never breaks Lampa or the others.
     function guarded(fn) {
@@ -824,11 +868,25 @@
             if (!event || event.type !== 'complite') return;
             var movie = event.data && event.data.movie, entry = entryFor(movie);
             var box = one(event.body, '.full-start-new__buttons') || one(event.body, '.full-start__buttons');
-            if (!entry || !box || one(box, '.sled-button')) return;
-            var button = element('div', 'full-start__button selector sled-button', 'Sled · ' + labelOf(entry.item, entry.upNext));
-            onEnter(button, guarded(function () { itemMenu(entry.item, movie, entry.upNext); }));
-            box.appendChild(button);
+            if (!box || !movie || movie.id === undefined || movie.id === null || movie.id === '') return;
+            if (entry && !one(box, '.sled-button')) {
+                var button = element('div', 'full-start__button selector sled-button', 'Sled · ' + labelOf(entry.item, entry.upNext));
+                onEnter(button, guarded(function () { itemMenu(entry.item, movie, entry.upNext); }));
+                box.appendChild(button);
+            }
+            if (!one(box, '.sled-rate')) addRateButton(box, movie);
         }));
+    }
+    // Any movie or series can be rated, with or without watch history.
+    function addRateButton(box, movie) {
+        var content = contentOf(movie), button = element('div', 'full-start__button selector sled-rate');
+        var label = function () {
+            var current = ratingOf(load(), content.content_id);
+            button.textContent = current ? '★ ' + current.score : 'Оценить';
+        };
+        label();
+        onEnter(button, guarded(function () { ratingMenu(content, movie, null, label); }));
+        box.appendChild(button);
     }
     function paintMark(mark, item) {
         var watched = item.status === 'watched' && !item.episode_id;
