@@ -8,6 +8,7 @@ from typing import Optional
 from .conflicts import conflict_json
 from .items import Item, item_json, load_item, load_items
 from .playbacks import get_playback
+from .ratings import load_rating
 
 
 def _on_shelf(item: Item) -> bool:
@@ -50,7 +51,8 @@ def changes_since(conn: sqlite3.Connection, profile_id: int, cursor: Optional[st
     more = len(rows) > limit
     rows = rows[:limit]
     last = rows[-1]["seq"] if rows else after
-    result: dict = {"cursor": f"c{last}", "more": more, "items": [], "conflicts": [], "prefs": [], "playbacks": []}
+    result: dict = {"cursor": f"c{last}", "more": more, "items": [], "conflicts": [], "prefs": [], "playbacks": [],
+                    "ratings": []}
     seen = set()
     for row in rows:
         marker = (row["kind"], row["key"])
@@ -71,6 +73,10 @@ def changes_since(conn: sqlite3.Connection, profile_id: int, cursor: Optional[st
             if pref is not None:
                 result["prefs"].append({"content_id": row["key"], "prefs": json.loads(pref["prefs_json"]),
                                         "revision": pref["revision"]})
+        elif row["kind"] == "rating":
+            found = load_rating(conn, profile_id, row["key"])
+            if found is not None:
+                result["ratings"].append(found)
         elif row["kind"] == "playback":
             found = get_playback(conn, profile_id, row["key"])
             if found is not None:

@@ -6,7 +6,7 @@ import sqlite3
 import uuid
 from typing import Callable, Optional
 
-from . import changes, profiles
+from . import changes, profiles, ratings
 from .items import Item, item_json, load_item, save_item
 from .models import DeleteEvent, NextEvent, PrefsEvent, ProgressEvent, StatusEvent
 
@@ -170,6 +170,8 @@ HANDLERS: dict[str, Callable] = {
     "delete": apply_delete,
     "prefs": apply_prefs,
     "next_requested": apply_next,
+    "rating": ratings.apply_rating,
+    "rating_delete": ratings.apply_rating_delete,
 }
 
 

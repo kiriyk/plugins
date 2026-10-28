@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from . import conflicts, db, pairing, playbacks, profiles, queries
+from . import conflicts, db, pairing, playbacks, profiles, queries, ratings
 from .events import apply_events
 from .models import EventsIn, PairPollIn, PlaybackIn, ResolveIn
 
@@ -137,6 +137,12 @@ def create_app(db_path: str, clock: Callable[[], int] = db.now_ms) -> FastAPI:
                     who: Principal = Depends(profile_principal),
                     conn: sqlite3.Connection = Depends(connection)):
         return queries.history(conn, who.profile_id, mode, limit, offset)
+
+    @app.get("/v1/ratings")
+    def get_ratings(limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0),
+                    who: Principal = Depends(profile_principal),
+                    conn: sqlite3.Connection = Depends(connection)):
+        return ratings.list_ratings(conn, who.profile_id, limit, offset)
 
     @app.get("/v1/changes")
     def get_changes(cursor: Optional[str] = Query(None, max_length=24),

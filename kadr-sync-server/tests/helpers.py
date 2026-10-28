@@ -68,3 +68,13 @@ def item_state(path, key, profile="A"):
         return load_item(conn, profile_id, key)
     finally:
         conn.close()
+
+
+def rating(content_id, score, client_ms, comment=None, device_id="tv-living-01", title="Фильм"):
+    return {"type": "rating", "event_id": uid("ev"), "device_id": device_id, "client_ms": client_ms,
+            "content_id": content_id, "score": score, "comment": comment, "meta": {"title": title, "poster": "/f.jpg"}}
+
+
+def unrate(content_id, client_ms, device_id="tv-living-01"):
+    return {"type": "rating_delete", "event_id": uid("ev"), "device_id": device_id, "client_ms": client_ms,
+            "content_id": content_id}

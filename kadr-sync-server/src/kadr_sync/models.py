@@ -94,8 +94,21 @@ class NextEvent(EventBase):
     playback_id: ID
 
 
+class RatingEvent(EventBase):
+    type: Literal["rating"]
+    content_id: CONTENT_ID
+    score: int = Field(ge=1, le=10)
+    comment: Optional[str] = Field(None, max_length=2000)
+    meta: Meta
+
+
+class RatingDeleteEvent(EventBase):
+    type: Literal["rating_delete"]
+    content_id: CONTENT_ID
+
+
 Event = Annotated[
-    Union[ProgressEvent, StatusEvent, DeleteEvent, PrefsEvent, NextEvent],
+    Union[ProgressEvent, StatusEvent, DeleteEvent, PrefsEvent, NextEvent, RatingEvent, RatingDeleteEvent],
     Field(discriminator="type"),
 ]
 

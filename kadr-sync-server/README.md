@@ -164,16 +164,19 @@ docker compose cp kadr-sync:/data/backup-$(date +%F).sqlite3 ./
 | --- | --- |
 | `GET /v1/profile` | проверить ключ, получить имя и настройки |
 | `GET /v1/history?filter=continue\|all&limit&offset` | история; `continue` — по одной записи на фильм/сериал |
-| `GET /v1/changes?cursor=` | изменения после курсора, включая удаления и конфликты |
+| `GET /v1/changes?cursor=` | изменения после курсора, включая удаления, конфликты и оценки (`ratings`, удалённые с `deleted: true`) |
+| `GET /v1/ratings?limit&offset` | свои оценки профиля с названием и постером, сначала новые |
 | `POST /v1/playbacks` | зарегистрировать запуск; возвращает launch-токен для KADR |
 | `GET /v1/playbacks/{id}` | состояние запуска (`next_requested`) |
-| `POST /v1/events` | пакет событий `progress`, `status`, `delete`, `prefs`, `next_requested` |
+| `POST /v1/events` | пакет событий `progress`, `status`, `delete`, `prefs`, `next_requested`, `rating`, `rating_delete` |
 | `GET /v1/conflicts/{id}` | варианты конфликта |
 | `POST /v1/conflicts/{id}/resolve` | выбрать вариант (`current` или `playback`) для известной версии |
 | `POST /v1/pair/start` | без ключа: выдать код привязки и секрет опроса (не больше 20 ожидающих кодов) |
 | `POST /v1/pair/poll` | без ключа: по секрету опроса вернуть `pending` или, после `cli pair`, ключ устройства (один раз) |
 
 Launch-токен (`kadrl_…`, 12 часов) разрешает только события `progress` и `next_requested` своего запуска.
+
+Оценка (`rating`: `content_id`, `score` 1–10, `comment` до 2000 символов, `meta`) ставится фильму или сериалу целиком. Из двух правок побеждает более поздняя по `client_ms`; более старая получает `stale`. `rating_delete` оставляет отметку об удалении, поэтому более старая оценка, пришедшая позже, тоже проигрывает.
 
 ## Разработка
 

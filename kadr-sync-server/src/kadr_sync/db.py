@@ -76,6 +76,18 @@ CREATE TABLE IF NOT EXISTS prefs(
     revision INTEGER NOT NULL,
     PRIMARY KEY(profile_id, content_id)
 );
+CREATE TABLE IF NOT EXISTS ratings(
+    profile_id INTEGER NOT NULL REFERENCES profiles(id),
+    content_id TEXT NOT NULL,
+    score INTEGER,
+    comment TEXT,
+    meta_json TEXT NOT NULL DEFAULT '{}',
+    rated_ms INTEGER NOT NULL,
+    server_ms INTEGER NOT NULL,
+    device_id TEXT NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(profile_id, content_id)
+);
 CREATE TABLE IF NOT EXISTS changes(
     seq INTEGER PRIMARY KEY AUTOINCREMENT,
     profile_id INTEGER NOT NULL,
