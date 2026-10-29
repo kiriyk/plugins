@@ -1,4 +1,28 @@
 .env
+.env.local
+.env.*.local
 docs/
 .DS_Store
+
+# Dependencies and virtual environments
+node_modules/
+.venv/
+venv/
+
+# Python caches
 __pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Test reports and logs
+coverage/
+.nyc_output/
+.coverage
+.coverage.*
+htmlcov/
+*.log
+
+# Local IDE settings
+.idea/
