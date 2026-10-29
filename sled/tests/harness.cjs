@@ -65,8 +65,11 @@ class FakeElement {
 }
 function fakeDocument() {
     const body = new FakeElement('body'), head = new FakeElement('head');
-    return {body, head, createElement: tag => new FakeElement(tag), getElementById: id => head.children.find(el => el.id === id) || null,
-        querySelectorAll: selector => body.querySelectorAll(selector)};
+    return {body, head, hidden: false, listeners: {},
+        createElement: tag => new FakeElement(tag), getElementById: id => head.children.find(el => el.id === id) || null,
+        querySelectorAll: selector => body.querySelectorAll(selector),
+        addEventListener(name, fn) { (this.listeners[name] = this.listeners[name] || []).push(fn); },
+        dispatch(name) { (this.listeners[name] || []).forEach(fn => fn({type: name})); }};
 }
 function fakeJquery(target) {
     const list = Array.isArray(target) ? target : target ? [target] : [];
@@ -92,7 +95,8 @@ function setup(options = {}) {
     if (options.noProfile) { delete storage.sled_profiles; delete storage.sled_active; }
     const sent = [], played = [], playlists = [], selects = [], notices = [], params = [], pushes = [], inputs = [];
     let closed = 0, cardCreated = 0;
-    const delay = ms => options.maxDelay === undefined ? ms : Math.min(ms || 0, options.maxDelay);
+    // Short UI timeouts are compressed for speed; background periods (a minute and longer) stay real.
+    const delay = ms => options.maxDelay === undefined || ms >= 60000 ? ms : Math.min(ms || 0, options.maxDelay);
     const routes = Object.assign({
         'GET /v1/changes': () => ({json: {cursor: 'c0', more: false, items: [], conflicts: [], prefs: [], playbacks: []}}),
         'POST /v1/playbacks': req => ({json: {playback_id: req.body.playback_id, item_key: 'x', launch_token: 'kadrl_' + 't'.repeat(32),
@@ -101,6 +105,8 @@ function setup(options = {}) {
         'GET /v1/profile': () => ({json: {name: 'A', settings: {watched_threshold: 95}}}),
     }, options.routes);
     const player = listener(), timeline = listener(), events = listener();
+    // Lampa's Timeline: per-hash positions in seconds, `updated` stamp in ms; update() notifies listeners.
+    const roads = {};
     const rows = [], buttons = [], cardMap = {Card: {onCreate() { cardCreated++; }}}, sources = {};
     const activity = options.activity === undefined ? {component: 'online_mod', movie: RICK} : options.activity;
     const Lampa = {
@@ -112,7 +118,17 @@ function setup(options = {}) {
                  play(data) { const call = {data, aborted: false}; played.push(call);
                               player.send('create', {data, abort() { call.aborted = true; }}); },
                  playlist(list) { playlists.push(list); }},
-        Timeline: {listener: timeline},
+        Timeline: {listener: timeline,
+                   update(params) {
+                       const road = roads[params.hash] || {percent: 0, time: 0, duration: 0, updated: 0};
+                       road.percent = params.percent;
+                       if (params.time !== undefined) road.time = params.time;
+                       if (params.duration !== undefined) road.duration = params.duration;
+                       if (params.updated !== undefined) road.updated = params.updated;
+                       roads[params.hash] = road;
+                       timeline.send('update', {data: {hash: params.hash, road}});
+                   },
+                   view(hash) { return Object.assign({hash, percent: 0, time: 0, duration: 0, updated: 0}, roads[hash]); }},
         Activity: {active: () => activity, push(params) { pushes.push(params); }},
         Select: {show(params) { selects.push(params); }, close() { closed++; }},
         Controller: {toggle() {}},
@@ -156,7 +172,7 @@ function setup(options = {}) {
         String, Number, encodeURIComponent, decodeURIComponent, parseInt, document, $: fakeJquery}));
     return {
         Lampa, KH: window.Sled, storage, sent, routes, played, playlists, selects, notices, params, pushes, KEY,
-        rows, buttons, cardMap, sources, events, document, inputs, $: fakeJquery, FakeElement,
+        rows, buttons, cardMap, sources, events, document, inputs, roads, $: fakeJquery, FakeElement,
         get closed() { return closed; },
         get cardCreated() { return cardCreated; },
         launched: () => played.filter(call => !call.aborted).map(call => call.data),

@@ -1,4 +1,4 @@
-/* Sled 0.3.0 | Lampa + KADR: resume, next episode and watch history sync.
+/* Sled 0.4.0 | Lampa + KADR: resume, next episode and watch history sync.
  * The profile key stays in Lampa storage on this device; KADR receives only a per-playback token.
  */
 (function () {
@@ -8,8 +8,10 @@
     var L;
     var PAIR_POLL_MS = 3000, PAIR_MAX_POLLS = 220, REWIND_MS = 10000, RESUME_MIN_MS = 10000, PENDING_TTL_MS = 12 * 3600000, NEXT_RECHECK_MS = 3000, INTENT_TTL_MS = 30 * 60000;
     var SYNC_BEFORE_LAUNCH_MS = 2500, REGISTER_TIMEOUT_MS = 4000;
-    var KH = window.Sled = {version: '0.3.0'};
+    var AUTO_SYNC_MS = 60000, AUTO_SYNC_MIN_MS = 60000;
+    var KH = window.Sled = {version: '0.4.0'};
     var syncing = false, waiting = [], captured = null, pending = null, intent = null;
+    var writing = false, lastSyncTry = 0;
 
     // ==== basics ====
     function get(name, fallback) { return L.Storage.get('sled_' + name, fallback); }
@@ -195,6 +197,7 @@
         waiting = [];
         calls.forEach(function (fn) { fn(state, error); });
         if (!error && L.Listener && L.Listener.send) L.Listener.send('sled', {type: 'synced'});
+        if (!error) guarded(pushTimeline)(state);
     }
     function sync(done) {
         if (done) waiting.push(done);
@@ -211,6 +214,61 @@
                 });
             });
         });
+    }
+
+    // ==== auto sync ====
+    // A TV keeps Lampa open for days; without these, positions from other devices only arrive around launches.
+    function maybeSync() {
+        if (now() - lastSyncTry < AUTO_SYNC_MIN_MS) return;
+        lastSyncTry = now();
+        sync();
+    }
+    function autoSync() {
+        var timer = setTimeout(function () {
+            lastSyncTry = now();
+            sync(autoSync);
+        }, AUTO_SYNC_MS);
+        // Node's test harness hands back a Timeout; a browser hands back a number.
+        if (timer && timer.unref) timer.unref();
+    }
+    function watchVisibility() {
+        if (!document.addEventListener) return;
+        document.addEventListener('visibilitychange', guarded(function () {
+            if (!document.hidden) sync();
+        }));
+    }
+
+    // ==== timeline ====
+    // Online plugins (showy, online_mod) show Lampa's own per-episode timecodes. Mirroring the server
+    // history into Lampa's Timeline after each sync makes an episode resume right wherever it is opened.
+    function stampOf(item) { return item.server_ms || item.client_ms || 0; }
+    function timelineHashOf(item) {
+        var meta = item.meta || {}, title = meta.original_title || meta.title;
+        if (!title) return null;
+        return item.episode_id ? episodeHash(+item.season || 0, +item.episode || 0, title) : hash(title);
+    }
+    function pushTimeline(state) {
+        if (!L.Timeline || typeof L.Timeline.update !== 'function') return;
+        var view = typeof L.Timeline.view === 'function' ? L.Timeline.view.bind(L.Timeline) : null;
+        writing = true;
+        try {
+            for (var key in state.items) {
+                var item = state.items[key];
+                if (!item || item.deleted) continue;
+                var watched = item.status === 'watched';
+                if (!watched && !(item.position_ms > 0)) continue;
+                var timelineHash = timelineHashOf(item);
+                if (!timelineHash) continue;
+                // A position this device wrote more recently (its report may still be queued) wins.
+                if (view && (view(timelineHash).updated || 0) > stampOf(item)) continue;
+                var position = watched && item.duration_ms ? item.duration_ms : item.position_ms || 0;
+                L.Timeline.update({hash: timelineHash, percent: progressOf(item),
+                    time: Math.round(position / 1000), duration: Math.round((item.duration_ms || 0) / 1000),
+                    updated: stampOf(item), received: true});
+            }
+        } finally {
+            writing = false;
+        }
     }
 
     // ==== identity ====
@@ -411,6 +469,8 @@
 
     // ==== return ====
     function onTimeline(event) {
+        // Mirroring into Lampa's Timeline fires the same event; it is not the player reporting back.
+        if (writing) return;
         var data = event && event.data || {};
         var record = pending || get('pending', null);
         if (!record || !record.hash || String(data.hash) !== String(record.hash)) return;
@@ -818,6 +878,7 @@
     function addShelf() {
         L.ContentRows.add({name: 'sled_continue', title: 'Продолжить просмотр (Sled)', index: 0, screen: ['main'],
             call: guarded(function () {
+                maybeSync();
                 var state = load(), entries = shelf(state);
                 if (!entries.length) return;
                 return function (call) {
@@ -1138,6 +1199,8 @@
         if (support.card) guarded(addCardButton)();
         if (support.marks) guarded(addPosterMarks)();
         sync();
+        autoSync();
+        watchVisibility();
     }
     KH.load = function () { return load(); };
     KH.sync = sync;
