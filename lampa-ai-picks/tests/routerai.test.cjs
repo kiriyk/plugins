@@ -51,3 +51,10 @@ test('empty key or model fails locally without a request',()=>{
     const h=setup();let error;
     h.api.chat({...input,key:''},e=>error=e);assert.equal(error.code,'invalid_arguments');assert.equal(h.requests.length,0);
 });
+
+test('large output budget reaches provider and length truncation is rejected even with valid JSON',()=>{
+ const h=setup();let error;h.api.chat({...input,maxOutputTokens:16384},e=>error=e);
+ assert.equal(h.requests[0].json.max_tokens,16384);
+ const body=assistant([], '{"picks":[]}');body.choices[0].finish_reason='length';h.reply(0,body);assert.equal(error.code,'model_output_limit');
+ h.api.chat({...input,maxOutputTokens:8192},e=>error=e);h.reject(1,{status:400});assert.equal(error.code,'model_parameters');
+});

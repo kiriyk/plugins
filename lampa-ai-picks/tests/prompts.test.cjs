@@ -51,3 +51,14 @@ test('final validation reports rejected candidate filters without leaking the re
  const result=parseFinal('{"picks":[{"key":"tmdb:movie:1","reason":"PRIVATE-REASON"},{"key":"tmdb:movie:2","reason":"Подходит."}]}',store,filters,[],{onReject:r=>rejected.push(r)});
  assert.equal(result.items.length,1);assert.deepEqual(rejected,[{key:'tmdb:movie:1',reason:'runtime'}]);
 });
+
+test('10 20 and unlimited modes accept the entire selected set without truncating candidate context',()=>{
+ const store=createCandidateStore(80),picks=[];
+ for(let i=1;i<=80;i++){store.add(movie({id:i,key:'tmdb:movie:'+i,title:'Фильм '+i,overview:'Я'.repeat(1000)}));picks.push({key:'tmdb:movie:'+i,reason:'Подходит запросу.'});}
+ for(const [resultLimit,count] of [[10,10],[20,20],[null,80]]){
+  const result=parseFinal(JSON.stringify({picks}),store,filters(),[],{resultLimit});assert.equal(result.items.length,count);
+ }
+ const messages=buildMessages({query:'Кино',intent:intent(),dictionaries,candidates:store.all(),resultLimit:null});
+ const state=JSON.parse(messages[1].content);assert.equal(state.candidates.length,80);
+ assert.ok(JSON.stringify(state.candidates).length<=60000);assert.match(messages[0].content,/все подходящие/);
+});

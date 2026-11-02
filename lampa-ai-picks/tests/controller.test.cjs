@@ -162,3 +162,37 @@ test('web key missing stops before requests and quota failure falls back to regu
  assert.ok(h.events.some(e=>e.type==='notice'));h.model([{id:'fallback',name:'discover_titles',arguments:{type:'movie'}}]);h.found();
  h.model([], '{"picks":[{"key":"tmdb:movie:2","reason":"Подходит."}]}');assert.equal(h.c.getState().stage,'done');
 });
+
+test('configured unlimited and twenty modes reach final validation and output token budget',()=>{
+ for(const resultLimit of [20,null]){
+  const h=setup();h.boot({limits:{resultLimit}});h.intent();h.model([{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);
+  const i=h.requests.findIndex(r=>r.url.includes('discover/'));
+  h.reply(i,{results:Array.from({length:20},(_,i)=>({id:i+1,title:'Film '+i}))});
+  assert.equal(h.posts().at(-1).json.max_tokens,resultLimit===20?8192:16384);
+  h.model([],JSON.stringify({picks:Array.from({length:20},(_,i)=>({key:'tmdb:movie:'+(i+1),reason:'Подходит.'}))}));
+  assert.equal(h.events.at(-1).data.result.items.length,20);
+ }
+});
+
+test('truncated final output is repaired once without committing a partial selection',()=>{
+ const h=setup();h.boot();h.intent();h.model([{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);h.found();
+ const i=h.requests.findIndex(r=>r.method==='POST'&&!r.answered);h.requests[i].answered=true;
+ const body=assistant([], '{"picks":[{"key":"tmdb:movie:2","reason":"x"}]}');body.choices[0].finish_reason='length';h.reply(i,body);
+ assert.equal(h.session.size(),0);assert.equal(h.posts().at(-1).json.tool_choice,'none');
+ const repair=h.requests.findIndex(r=>r.method==='POST'&&!r.answered);h.requests[repair].answered=true;h.reply(repair,body);
+ assert.equal(h.c.getState().stage,'error');assert.equal(h.events.at(-1).data.code,'model_output_limit');assert.equal(h.posts().length,4);
+});
+test('unlimited mode supports eighty selected films and reserves remaining session capacity',()=>{
+ const h=setup();h.boot({limits:{resultLimit:null}});h.intent();
+ h.model(Array.from({length:4},(_,i)=>({id:'page'+i,name:'discover_titles',arguments:{type:'movie',page:i+1}})));
+ let next=1;
+ for(let i=0;i<h.requests.length;i++)if(h.requests[i].url.includes('discover/')&&!h.requests[i].answered){
+  h.requests[i].answered=true;h.reply(i,{results:Array.from({length:20},()=>({id:next++,title:'Film'}))});
+ }
+ h.model([],JSON.stringify({picks:Array.from({length:80},(_,i)=>({key:'tmdb:movie:'+(i+1),reason:'Подходит.'}))}));
+ assert.equal(h.events.at(-1).data.result.items.length,80);assert.equal(h.session.size(),80);
+ h.session.commit(Array.from({length:119},(_,i)=>({candidate:movie({id:i+100,key:'tmdb:movie:'+(i+100)}),reason:'Earlier'})));
+ h.boot({mode:'more',limits:{resultLimit:null}});h.intent();h.model([{id:'last',name:'discover_titles',arguments:{type:'movie'}}]);h.found(300);
+ h.model([], '{"picks":[{"key":"tmdb:movie:300","reason":"Подходит."}]}');
+ assert.equal(h.session.size(),200);assert.match(h.events.at(-1).data.result.notice,/Предложено 200/);
+});

@@ -10,12 +10,16 @@ function createRouterAI(options) {
         if (!args || typeof args.key !== 'string' || !args.key.trim() || typeof args.model !== 'string' || !args.model.trim() || !Array.isArray(args.messages)) {
             done(appError('invalid_arguments')); return noop;
         }
-        var json = {model:args.model.trim(),messages:args.messages,max_tokens:2048,stream:false};
+        var tokens = args.maxOutputTokens;
+        if (tokens === undefined) tokens = 2048;
+        if (typeof tokens !== 'number' || tokens < 256 || tokens > 16384 || Math.floor(tokens) !== tokens) { done(appError('invalid_arguments'));return noop; }
+        var json = {model:args.model.trim(),messages:args.messages,max_tokens:tokens,stream:false};
         if (args.tools && args.tools.length) json.tools = args.tools;
         if (args.toolChoice) json.tool_choice = args.toolChoice;
         return send({url:BASE + '/chat/completions',method:'POST',json:json,
             headers:{Authorization:'Bearer ' + args.key.trim()},traceId:args.traceId,timeoutMs:Math.min(args.timeoutMs || 25000,120000)},function (error, body) {
-            if (error) return done(error);
+            if (error) return done(error.status === 400 && tokens > 2048 ? appError('model_parameters',400) : error);
+            if (body && body.choices && body.choices[0] && body.choices[0].finish_reason === 'length') return done(appError('model_output_limit'));
             var raw = body && Array.isArray(body.choices) && body.choices[0] && body.choices[0].message;
             if (!raw || raw.content !== null && raw.content !== undefined && typeof raw.content !== 'string') return done(appError('invalid_response'));
             var calls = raw.tool_calls || [], seen = Object.create(null), valid = Array.isArray(calls);

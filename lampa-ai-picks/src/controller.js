@@ -77,7 +77,7 @@ function createController(options) {
         change(run,'ranking');
         try {
             var intent = run.tools.getIntent();
-            complete(run,prompts.parseFinal(content,run.store,intent.filters,run.shown.concat(intent.examples),{limit:run.limits.resultCount,eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),onReject:function (value) { var c = run.store.get(value.key);if (c) value.facts = {type:c.type,year:c.year,runtimeMinutes:c.runtimeMinutes,genreIds:c.genreIds,countries:c.countries};log(run,'candidate_rejected',value); }}));
+            complete(run,prompts.parseFinal(content,run.store,intent.filters,run.shown.concat(intent.examples),{resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length,eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),onReject:function (value) { var c = run.store.get(value.key);if (c) value.facts = {type:c.type,year:c.year,runtimeMinutes:c.runtimeMinutes,genreIds:c.genreIds,countries:c.countries};log(run,'candidate_rejected',value); }}));
         } catch (error) {
             if (run.budget.snapshot().modelCalls < run.limits.modelCalls && run.budget.remainingMs() > 0) {
                 run.trace.push({role:'assistant',content:String(content).slice(0,3000)});
@@ -101,16 +101,22 @@ function createController(options) {
         change(run,finalOnly ? 'ranking' : count.modelCalls ? 'searching' : 'parsing');
         var timeout = Math.min(run.limits.modelTimeoutMs,run.budget.remainingMs()), messages;
         try { messages = prompts.buildMessages({query:run.query,intent:run.tools.getIntent(),formFilters:run.args.formFilters,examples:run.tools.getIntent().examples,
-            shown:run.shown,candidates:run.screening.eligible(),eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),trace:run.trace,dictionaries:run.dictionaries,resultCount:run.limits.resultCount,webEnabled:run.args.webEnabled}); }
+            shown:run.shown,candidates:run.screening.eligible(),eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),trace:run.trace,dictionaries:run.dictionaries,resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length,webEnabled:run.args.webEnabled}); }
         catch (error) { return fail(run,error); }
         if (repair) messages.push({role:'user',content:'Предыдущий итоговый ответ некорректен. Верни только JSON {"picks":[{"key":"...","reason":"..."}]} с известными кандидатами.'});
         var choice = finalOnly ? 'none' : count.modelCalls === 0 ? {type:'function',function:{name:'set_search_intent'}} : 'auto';
         var settled = false;
         run.modelTimer = options.clock.setTimeout(function () { if (!settled && alive(run)) { settled = true; fail(run,appError('timeout'),'model'); } },timeout);
-        var cancel = options.routerai.chat({key:run.key,model:run.args.model,messages:messages,tools:run.tools.definitions(),toolChoice:choice,timeoutMs:timeout,traceId:run.traceId},function (error, message) {
+        var outputTokens = count.modelCalls === 0 ? 2048 : run.limits.resultLimit === null ? 16384 : run.limits.resultLimit === 20 ? 8192 : 4096;
+        var cancel = options.routerai.chat({key:run.key,model:run.args.model,messages:messages,maxOutputTokens:outputTokens,tools:run.tools.definitions(),toolChoice:choice,timeoutMs:timeout,traceId:run.traceId},function (error, message) {
             if (settled || !alive(run)) return;
             settled = true; options.clock.clearTimeout(run.modelTimer); run.modelTimer = null;
-            if (error) return fail(run,error,'model');
+            if (error) {
+                if (error.code === 'model_output_limit' && !run.outputRepair && run.budget.snapshot().modelCalls < run.limits.modelCalls && run.budget.remainingMs() > 0) {
+                    run.outputRepair = true;takeStep(run,true,true);return;
+                }
+                return fail(run,error,'model');
+            }
             if (!message.tool_calls.length) {
                 if (count.modelCalls === 0) return fail(run,appError('incompatible_model'));
                 return finalResult(run,message.content);
