@@ -95,3 +95,13 @@ test('KP key is masked, shared with poster ratings and hidden from settings menu
  h.inputs.at(-1).done('new-kp-secret');assert.equal(h.storage.cr_api_key,'new-kp-secret');
  h.settings.open();assert.equal(JSON.stringify(h.selects.at(-1)).includes('new-kp-secret'),false);
 });
+
+test('Tavily key is masked and display count is a selector in both settings menus',()=>{
+ const h=setup({storage:{aip_tavily_key:'web-private'}});h.settings.open();h.choose('Ключ Tavily');
+ assert.equal(h.inputs.at(-1).params.password,true);h.inputs.at(-1).done('new-web-private');
+ assert.equal(h.settings.getConfig().web.key,'new-web-private');
+ h.settings.open();assert.equal(JSON.stringify(h.selects.at(-1)).includes('new-web-private'),false);
+ h.choose('Показывать фильмов');h.choose('all');assert.equal(h.settings.getConfig().limits.resultLimit,null);
+ h.settings.open();h.choose('Показывать фильмов');h.choose('20');assert.equal(h.settings.getConfig().limits.resultLimit,20);
+ assert.ok(h.params.some(p=>p.field.name==='Показывать фильмов'));
+});

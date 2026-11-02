@@ -91,3 +91,12 @@ test('progress distinguishes checked, passed, missing and timed-out candidates a
  const progress=h.screen.element().querySelector('.aip-progress');assert.match(progress.textContent,/42 из 48/);assert.match(progress.textContent,/32/);assert.match(progress.textContent,/IMDb.*22/);assert.match(progress.textContent,/10/);assert.match(progress.textContent,/Нет рейтинга: 4/);assert.match(progress.textContent,/Ошибок рейтинга: 2/);assert.match(progress.textContent,/врем/);
  h.screen.setStage('done');assert.match(progress.textContent,/42 из 48/);
 });
+
+test('internet search is an explicit persisted selector and busy web phases prevent editing',()=>{
+ const h=setup();assert.equal(h.screen.getRequest().webEnabled,false);
+ h.enter('[data-action="web-search"]');h.choose('on');assert.equal(h.screen.getRequest().webEnabled,true);
+ assert.equal(h.storage.aip_web_enabled,'true');h.screen.setStage('web_searching');
+ assert.equal(h.screen.element().getAttribute('aria-busy'),'true');
+ const count=h.selects.length;h.enter('[data-action="web-search"]');assert.equal(h.selects.length,count);
+ h.screen.setStage('web_resolving');assert.match(h.screen.element().textContent,/карточки/);
+});

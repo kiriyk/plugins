@@ -5,10 +5,11 @@ function registerSettings(options) {
     var L = options.Lampa, alive = true, revision = 0, cancels = [], diagnosticChoice = null;
     function notify(message) { if (L.Noty) L.Noty.show(message); }
     function getConfig() {
-        var config = {key:'',kpKey:'',model:'',limits:limits.readLimits(L.Storage),diagnostics:false};
+        var config = {key:'',kpKey:'',model:'',web:{provider:'tavily',key:''},limits:limits.readLimits(L.Storage),diagnostics:false};
         try {
             config.key = String(L.Storage.get('aip_api_key','') || '');config.model = String(L.Storage.get('aip_model','') || '');
             config.kpKey = String(L.Storage.get('cr_api_key','') || '');
+            config.web.key = String(L.Storage.get('aip_tavily_key','') || '');
             var enabled = L.Storage.get('aip_diagnostics',false);config.diagnostics = enabled === true || enabled === 'true';
         } catch (ignore) {}
         if (diagnosticChoice !== null) config.diagnostics = diagnosticChoice;
@@ -27,11 +28,12 @@ function registerSettings(options) {
     function origin() { return L.Controller.enabled().name; }
     function input(title, name, password, previous) {
         var config = getConfig();
-        L.Input.edit({title:title,value:name === 'aip_api_key' ? config.key : name === 'cr_api_key' ? config.kpKey : config.model,password:!!password,nosave:true,free:true},function (value) {
+        L.Input.edit({title:title,value:name === 'aip_api_key' ? config.key : name === 'aip_tavily_key' ? config.web.key : name === 'cr_api_key' ? config.kpKey : config.model,password:!!password,nosave:true,free:true},function (value) {
             if (alive) { save(name,String(value || '').slice(0,password ? 4096 : 200));restore(previous); }
         });
     }
     function number(def, previous) {
+        if (def.choice) { displayCount(previous);return; }
         var value = getConfig().limits[def.key] / def.unit;
         L.Input.edit({title:def.title + ' (' + def.min / def.unit + '–' + def.max / def.unit + ')',value:String(value),nosave:true,free:true},function (text) {
             if (!alive) return;
@@ -41,9 +43,23 @@ function registerSettings(options) {
             restore(previous);
         });
     }
+    function displayCount(previous) {
+        L.Select.show({title:'Показывать фильмов',items:[{title:'10',value:'10'},{title:'20',value:'20'},{title:'Без лимита',subtitle:'Все отобранные в пределах поиска',value:'all'}],
+            onSelect:function (item) { save('aip_result_count',item.value);restore(previous); },onBack:function () { restore(previous); }});
+    }
+    function probeWeb(previous) {
+        var config = getConfig(), generation = revision;
+        if (!config.web.key.trim()) { notify('Сначала введите ключ Tavily.');return; }
+        if (!options.webSearch) { notify('Проверка интернет-поиска недоступна.');return; }
+        notify('Проверяем Tavily. Запрос расходует 1 поисковый кредит.');
+        cancels.push(options.webSearch.probe({key:config.web.key},function (error) {
+            if (!alive || generation !== revision) return;
+            notify(error ? error.message : 'Интернет-поиск работает.');restore(previous);
+        }));
+    }
     function advanced(previous) {
         var current = getConfig().limits;
-        L.Select.show({title:'Параметры поиска',items:limits.definitions.map(function (def) {
+        L.Select.show({title:'Параметры поиска',items:limits.definitions.filter(function (def) { return !def.choice; }).map(function (def) {
             return {title:def.title,subtitle:String(current[def.key] / def.unit) + ' · от ' + def.min / def.unit + ' до ' + def.max / def.unit,value:def.key,definition:def};
         }),onSelect:function (item) { number(item.definition,previous); },onBack:function () { restore(previous); }});
     }
@@ -144,6 +160,9 @@ function registerSettings(options) {
         L.Select.show({title:'ИИ-подборки · настройки',items:[
             {title:'Ключ RouterAI',subtitle:config.key ? 'Задан на этом устройстве' : 'Не задан',value:'key'},
             {title:'Ключ API Кинопоиска',subtitle:config.kpKey ? 'Задан; общий с плагином рейтингов' : 'Нужен только для фильтра КП',value:'kp-key'},
+            {title:'Ключ Tavily',subtitle:config.web.key ? 'Задан на этом устройстве' : 'Для поиска в интернете',value:'web-key'},
+            {title:'Проверить интернет-поиск',subtitle:'Один запрос Tavily basic: 1 кредит',value:'web-probe'},
+            {title:'Показывать фильмов',subtitle:config.limits.resultLimit === null ? 'Без лимита' : String(config.limits.resultLimit),value:'result-count'},
             {title:'Модель',subtitle:escapeText(config.model || 'Выберите модель с инструментами'),value:'model'},
             {title:'Проверить подключение',subtitle:'Короткий платный запрос к выбранной модели',value:'probe'},
             {title:'Параметры поиска',subtitle:'Шаги, запросы, тайм-ауты и число карточек',value:'limits'},
@@ -151,6 +170,9 @@ function registerSettings(options) {
         ],onSelect:function (item) {
             if (item.value === 'key') input('Ключ RouterAI','aip_api_key',true,previous);
             else if (item.value === 'kp-key') input('Ключ Kinopoisk API Unofficial','cr_api_key',true,previous);
+            else if (item.value === 'web-key') input('Ключ Tavily','aip_tavily_key',true,previous);
+            else if (item.value === 'web-probe') probeWeb(previous);
+            else if (item.value === 'result-count') displayCount(previous);
             else if (item.value === 'model') models(previous);
             else if (item.value === 'limits') advanced(previous);
             else if (item.value === 'diagnostics') diagnostics(previous);
@@ -165,6 +187,8 @@ function registerSettings(options) {
         }
         addButton('key','Ключ RouterAI','Сохраняется только на этом устройстве',function (previous) { input('Ключ RouterAI','aip_api_key',true,previous); });
         addButton('kp-key','Ключ API Кинопоиска','Общий с плагином рейтингов; нужен только для фильтра КП',function (previous) { input('Ключ Kinopoisk API Unofficial','cr_api_key',true,previous); });
+        addButton('web-key','Ключ Tavily','Для поиска в интернете; хранится на устройстве',function (previous) { input('Ключ Tavily','aip_tavily_key',true,previous); });
+        addButton('web-probe','Проверить интернет-поиск','Один запрос Tavily basic: 1 кредит',probeWeb);
         addButton('model','Модель','Поиск по названию и ID, ручной ввод',models);
         addButton('probe','Проверить подключение','Короткий платный запрос к выбранной модели',probe);
         addButton('diagnostics','Диагностика и журнал','Включение, просмотр, копирование и скачивание',diagnostics);

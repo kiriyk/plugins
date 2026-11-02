@@ -7,18 +7,25 @@ var definitions = [
     {key:'modelTimeoutMs',storage:'aip_model_timeout_seconds',title:'Ожидание ответа ИИ, секунд',min:5000,max:120000,value:25000,unit:1000},
     {key:'catalogTimeoutMs',storage:'aip_catalog_timeout_seconds',title:'Ожидание каталога, секунд',min:3000,max:60000,value:10000,unit:1000},
     {key:'totalTimeoutMs',storage:'aip_search_timeout_seconds',title:'Время всего поиска, секунд',min:30000,max:600000,value:90000,unit:1000},
-    {key:'resultCount',storage:'aip_result_count',title:'Карточек в подборке',min:1,max:10,value:10,unit:1}
+    {key:'resultCount',storage:'aip_result_count',title:'Показывать фильмов',min:1,max:20,value:10,unit:1,choice:true}
 ];
 function valid(value, def) { return typeof value === 'number' && isFinite(value) && Math.floor(value / def.unit) === value / def.unit && value >= def.min && value <= def.max; }
 function normalizeLimits(values) {
     var result = {};values = values || {};
     definitions.forEach(function (def) { result[def.key] = valid(values[def.key],def) ? values[def.key] : def.value; });
+    var supplied = Object.prototype.hasOwnProperty.call(values,'resultLimit');
+    result.resultLimit = supplied ? values.resultLimit === null || values.resultLimit === 20 ? values.resultLimit : 10 : result.resultCount;
+    result.resultCount = result.resultLimit === null ? 80 : result.resultLimit;
     return result;
 }
 function readLimits(storage) {
     var values = {};
     definitions.forEach(function (def) {
-        try { var raw = storage.get(def.storage,def.value / def.unit);if (String(raw).trim()) values[def.key] = Number(raw) * def.unit; } catch (ignore) {}
+        try {
+            var raw = storage.get(def.storage,def.value / def.unit);
+            if (def.choice) values.resultLimit = raw === 'all' ? null : Number(raw) === 20 ? 20 : 10;
+            else if (String(raw).trim()) values[def.key] = Number(raw) * def.unit;
+        } catch (ignore) {}
     });
     return normalizeLimits(values);
 }

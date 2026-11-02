@@ -5,6 +5,8 @@ function createScreen(options) {
     var viewport = options.window || (typeof window !== 'undefined' ? window : null);
     var root = doc.createElement('section'), scroll = new L.Scroll({mask:true,over:true});
     var query = '', form = {}, recognized = null, examples = [], dictionaries = null, busy = false, alive = true, lastFocus = null, cancels = [], created = false;
+    var webEnabled = false;
+    try { var savedWeb = L.Storage.get('aip_web_enabled',false);webEnabled = savedWeb === true || savedWeb === 'true'; } catch (ignore) {}
     root.className = 'aip-picks'; root.setAttribute('aria-label','ИИ-подборки');
     function elem(tag, cls, text) { var e = doc.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
     function focus() {
@@ -53,6 +55,13 @@ function createScreen(options) {
     root.appendChild(heading);
     var queryButton = button('query','',function () { edit('Что хотите посмотреть?',query,function (value) { query = value.slice(0,2000); update(); }); },'aip-query');
     root.appendChild(queryButton);
+    var webButton = button('web-search','',function () {
+        select('Поиск в интернете',[{title:'Выключен',value:'off'},{title:'Включён',subtitle:'Сначала найти фильмы в интернете',value:'on'}],function (item) {
+            webEnabled = item.value === 'on';
+            try { L.Storage.set('aip_web_enabled',String(webEnabled)); } catch (ignore) { notify('Режим сохранён только до закрытия экрана.'); }
+        });
+    },'aip-secondary');
+    root.appendChild(webButton);
     var exampleSection = elem('div','aip-examples'), exampleList = elem('div','aip-example-list');
     exampleSection.appendChild(elem('h2','aip-label','Похожие на'));
     exampleSection.appendChild(exampleList);
@@ -156,6 +165,7 @@ function createScreen(options) {
     var resultHost = elem('div','aip-result-host');root.appendChild(resultHost);
     function update() {
         queryButton.textContent = query || 'Например: лёгкое кино на вечер, без романтики';
+        webButton.textContent = 'Поиск в интернете: ' + (webEnabled ? 'включён' : 'выключен');
         queryButton.classList.toggle('aip-query--filled',!!query);
         formatButton.textContent = 'Формат: ' + ({movie:'Фильмы',tv:'Сериалы',all:'Фильмы и сериалы'}[form.media || 'movie']);
         yearMin.textContent = 'Год от: ' + (form.yearMin || 'любой');yearMax.textContent = 'Год до: ' + (form.yearMax || 'любой');
@@ -181,16 +191,16 @@ function createScreen(options) {
         }
         return copy;
     }
-    function getRequest(mode) { return {query:query,formFilters:cleanForm(mode || 'new'),examples:d.clone(examples),mode:mode || 'new'}; }
+    function getRequest(mode) { return {query:query,formFilters:cleanForm(mode || 'new'),examples:d.clone(examples),mode:mode || 'new',webEnabled:webEnabled}; }
     function setStage(value) {
-        busy = ['parsing','searching','checking','ranking'].indexOf(value) >= 0;
+        busy = ['parsing','searching','checking','ranking','web_searching','web_resolving'].indexOf(value) >= 0;
         Array.prototype.forEach.call(root.querySelectorAll('button[data-action]'),function (control) {
             var action = control.getAttribute('data-action');
             control.disabled = busy && action !== 'cancel' && action !== 'settings';
             control.setAttribute('aria-disabled',String(control.disabled));
         });
         cancel.hidden = !busy;
-        status.textContent = {parsing:'Разбираем запрос…',searching:'Ищем фильмы…',checking:'Проверяем условия и рейтинги…',ranking:'Выбираем варианты…',cancelled:'Поиск отменён.'}[value] || '';
+        status.textContent = {parsing:'Разбираем запрос…',searching:'Ищем фильмы…',web_searching:'Ищем в интернете…',web_resolving:'Находим карточки фильмов…',checking:'Проверяем условия и рейтинги…',ranking:'Выбираем варианты…',cancelled:'Поиск отменён.'}[value] || '';
         root.setAttribute('aria-busy',String(busy));
         if (busy) { lastFocus = cancel; focus(); }
     }
