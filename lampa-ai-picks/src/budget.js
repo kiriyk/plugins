@@ -4,7 +4,7 @@ function noop() {}
 function createBudget(options) {
     var limits = normalizeLimits(options.limits);
     var clock = options.clock, started = clock.now(), stopped = false, queue = [], records = [];
-    var counts = {modelCalls:0,toolCalls:0,catalogRequests:0,activeCatalog:0}, pumping = false;
+    var counts = {modelCalls:0,toolCalls:0,catalogRequests:0,webRequests:0,activeCatalog:0}, pumping = false;
     function remainingMs() { return Math.max(0,limits.totalTimeoutMs - (clock.now() - started)); }
     function pump() {
         if (pumping || stopped) return;
@@ -13,9 +13,11 @@ function createBudget(options) {
             var job = queue.shift();
             if (job.settled) continue;
             if (!remainingMs()) { job.finish(appError('timeout')); continue; }
-            if (counts.catalogRequests >= limits.catalogRequests) { job.finish(appError('catalog_limit')); continue; }
-            counts.catalogRequests++; counts.activeCatalog++; job.started = true;
-            job.spec.timeoutMs = Math.min(job.spec.timeoutMs || limits.catalogTimeoutMs,limits.catalogTimeoutMs,remainingMs());
+            var counter = job.web ? 'webRequests' : 'catalogRequests', cap = job.web ? 2 : limits.catalogRequests;
+            if (counts[counter] >= cap) { job.finish(appError(job.web ? 'web_limit' : 'catalog_limit')); continue; }
+            counts[counter]++; counts.activeCatalog++; job.started = true;
+            var timeout = job.web ? 15000 : limits.catalogTimeoutMs;
+            job.spec.timeoutMs = Math.min(job.spec.timeoutMs || timeout,timeout,remainingMs());
             (function (row) {
                 row.timer = clock.setTimeout(function () {
                     if (row.cancelNetwork) row.cancelNetwork('timeout');
@@ -27,9 +29,9 @@ function createBudget(options) {
         }
         pumping = false;
     }
-    function catalogRequest(spec, done) {
+    function enqueue(spec, done, web) {
         if (stopped) return noop;
-        var job = {spec:{url:spec.url,method:spec.method,json:spec.json,headers:spec.headers,timeoutMs:spec.timeoutMs,traceId:options.traceId},settled:false,started:false,timer:null};
+        var job = {web:web,spec:{url:spec.url,method:spec.method,json:spec.json,headers:spec.headers,timeoutMs:spec.timeoutMs,traceId:options.traceId},settled:false,started:false,timer:null};
         job.finish = function (error, value) {
             if (job.settled || stopped) return;
             job.settled = true;
@@ -49,10 +51,10 @@ function createBudget(options) {
     }
     function consume(key, max) { if (stopped || !remainingMs() || counts[key] >= max) return false; counts[key]++; return true; }
     return {
-        catalogRequest:catalogRequest,remainingMs:remainingMs,
+        catalogRequest:function (spec, done) { return enqueue(spec,done,false); },webRequest:function (spec, done) { return enqueue(spec,done,true); },remainingMs:remainingMs,
         consumeModel:function () { return consume('modelCalls',limits.modelCalls); },
         consumeTool:function () { return consume('toolCalls',limits.toolCalls); },
-        snapshot:function () { return {modelCalls:counts.modelCalls,toolCalls:counts.toolCalls,catalogRequests:counts.catalogRequests,activeCatalog:counts.activeCatalog}; },
+        snapshot:function () { return {modelCalls:counts.modelCalls,toolCalls:counts.toolCalls,catalogRequests:counts.catalogRequests,webRequests:counts.webRequests,activeCatalog:counts.activeCatalog}; },
         cancel:function (reason) {
             if (stopped) return;
             stopped = true; queue = [];

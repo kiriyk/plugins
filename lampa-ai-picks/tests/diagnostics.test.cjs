@@ -63,3 +63,13 @@ test('rating requests retain provider scope and decimal filters without leaking 
  assert.equal(records[0].filters.ratingMin,7.5);assert.ok(records.some(r=>r.event==='request_start'&&r.scope==='rating'&&r.endpoint==='api/v2.2/films'));
  assert.equal(h.journal.exportText().includes('KP-PRIVATE-KEY'),false);
 });
+
+test('web diagnostics retain scope and counters but exclude keys queries and page text',()=>{
+ const h=setup();h.journal.setEnabled(true);
+ h.journal.request({url:'https://api.tavily.com/search',method:'POST',headers:{Authorization:'Bearer WEB-SECRET'},json:{query:'PRIVATE-WEB-QUERY'},timeoutMs:1000},()=>{});
+ h.nativeReply(0,{results:[{title:'PRIVATE-PAGE',content:'PRIVATE-CONTENT'}]});
+ assert.equal(h.records().find(r=>r.event==='request_start').scope,'web');
+ h.journal.record('web_state',{provider:'tavily',cacheHit:true,localCredits:4,pages:'PRIVATE-PAGE'});
+ const row=h.records().at(-1);assert.equal(row.localCredits,4);assert.equal(row.cacheHit,true);
+ for(const value of ['WEB-SECRET','PRIVATE-WEB-QUERY','PRIVATE-PAGE','PRIVATE-CONTENT'])assert.equal(h.journal.exportText().includes(value),false);
+});

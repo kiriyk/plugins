@@ -49,3 +49,12 @@ test('catalog timeout can be raised and still respects the overall deadline',()=
     assert.equal(h.requests[0].timeoutMs,20000);h.advance(10001);assert.equal(error,undefined);
     h.advance(9999);assert.equal(error.code,'timeout');b.cancel();
 });
+
+test('web and catalog share three slots but have independent limits and web timeout',()=>{
+ const h=createHarness(),b=createBudget({clock:h.clock,request:h.request});let errors=[];
+ b.webRequest({...spec,timeoutMs:15000},e=>errors.push(e));
+ b.webRequest({...spec,timeoutMs:15000},e=>errors.push(e));
+ b.catalogRequest(spec,()=>{});b.webRequest(spec,e=>errors.push(e));
+ assert.equal(h.requests.length,3);assert.equal(h.requests[0].timeoutMs,15000);
+ h.reply(0,{});assert.equal(errors.at(-1).code,'web_limit');assert.equal(b.snapshot().catalogRequests,1);assert.equal(b.snapshot().webRequests,2);b.cancel();
+});
