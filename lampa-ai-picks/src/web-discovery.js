@@ -4,7 +4,7 @@ function name(value) { return String(value || '').toLowerCase().replace(/Ñ‘/g,'Ð
 function createWebDiscovery(options) {
     var limits = normalizeLimits(options.limits);
     function run(args, done, onProgress) {
-        var active = true, cancels = [], timer = null, pages = [], pageIds = {}, proposals = [], accepted = [], queries = [];
+        var active = true, cancels = [], timer = null, pages = [], pageIds = Object.create(null), proposals = [], accepted = [], queries = [];
         (args.queries || []).slice(0,2).forEach(function (query) { query = String(query).trim();if (query && query.length <= 500 && queries.indexOf(query) < 0) queries.push(query); });
         function progress(stage) { if (onProgress) onProgress(stage); }
         function track(cancel) { if (active) cancels.push(cancel);else if (cancel) cancel(); }
@@ -60,7 +60,7 @@ function createWebDiscovery(options) {
                     return item && typeof item.title === 'string' && item.title.trim().length > 0 && item.title.length <= 200 &&
                         (item.originalTitle === undefined || typeof item.originalTitle === 'string' && item.originalTitle.length <= 200) &&
                         (item.year === undefined || d.positive(item.year) && item.year <= 9999) && ['movie','tv','unknown'].indexOf(item.type) >= 0 &&
-                        Array.isArray(item.sourceIds) && item.sourceIds.length > 0 && item.sourceIds.length <= 20 && item.sourceIds.every(function (id) { return typeof id === 'string' && pageIds[id]; });
+                        Array.isArray(item.sourceIds) && item.sourceIds.length > 0 && item.sourceIds.length <= 20 && item.sourceIds.every(function (id) { return typeof id === 'string' && d.own(pageIds,id); });
                 })) { finish(appError('invalid_response'));return; }
                 proposals = body.titles;resolve(0);
             }));

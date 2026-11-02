@@ -196,3 +196,17 @@ test('unlimited mode supports eighty selected films and reserves remaining sessi
  h.model([], '{"picks":[{"key":"tmdb:movie:300","reason":"Подходит."}]}');
  assert.equal(h.session.size(),200);assert.match(h.events.at(-1).data.result.notice,/Предложено 200/);
 });
+
+test('recovery from an invalid web intent cannot run ordinary tools ahead of the mandatory web stage',()=>{
+ const h=setup();h.boot({webEnabled:true,web:{key:'web-key'}});h.intent({});
+ assert.equal(h.posts().at(-1).json.tool_choice.function.name,'set_search_intent');
+ h.model([{id:'fixed-intent',name:'set_search_intent',arguments:{webQueries:['film list']}},{id:'premature-discovery',name:'discover_titles',arguments:{type:'movie'}}]);
+ assert.equal(h.requests.some(r=>r.url.includes('discover/')),false);
+ assert.equal(h.requests.filter(r=>r.url==='https://api.tavily.com/search').length,1);h.c.cancel();
+});
+test('model final and exhausted budget cannot claim success before a valid intent and web phase',()=>{
+ const h=setup();h.boot({webEnabled:true,web:{key:'web-key'}});h.intent({});h.model([], '{"picks":[]}');
+ assert.equal(h.c.getState().stage,'error');assert.equal(h.events.at(-1).data.code,'intent_required');assert.equal(h.events.some(e=>e.type==='result'),false);
+ const exhausted=setup();exhausted.boot({webEnabled:true,web:{key:'web-key'},limits:{modelCalls:3}});
+ exhausted.intent({});exhausted.intent({});assert.equal(exhausted.c.getState().stage,'error');assert.equal(exhausted.events.some(e=>e.type==='result'),false);
+});

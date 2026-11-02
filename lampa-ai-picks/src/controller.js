@@ -96,6 +96,7 @@ function createController(options) {
         }
         var count = run.budget.snapshot();
         finalOnly = finalOnly || count.modelCalls >= run.limits.modelCalls - 1 || count.toolCalls >= run.limits.toolCalls;
+        if (finalOnly && !run.tools.isReady()) return fail(run,appError('intent_required'));
         if (finalOnly && !repair && !run.store.all().length) return complete(run,{items:[],partial:true,notice:'Подходящие варианты не найдены. Попробуйте изменить условия.'});
         if (!run.budget.consumeModel()) return fail(run,appError('search_limit'));
         change(run,finalOnly ? 'ranking' : count.modelCalls ? 'searching' : 'parsing');
@@ -104,7 +105,7 @@ function createController(options) {
             shown:run.shown,candidates:run.screening.eligible(),eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),trace:run.trace,dictionaries:run.dictionaries,resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length,webEnabled:run.args.webEnabled}); }
         catch (error) { return fail(run,error); }
         if (repair) messages.push({role:'user',content:'Предыдущий итоговый ответ некорректен. Верни только JSON {"picks":[{"key":"...","reason":"..."}]} с известными кандидатами.'});
-        var choice = finalOnly ? 'none' : count.modelCalls === 0 ? {type:'function',function:{name:'set_search_intent'}} : 'auto';
+        var choice = finalOnly ? 'none' : !run.tools.isReady() ? {type:'function',function:{name:'set_search_intent'}} : 'auto';
         var settled = false;
         run.modelTimer = options.clock.setTimeout(function () { if (!settled && alive(run)) { settled = true; fail(run,appError('timeout'),'model'); } },timeout);
         var outputTokens = count.modelCalls === 0 ? 2048 : run.limits.resultLimit === null ? 16384 : run.limits.resultLimit === 20 ? 8192 : 4096;
@@ -119,6 +120,7 @@ function createController(options) {
             }
             if (!message.tool_calls.length) {
                 if (count.modelCalls === 0) return fail(run,appError('incompatible_model'));
+                if (!run.tools.isReady() || !run.webDone) return fail(run,appError('intent_required'));
                 return finalResult(run,message.content);
             }
             if (finalOnly) return fail(run,appError('invalid_response'));
@@ -141,7 +143,7 @@ function createController(options) {
                 log(run,'tool_start',{tool:call.name});
                 var permitted = run.budget.consumeTool();
                 if (!permitted || index >= 4) received(appError('tool_limit'));
-                else if (count.modelCalls === 0 && call.name !== 'set_search_intent') received(appError('intent_required'));
+                else if ((!run.tools.isReady() || !run.webDone) && call.name !== 'set_search_intent') received(appError('intent_required'));
                 else run.cancels.push(run.tools.execute(call,received));
             });
         });

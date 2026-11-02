@@ -44,3 +44,11 @@ test('ambiguous results and incomplete result pages are not resolved as the firs
   let result;discovery.run({key:'k',model:'m',webKey:'w',queries:['q'],intent:emptyIntent()},(e,r)=>result=r);assert.deepEqual(result.candidateKeys,[]);
  }
 });
+
+test('inherited JavaScript property names cannot be used as web source IDs',()=>{
+ for(const sourceId of ['constructor','toString','__proto__']){
+  const h=setup();let error;h.discovery.run({key:'k',model:'m',webKey:'w',queries:['q'],intent:emptyIntent()},e=>error=e);
+  h.models[0].done(null,{content:JSON.stringify({titles:[{title:'Film',type:'movie',sourceIds:[sourceId]}]}),tool_calls:[]});
+  assert.equal(error&&error.code,'invalid_response');assert.equal(h.searches.length,0);
+ }
+});
