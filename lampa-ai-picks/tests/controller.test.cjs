@@ -139,3 +139,26 @@ test('global timeout preserves incomplete verification progress and never commit
  h.advance(30000);assert.equal(h.c.getState().stage,'error');assert.equal(h.session.size(),0);
  assert.ok(h.events.some(e=>e.type==='progress'&&e.data.candidates===1&&e.data.unverified===1));
 });
+
+test('internet search runs after intent and before ordinary search; web movies pass existing filters',()=>{
+ const h=setup();h.boot({webEnabled:true,web:{key:'tvly-web-key'},formFilters:{yearMin:2000}});
+ h.intent({webQueries:['detective films']});
+ const web=h.requests.findIndex(r=>r.url==='https://api.tavily.com/search');assert.ok(web>=0);
+ assert.equal(h.posts().filter(r=>r.url.includes('routerai')).length,1);
+ h.requests[web].answered=true;h.reply(web,{results:[{url:'https://films.example/list',title:'Films',content:'Film (2010)'}]});
+ h.model([],JSON.stringify({titles:[{title:'Film',type:'movie',year:2010,sourceIds:['web-'+require('../src/web-state').createWebState({clock:h.clock}).fingerprint('https://films.example/list')]}]}));
+ const match=h.requests.findIndex(r=>r.url.includes('search/movie'));assert.ok(match>=0);
+ h.reply(match,{results:[{id:21,title:'Film',release_date:'2010-01-01'}],total_pages:1});
+ const model=h.posts().filter(r=>r.url.includes('routerai')).at(-1);assert.deepEqual(JSON.parse(model.json.messages[1].content).candidates.map(c=>c.key),['tmdb:movie:21']);
+ h.model([], '{"picks":[{"key":"tmdb:movie:21","reason":"Подходит."}]}');
+ const result=h.events.at(-1).data.result;assert.equal(result.items[0].candidate.webSources[0].domain,'films.example');
+ h.boot({mode:'more',webEnabled:true,web:{key:'tvly-web-key'},formFilters:{yearMin:2000}});h.intent({webQueries:['new paid query must not run']});
+ assert.equal(h.requests.filter(r=>r.url==='https://api.tavily.com/search').length,1);h.c.cancel();
+});
+test('web key missing stops before requests and quota failure falls back to regular catalog search',()=>{
+ const missing=setup();missing.boot({webEnabled:true});assert.equal(missing.events.at(-1).data.code,'web_key');assert.equal(missing.requests.length,0);
+ const h=setup();h.boot({webEnabled:true,web:{key:'web-key'}});h.intent({webQueries:['films']});
+ const i=h.requests.findIndex(r=>r.url==='https://api.tavily.com/search');assert.ok(i>=0);h.requests[i].answered=true;h.reject(i,{status:432,code:'network'});
+ assert.ok(h.events.some(e=>e.type==='notice'));h.model([{id:'fallback',name:'discover_titles',arguments:{type:'movie'}}]);h.found();
+ h.model([], '{"picks":[{"key":"tmdb:movie:2","reason":"Подходит."}]}');assert.equal(h.c.getState().stage,'done');
+});

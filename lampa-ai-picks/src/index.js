@@ -4,6 +4,7 @@ var openText = require('./dialog').openText;
 var createDiagnostics = require('./diagnostics').createDiagnostics;
 var createTransport = require('./transport').createTransport;
 var createRouterAI = require('./routerai').createRouterAI, createCatalog = require('./catalog').createCatalog;
+var createWebState = require('./web-state').createWebState, createWebSearch = require('./web-search').createWebSearch;
 var registerSettings = require('./settings').registerSettings, escapeText = require('./settings').escapeText, createScreen = require('./ui').createScreen;
 var createSession = require('./session').createSession, createController = require('./controller').createController, createResults = require('./results').createResults;
 function registerPlugin(options) {
@@ -14,7 +15,8 @@ function registerPlugin(options) {
     var transport = createTransport(L,clock), diagnostics = createDiagnostics({Storage:L.Storage,clock:clock,console:win.console,request:transport});
     var request = diagnostics.request, routerai = createRouterAI({request:request}), catalog = createCatalog({request:request,Lampa:L,getTimeoutMs:function () { return settings.getConfig().limits.catalogTimeoutMs; }});
     var contexts = [];
-    var settings = registerSettings({Lampa:L,routerai:routerai,window:win,document:doc,$:win.jQuery || win.$,diagnostics:diagnostics,onChange:function (config) {
+    var webState = createWebState({Storage:L.Storage,clock:clock}), webSearch = createWebSearch({request:request,state:webState});
+    var settings = registerSettings({Lampa:L,routerai:routerai,webSearch:webSearch,webState:webState,window:win,document:doc,$:win.jQuery || win.$,diagnostics:diagnostics,onChange:function (config) {
         diagnostics.setEnabled(config.diagnostics);
         contexts.forEach(function (ctx) { ctx.controller.cancel();ctx.screen.setStage('cancelled');ctx.screen.setMessage('Настройки ИИ изменены. Можно запустить новую подборку.'); });
     }});
@@ -28,8 +30,9 @@ function registerPlugin(options) {
         function launch(payload) {
             var config = settings.getConfig();
             if (!config.key || !config.model) { screen.setMessage('Введите ключ RouterAI и выберите модель.');settings.open();return; }
+            if (payload.webEnabled && !config.web.key.trim()) { screen.setMessage('Для поиска в интернете введите ключ Tavily.');settings.open();return; }
             diagnostics.setEnabled(config.diagnostics);
-            payload.key = config.key;payload.model = config.model;payload.limits = config.limits;controller.start(payload);
+            payload.key = config.key;payload.model = config.model;payload.limits = config.limits;payload.web = config.web;controller.start(payload);
         }
         screen = createScreen({Lampa:L,document:doc,window:win,navigator:win.Navigator,catalog:catalog,onSubmit:launch,onCancel:function () { if (controller) controller.cancel(); },onSettings:settings.open});
         renderer = createResults({Lampa:L,document:doc,$:win.jQuery || win.$,onFocus:screen.focusElement,onMore:function () { launch(screen.getRequest('more')); },onRefine:function () {
@@ -44,11 +47,12 @@ function registerPlugin(options) {
             L.Activity.push({url:'',component:'full',id:candidate.id,method:candidate.type,card:candidate.card,source:'tmdb',page:1});
         }});
         screen.resultsHost().appendChild(renderer.element());
-        controller = createController({Lampa:L,request:request,routerai:routerai,session:createSession(),clock:clock,diagnostics:diagnostics,onEvent:function (event) {
+        controller = createController({Lampa:L,request:request,routerai:routerai,webState:webState,session:createSession(),clock:clock,diagnostics:diagnostics,onEvent:function (event) {
             if (destroyed) return;
             if (event.type === 'stage') screen.setStage(event.data.stage);
             else if (event.type === 'progress') screen.setProgress(event.data);
             else if (event.type === 'error') { screen.setStage('error');screen.setMessage(event.data.message); }
+            else if (event.type === 'notice') { if (L.Noty) L.Noty.show(event.data.message); }
             else if (event.type === 'result') {
                 screen.setStage('done');
                 if (!(event.data.mode === 'more' && !event.data.result.items.length && lastResult)) {

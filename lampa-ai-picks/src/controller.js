@@ -4,8 +4,10 @@ var normalizeLimits = require('./limits').normalizeLimits;
 var createBudget = require('./budget').createBudget, createCatalog = require('./catalog').createCatalog;
 var createTools = require('./tools').createTools, prompts = require('./prompts');
 var createRatings = require('./ratings').createRatings, createScreening = require('./screening').createScreening;
+var createWebState = require('./web-state').createWebState, createWebSearch = require('./web-search').createWebSearch, createWebDiscovery = require('./web-discovery').createWebDiscovery;
 function createController(options) {
     var active = null, next = 0, stage = 'idle', pending = null, rememberedExamples = [], rememberedQuery = '';
+    var webState = options.webState || createWebState({Storage:options.Lampa.Storage,clock:options.clock}), rememberedWeb = null;
     function emit(run, type, data) { if (options.onEvent) options.onEvent({type:type,runId:run.id,data:data}); }
     function log(run, event, data) { if (options.diagnostics) { data = data || {};data.runId = run.traceId;options.diagnostics.record(event,data); } }
     function change(run, value) { stage = value;log(run,'stage',{stage:value});emit(run,'stage',{stage:value}); }
@@ -31,14 +33,38 @@ function createController(options) {
         if (run.args.mode === 'new') options.session.reset(intent);
         else options.session.setIntent(intent);
         result.items = options.session.commit(result.items);
-        if (options.session.size() >= 200) { result.partial = true; result.notice = 'Показано 200 вариантов. Начните новую подборку.'; }
+        if (options.session.size() >= 200) { result.partial = true; result.notice = 'Предложено 200 вариантов. Начните новую подборку.'; }
         rememberedExamples = intent.examples.map(function (key) { return run.store.get(key); }).filter(Boolean);
         rememberedQuery = run.query;
+        rememberedWeb = run.webSnapshot || null;
+        if (run.webNotice) result.notice = (result.notice ? result.notice + ' ' : '') + run.webNotice;
         result.stats = run.screening.snapshot();result.stats.selected = result.items.length;
         if (result.stats.unverified) result.notice = (result.notice ? result.notice + ' ' : '') + 'Не проверено кандидатов: ' + result.stats.unverified + '. См. счётчик поиска.';
         emit(run,'progress',result.stats);
         log(run,'run_done',{count:result.items.length,candidates:result.stats.candidates,budget:run.budget.snapshot()});
         stop(run);stage = 'done'; emit(run,'result',{result:result,intent:intent,mode:run.args.mode,dictionaries:run.dictionaries});
+    }
+    function searchWeb(run) {
+        var intent = run.tools.getIntent(), identity = webState.fingerprint(run.args.web.key), filterHash = JSON.stringify(intent.filters);
+        run.webDone = true;
+        if (run.args.mode === 'more' && rememberedWeb && rememberedWeb.expiresAt > options.clock.now() && rememberedWeb.query === run.query && rememberedWeb.fingerprint === identity && rememberedWeb.filterHash === filterHash) {
+            run.webSnapshot = d.clone(rememberedWeb);
+            run.webSnapshot.resolvedCandidates.forEach(function (c) { run.store.add(c); });
+            takeStep(run,false,false);return;
+        }
+        var webSearch = createWebSearch({request:run.budget.webRequest,state:webState});
+        var discovery = createWebDiscovery({webSearch:webSearch,routerai:options.routerai,catalog:run.catalog,store:run.store,budget:run.budget,clock:options.clock,limits:run.limits});
+        run.cancels.push(discovery.run({key:run.key,model:run.args.model,webKey:run.args.web.key,query:run.query,queries:run.tools.getWebQueries(),intent:intent,traceId:run.traceId},function (error, result) {
+            if (!alive(run)) return;
+            if (error) {
+                run.webNotice = 'Интернет-поиск не завершён: ' + error.message + ' Подбор продолжен через TMDB.';
+                emit(run,'notice',{message:run.webNotice});log(run,'web_state',{provider:'tavily',code:error.code,status:error.status});
+            } else {
+                run.webSnapshot = result.webSnapshot;run.webSnapshot.query = run.query;run.webSnapshot.fingerprint = identity;run.webSnapshot.filterHash = filterHash;
+                log(run,'web_state',{provider:'tavily',count:result.candidateKeys.length,localCredits:webState.usage(identity)});
+            }
+            takeStep(run,false,false);
+        },function (value) { if (alive(run)) change(run,value); }));
     }
     function pause(run, clarification) {
         if (!alive(run)) return;
@@ -61,6 +87,7 @@ function createController(options) {
     }
     function takeStep(run, finalOnly, repair, screened) {
         if (!alive(run)) return;
+        if (!run.webDone && run.tools.isReady()) { searchWeb(run);return; }
         if (!screened) {
             change(run,'checking');
             var intent = run.tools.getIntent();
@@ -74,7 +101,7 @@ function createController(options) {
         change(run,finalOnly ? 'ranking' : count.modelCalls ? 'searching' : 'parsing');
         var timeout = Math.min(run.limits.modelTimeoutMs,run.budget.remainingMs()), messages;
         try { messages = prompts.buildMessages({query:run.query,intent:run.tools.getIntent(),formFilters:run.args.formFilters,examples:run.tools.getIntent().examples,
-            shown:run.shown,candidates:run.screening.eligible(),eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),trace:run.trace,dictionaries:run.dictionaries,resultCount:run.limits.resultCount}); }
+            shown:run.shown,candidates:run.screening.eligible(),eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),trace:run.trace,dictionaries:run.dictionaries,resultCount:run.limits.resultCount,webEnabled:run.args.webEnabled}); }
         catch (error) { return fail(run,error); }
         if (repair) messages.push({role:'user',content:'Предыдущий итоговый ответ некорректен. Верни только JSON {"picks":[{"key":"...","reason":"..."}]} с известными кандидатами.'});
         var choice = finalOnly ? 'none' : count.modelCalls === 0 ? {type:'function',function:{name:'set_search_intent'}} : 'auto';
@@ -121,12 +148,13 @@ function createController(options) {
         var mode = args.mode || 'new';
         var query = mode === 'more' ? rememberedQuery : String(args.query || '');
         var examples = Array.isArray(args.examples) ? args.examples : [];
+        if (args.webEnabled && (!args.web || !String(args.web.key || '').trim())) { stage = 'error';emit({id:id},'error',appError('web_key'));return null; }
         if (!args.key || !args.model || mode === 'new' && !query.trim() && !Object.keys(args.formFilters || {}).length && !examples.length) {
             stage = 'error'; emit({id:id},'error',appError('invalid_arguments')); return null;
         }
         if (mode !== 'new' && options.session.size() >= 200) { stage = 'error'; emit({id:id},'error',appError('session_limit')); return null; }
         var base = mode === 'new' ? d.emptyIntent() : options.session.getIntent() || d.emptyIntent();
-        var run = {id:id,alive:true,args:d.clone(args),query:query,key:String(args.key).trim(),cancels:[],trace:[],store:d.createCandidateStore(80),
+        var run = {id:id,alive:true,args:d.clone(args),webDone:!args.webEnabled,query:query,key:String(args.key).trim(),cancels:[],trace:[],store:d.createCandidateStore(80),
             shown:mode === 'new' ? [] : options.session.getShown()};
         run.args.mode = mode;run.limits = normalizeLimits(args.limits);
         if (options.diagnostics) run.traceId = options.diagnostics.begin({mode:mode,limits:run.limits,filters:args.formFilters || {},queryLength:query.length});
@@ -139,6 +167,7 @@ function createController(options) {
         run.deadline = options.clock.setTimeout(function () { fail(run,appError('timeout'),'search'); },run.limits.totalTimeoutMs);
         change(run,'parsing');
         var catalog = createCatalog({request:run.budget.catalogRequest,Lampa:options.Lampa,timeoutMs:run.limits.catalogTimeoutMs});
+        run.catalog = catalog;
         var ratings = createRatings({request:run.budget.catalogRequest,catalog:catalog,Lampa:options.Lampa,clock:options.clock,maxKpRequests:run.limits.kpRequests});
         run.screening = createScreening({store:run.store,catalog:catalog,ratings:ratings,onProgress:function (stats) { if (alive(run)) { log(run,'screening',{stats:stats});emit(run,'progress',stats); } }});
         run.cancels.push(run.screening.cancel);
@@ -146,7 +175,7 @@ function createController(options) {
             if (!alive(run)) return;
             if (error) return fail(run,error,'catalog');
             run.dictionaries = dictionaries;
-            run.tools = createTools({catalog:catalog,store:run.store,formFilters:run.args.formFilters || {},dictionaries:dictionaries,intent:base,
+            run.tools = createTools({catalog:catalog,store:run.store,webEnabled:!!run.args.webEnabled,formFilters:run.args.formFilters || {},dictionaries:dictionaries,intent:base,
                 onClarification:function (value) { pause(run,value); }});
             takeStep(run,false,false);
         }));

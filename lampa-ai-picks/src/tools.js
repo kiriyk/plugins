@@ -36,7 +36,7 @@ function valid(value, schema) {
         if (!Object.keys(value).every(function (name) { return d.own(schema.properties,name) && valid(value[name],schema.properties[name]); })) return false;
         return (schema.required || []).every(function (name) { return d.own(value,name); });
     }
-    if (schema.type === 'array') return Array.isArray(value) && value.length <= schema.maxItems && value.every(function (item) { return valid(item,schema.items); });
+    if (schema.type === 'array') return Array.isArray(value) && value.length <= schema.maxItems && value.length >= (schema.minItems || 0) && value.every(function (item) { return valid(item,schema.items); });
     if (schema.type === 'integer' && !d.positive(value)) return false;
     if (schema.type === 'number' && (typeof value !== 'number' || !isFinite(value))) return false;
     if (schema.type === 'string' && typeof value !== 'string') return false;
@@ -48,6 +48,11 @@ function valid(value, schema) {
 function createTools(options) {
     var catalog = options.catalog, store = options.store, current = d.clone(options.intent || d.emptyIntent()), ready = false;
     var keywords = Object.create(null), calls = Object.create(null);
+    var localSchemas = d.clone(schemas), webQueries = [];
+    if (options.webEnabled) {
+        localSchemas.set_search_intent.properties.webQueries = {type:'array',items:text,minItems:1,maxItems:2};
+        localSchemas.set_search_intent.required.push('webQueries');
+    }
     function clarification(value) { if (options.onClarification) options.onClarification(value); }
     function execute(call, done) {
         if (!call || typeof call.id !== 'string' || !call.id) { done(appError('invalid_arguments')); return noop; }
@@ -67,16 +72,18 @@ function createTools(options) {
         }
         var args;
         try { args = JSON.parse(call.arguments); } catch (ignore) { finish(appError('invalid_arguments')); return noop; }
-        if (!d.own(schemas,call.name) || !valid(args,schemas[call.name])) { finish(appError('invalid_arguments')); return noop; }
+        if (!d.own(localSchemas,call.name) || !valid(args,localSchemas[call.name])) { finish(appError('invalid_arguments')); return noop; }
         if (call.name === 'set_search_intent') {
+            if (options.webEnabled && !args.webQueries.every(function (query) { return !!query.trim(); })) { finish(appError('invalid_arguments'));return noop; }
             if (args.examples && !args.examples.every(function (k) { return !!store.get(k); })) { finish(appError('unknown_title')); return noop; }
             if (args.examples) current.examples.forEach(function (key) { if (args.examples.indexOf(key) < 0) args.examples.push(key); });
-            var resolved = d.resolveIntent(current,args,options.formFilters || {},options.dictionaries);
+            var patch = d.clone(args);delete patch.webQueries;
+            var resolved = d.resolveIntent(current,patch,options.formFilters || {},options.dictionaries);
             if (resolved.status !== 'ready') {
                 clarification({kind:'filters',query:null,options:[],issues:resolved.issues});
                 finish(appError('clarification')); return noop;
             }
-            current = resolved.intent; ready = true; finish(null,{intent:current}); return noop;
+            current = resolved.intent;if (args.webQueries) webQueries = args.webQueries.slice();ready = true; finish(null,{intent:current}); return noop;
         }
         if (!ready) { finish(appError('intent_required')); return noop; }
         if (call.name === 'resolve_keywords') return catalog.resolveKeywords(args,function (error, result) {
@@ -125,8 +132,8 @@ function createTools(options) {
         });
     }
     return {
-        definitions:function () { return Object.keys(schemas).map(function (name) { return {type:'function',function:{name:name,description:descriptions[name],parameters:schemas[name]}}; }); },
-        execute:execute,getIntent:function () { return d.clone(current); }
+        definitions:function () { return Object.keys(localSchemas).map(function (name) { return {type:'function',function:{name:name,description:descriptions[name],parameters:localSchemas[name]}}; }); },
+        execute:execute,getIntent:function () { return d.clone(current); },isReady:function () { return ready; },getWebQueries:function () { return webQueries.slice(); }
     };
 }
 module.exports = {createTools:createTools};
