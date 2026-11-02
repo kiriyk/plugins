@@ -105,7 +105,7 @@ function networkInfo(spec) {
 function createDiagnostics(options) {
     var records = [], enabled = false, persistent = true, runNumber = 0, requestNumber = 0;
     var clock = options.clock || {now:function () { return Date.now(); }}, storage = options.Storage;
-    function exportText() { return JSON.stringify({version:1,pluginVersion:'0.3.0',persistence:persistent ? 'local' : 'memory',records:records},null,2); }
+    function exportText() { return JSON.stringify({version:1,pluginVersion:'0.4.0',persistence:persistent ? 'local' : 'memory',records:records},null,2); }
     function trim() { while (records.length > 200 || exportText().length > 120000) records.shift(); }
     function persist() {
         try { if (!storage) throw new Error('storage');storage.set(STORAGE,exportText());persistent = true; }

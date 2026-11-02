@@ -19,7 +19,7 @@ function createWebSearch(options) {
         var key = String(args.key || '').trim(), query = String(args.query || '').trim().replace(/\s+/g,' ');
         if (!key) { done(appError('web_key'));return noop; }
         if (!query || query.length > 500) { done(appError('invalid_arguments'));return noop; }
-        var identity = state.fingerprint(key), hit = state.getCache(identity,query);
+        var identity = state.fingerprint(key), hit = args.refresh ? null : state.getCache(identity,query);
         if (hit !== null) { done(null,{pages:pages(hit,key),cacheHit:true,estimatedCredits:0});return noop; }
         if (!state.reserveCredit(identity)) { done(appError('web_quota'));return noop; }
         var active = true;
@@ -37,6 +37,6 @@ function createWebSearch(options) {
         });
         return function () { active = false;if (cancel) cancel(); };
     }
-    return {search:search,probe:function (args, done) { return search({key:args.key,query:'science fiction movies',timeoutMs:15000},done); }};
+    return {search:search,probe:function (args, done) { return search({key:args.key,query:'science fiction movies',timeoutMs:15000,refresh:true},done); }};
 }
 module.exports = {createWebSearch:createWebSearch};

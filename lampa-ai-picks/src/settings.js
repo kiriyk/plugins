@@ -10,6 +10,7 @@ function registerSettings(options) {
             config.key = String(L.Storage.get('aip_api_key','') || '');config.model = String(L.Storage.get('aip_model','') || '');
             config.kpKey = String(L.Storage.get('cr_api_key','') || '');
             config.web.key = String(L.Storage.get('aip_tavily_key','') || '');
+            if (options.webState && config.web.key.trim()) config.web.localCredits = options.webState.usage(options.webState.fingerprint(config.web.key.trim()));
             var enabled = L.Storage.get('aip_diagnostics',false);config.diagnostics = enabled === true || enabled === 'true';
         } catch (ignore) {}
         if (diagnosticChoice !== null) config.diagnostics = diagnosticChoice;
@@ -160,7 +161,7 @@ function registerSettings(options) {
         L.Select.show({title:'ИИ-подборки · настройки',items:[
             {title:'Ключ RouterAI',subtitle:config.key ? 'Задан на этом устройстве' : 'Не задан',value:'key'},
             {title:'Ключ API Кинопоиска',subtitle:config.kpKey ? 'Задан; общий с плагином рейтингов' : 'Нужен только для фильтра КП',value:'kp-key'},
-            {title:'Ключ Tavily',subtitle:config.web.key ? 'Задан на этом устройстве' : 'Для поиска в интернете',value:'web-key'},
+            {title:'Ключ Tavily',subtitle:config.web.key ? 'Учтено на этом устройстве: ' + (config.web.localCredits || 0) + ' из 950 кредитов за месяц' : 'Для поиска в интернете',value:'web-key'},
             {title:'Проверить интернет-поиск',subtitle:'Один запрос Tavily basic: 1 кредит',value:'web-probe'},
             {title:'Показывать фильмов',subtitle:config.limits.resultLimit === null ? 'Без лимита' : String(config.limits.resultLimit),value:'result-count'},
             {title:'Модель',subtitle:escapeText(config.model || 'Выберите модель с инструментами'),value:'model'},
@@ -192,7 +193,7 @@ function registerSettings(options) {
         addButton('model','Модель','Поиск по названию и ID, ручной ввод',models);
         addButton('probe','Проверить подключение','Короткий платный запрос к выбранной модели',probe);
         addButton('diagnostics','Диагностика и журнал','Включение, просмотр, копирование и скачивание',diagnostics);
-        limits.definitions.forEach(function (def) { addButton(def.key,def.title,'От ' + def.min / def.unit + ' до ' + def.max / def.unit,function (previous) { number(def,previous); }); });
+        limits.definitions.forEach(function (def) { addButton(def.key,def.title,def.choice ? '10, 20 или без лимита' : 'От ' + def.min / def.unit + ' до ' + def.max / def.unit,function (previous) { number(def,previous); }); });
     }
     return {getConfig:getConfig,open:open,destroy:function () { alive = false;revision++;cancels.forEach(function (cancel) { if (cancel) cancel(); }); }};
 }

@@ -33,3 +33,14 @@ test('cancel prevents a late model response from searching the catalog',()=>{
  const h=setup();let calls=0;const cancel=h.discovery.run({key:'k',model:'m',webKey:'w',queries:['q'],intent:emptyIntent()},()=>calls++);cancel();
  h.models[0].done(null,{content:'{"titles":[]}',tool_calls:[]});assert.equal(calls,0);assert.equal(h.searches.length,0);assert.equal(h.timers.size,0);
 });
+
+test('ambiguous results and incomplete result pages are not resolved as the first title',()=>{
+ for(const hasMore of [true,false]){
+  const h=setup();const match=movie({title:'Film'}),other=movie({id:2,key:'tmdb:movie:2',title:'Film'});
+  const discovery=createWebDiscovery({clock:h.clock,store:h.store,limits:{},budget:{snapshot:()=>({catalogRequests:3,modelCalls:1}),consumeModel:()=>true,remainingMs:()=>90000},
+   webSearch:{search:(args,done)=>{done(null,{pages:[{id:'p',content:'Film'}]});return ()=>{};}},
+   routerai:{chat:(args,done)=>{done(null,{content:JSON.stringify({titles:[{title:'Film',type:'movie',sourceIds:['p']}]})});return ()=>{};}},
+   catalog:{searchTitles:(args,done)=>{done(null,{items:hasMore?[match]:[match,other],hasMore});return ()=>{};}}});
+  let result;discovery.run({key:'k',model:'m',webKey:'w',queries:['q'],intent:emptyIntent()},(e,r)=>result=r);assert.deepEqual(result.candidateKeys,[]);
+ }
+});

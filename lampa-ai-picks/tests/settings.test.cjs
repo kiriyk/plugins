@@ -105,3 +105,10 @@ test('Tavily key is masked and display count is a selector in both settings menu
  h.settings.open();h.choose('Показывать фильмов');h.choose('20');assert.equal(h.settings.getConfig().limits.resultLimit,20);
  assert.ok(h.params.some(p=>p.field.name==='Показывать фильмов'));
 });
+
+test('settings show local Tavily accounting separately from account balance',()=>{
+ const h=createDOMHarness({storage:{aip_tavily_key:'web-secret'}});
+ const s=registerSettings({Lampa:h.Lampa,routerai:{},webState:{fingerprint:()=> 'fingerprint',usage:()=> 12}});
+ s.open();assert.match(h.selects.at(-1).items.find(i=>i.value==='web-key').subtitle,/12.*950/);
+ assert.equal(JSON.stringify(h.selects.at(-1)).includes('web-secret'),false);
+});

@@ -1,4 +1,4 @@
-/* AI Picks 0.3.0 | Lampa 3.3.8 */
+/* AI Picks 0.4.0 | Lampa 3.3.8 */
 'use strict';
 var openText = require('./dialog').openText;
 var createDiagnostics = require('./diagnostics').createDiagnostics;

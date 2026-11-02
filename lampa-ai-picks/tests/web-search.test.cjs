@@ -20,3 +20,8 @@ for(const status of [432,433,429,401,403])test('provider error '+status+' does n
  const h=setup();let error;h.api.search({key:'key',query:'q'},e=>error=e);h.reject(0,{status,code:'network'});
  assert.equal(error.code,status===432||status===433?'web_quota':status===429?'rate_limit':'web_auth');assert.equal(h.requests.length,1);
 });
+
+test('connection probe always performs a real request even when its query is cached',()=>{
+ const h=setup();h.api.probe({key:'key'},()=>{});h.reply(0,{results:[]});h.api.probe({key:'key'},()=>{});
+ assert.equal(h.requests.length,2);assert.equal(h.state.usage(h.state.fingerprint('key')),2);
+});
