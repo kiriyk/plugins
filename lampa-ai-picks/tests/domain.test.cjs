@@ -69,3 +69,9 @@ test('rating gate uses only the chosen source and never accepts unknown or fabri
     assert.equal(d.validateCandidate(movie({ratings:{tmdb:9}}),f).reason,'unknown_rating');
     assert.equal(d.validateCandidate(movie(),filters({ratingMin:null})).ok,true);
 });
+
+test('candidate metadata refresh merges rather than erases web source references',()=>{
+ const store=d.createCandidateStore(80),a={id:'a',url:'https://a.example',title:'A',domain:'a.example'},b={id:'b',url:'https://b.example',title:'B',domain:'b.example'};
+ store.add(movie({webSources:[a]}));store.add(movie({webSources:[b]}));store.add(movie());
+ assert.deepEqual(store.all()[0].webSources,[a,b]);
+});

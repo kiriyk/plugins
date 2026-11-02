@@ -102,7 +102,13 @@ function createCandidateStore(limit) {
             if (!c || !parseKey(c.key)) return false;
             var old = records[c.key];
             if (!old) { if (keys.length >= limit) return false; keys.push(c.key); records[c.key] = clone(c); return true; }
-            Object.keys(c).forEach(function (key) { if (c[key] !== null && c[key] !== '') old[key] = key === 'card' ? merge(old.card,c.card) : clone(c[key]); });
+            Object.keys(c).forEach(function (key) {
+                if (key === 'webSources') {
+                    var sources = (old.webSources || []).slice();
+                    (c.webSources || []).forEach(function (source) { if (!sources.some(function (item) { return item.id === source.id; })) sources.push(clone(source)); });
+                    old.webSources = sources.slice(0,20);
+                } else if (c[key] !== null && c[key] !== '') old[key] = key === 'card' ? merge(old.card,c.card) : clone(c[key]);
+            });
             return true;
         },
         get:function (key) { return own(records,key) ? records[key] : null; },
