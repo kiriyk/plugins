@@ -340,7 +340,8 @@
     "src/limits.js": function(exports, module) {
       "use strict";
       var definitions = [
-        { key: "modelCalls", storage: "aip_model_steps", title: "Шагов ИИ (включая итог)", min: 3, max: 12, value: 5, unit: 1 },
+        { key: "decisionCalls", storage: "aip_decision_calls", title: "Запросов Jev за поиск", min: 1, max: 4, value: 4, unit: 1 },
+        { key: "modelCalls", storage: "aip_model_steps", title: "Шагов поиска и объяснений", min: 3, max: 12, value: 5, unit: 1 },
         { key: "toolCalls", storage: "aip_tool_calls", title: "Действий ИИ в каталоге", min: 4, max: 48, value: 12, unit: 1 },
         { key: "kpRequests", storage: "aip_kp_requests", title: "Запросов рейтинга КП за поиск", min: 1, max: 80, value: 10, unit: 1 },
         { key: "catalogRequests", storage: "aip_catalog_requests", title: "Запросов к каталогу", min: 10, max: 120, value: 40, unit: 1 },
@@ -387,7 +388,7 @@
       var domain = require_domain();
       var normalizeLimits = require_limits().normalizeLimits;
       var STORAGE = "aip_diagnostic_journal";
-      var events = ["run_start", "screening", "stage", "filters", "tool_start", "tool_result", "request_start", "request_end", "request_cancel", "candidate_rejected", "run_done", "run_error", "run_cancel", "clarification", "web_state", "selection"];
+      var events = ["run_start", "screening", "stage", "filters", "tool_start", "tool_result", "request_start", "request_end", "request_cancel", "candidate_rejected", "run_done", "run_error", "run_cancel", "clarification", "web_state", "selection", "decision"];
       var codes = ["timeout", "network", "auth", "balance", "rate_limit", "server", "unsupported", "invalid_arguments", "invalid_response", "catalog_limit", "tool_limit", "search_limit", "context_limit", "incompatible_model", "unknown_title", "unknown_keyword", "intent_required", "clarification", "session_limit", "cancelled", "kp_key", "kp_limit", "web_key", "web_auth", "web_quota", "web_limit", "model_output_limit", "model_parameters", "unknown"];
       var reasons = ["invalid_pick", "unknown_key", "already_shown", "duplicate", "count_limit", "invalid", "type", "unknown_genres", "genres", "excluded_genres", "year", "country", "runtime", "rating", "unknown_rating", "not_verified"];
       var tools = ["set_search_intent", "search_titles", "resolve_keywords", "discover_titles", "get_related", "get_title_details", "unknown"];
@@ -496,7 +497,7 @@
         if (source.limits) row.limits = normalizeLimits(source.limits);
         if (source.budget) {
           row.budget = {};
-          ["modelCalls", "toolCalls", "catalogRequests", "webRequests", "activeCatalog"].forEach(function(key) {
+          ["modelCalls", "decisionCalls", "toolCalls", "catalogRequests", "webRequests", "activeCatalog"].forEach(function(key) {
             if (integer(source.budget[key])) row.budget[key] = source.budget[key];
           });
         }
@@ -2006,7 +2007,7 @@
       function createBudget(options) {
         var limits = normalizeLimits(options.limits);
         var clock = options.clock, started = clock.now(), stopped = false, queue = [], records = [];
-        var counts = { modelCalls: 0, toolCalls: 0, catalogRequests: 0, webRequests: 0, activeCatalog: 0 }, pumping = false;
+        var counts = { modelCalls: 0, decisionCalls: 0, toolCalls: 0, catalogRequests: 0, webRequests: 0, activeCatalog: 0 }, pumping = false;
         function remainingMs() {
           return Math.max(0, limits.totalTimeoutMs - (clock.now() - started));
         }
@@ -2080,6 +2081,12 @@
             return enqueue(spec, done, true);
           },
           remainingMs: remainingMs,
+          remainingDecisionCalls: function() {
+            return stopped || !remainingMs() ? 0 : limits.decisionCalls - counts.decisionCalls;
+          },
+          consumeDecision: function() {
+            return consume("decisionCalls", limits.decisionCalls);
+          },
           consumeModel: function() {
             return consume("modelCalls", limits.modelCalls);
           },
@@ -2087,7 +2094,7 @@
             return consume("toolCalls", limits.toolCalls);
           },
           snapshot: function() {
-            return { modelCalls: counts.modelCalls, toolCalls: counts.toolCalls, catalogRequests: counts.catalogRequests, webRequests: counts.webRequests, activeCatalog: counts.activeCatalog };
+            return { modelCalls: counts.modelCalls, decisionCalls: counts.decisionCalls, toolCalls: counts.toolCalls, catalogRequests: counts.catalogRequests, webRequests: counts.webRequests, activeCatalog: counts.activeCatalog };
           },
           cancel: function(reason) {
             if (stopped) return;

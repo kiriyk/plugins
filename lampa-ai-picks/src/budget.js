@@ -52,6 +52,7 @@ function createBudget(options) {
     function consume(key, max) { if (stopped || !remainingMs() || counts[key] >= max) return false; counts[key]++; return true; }
     return {
         catalogRequest:function (spec, done) { return enqueue(spec,done,false); },webRequest:function (spec, done) { return enqueue(spec,done,true); },remainingMs:remainingMs,
+        remainingDecisionCalls:function () { return stopped || !remainingMs() ? 0 : limits.decisionCalls - counts.decisionCalls; },
         consumeDecision:function () { return consume('decisionCalls',limits.decisionCalls); },
         consumeModel:function () { return consume('modelCalls',limits.modelCalls); },
         consumeTool:function () { return consume('toolCalls',limits.toolCalls); },
