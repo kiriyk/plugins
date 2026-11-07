@@ -1,0 +1,1051 @@
+[
+  {
+    "id": "contact",
+    "split": "development",
+    "query": "Фантастика о первом контакте с инопланетянами",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Лингвист устанавливает контакт с прибывшими на Землю инопланетянами.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Учёные расшифровывают послание внеземной цивилизации.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Повар открывает ресторан в Париже.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:2"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "cozy",
+    "split": "development",
+    "query": "Уютный детектив без жестокости",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Пожилая библиотекарь без насилия раскрывает кражу драгоценностей в тихой деревне.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Серийный убийца мучает жертв; показаны жестокие сцены.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "История космической экспедиции без загадок и расследования.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "space",
+    "split": "development",
+    "query": "Спокойный фильм об исследовании космоса, без ужасов",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Астрономы мирно изучают далёкую планету.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Космонавтов преследует страшное чудовище.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Тихая научная экспедиция исследует звёзды.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "family",
+    "split": "development",
+    "query": "Доброе семейное приключение",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Дети вместе с родителями ищут сокровища; добрая история для всей семьи.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Мрачный триллер о жестоком преступлении.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Семья спасает потерявшегося щенка в весёлом путешествии.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "time",
+    "split": "development",
+    "query": "История с временной петлёй",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Герой проживает один и тот же день снова и снова.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Историческая драма о средневековье без фантастики.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Учёная застряла в повторяющемся часе и ищет выход.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "court",
+    "split": "development",
+    "query": "Судебная драма",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Присяжные обсуждают доказательства в сложном уголовном деле.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Юрист защищает невиновного человека в суде.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Сёрфер тренируется на пляже.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:2"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "music",
+    "split": "development",
+    "query": "Музыкальная комедия",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Музыканты создают группу и попадают в смешные ситуации.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Серьёзный военный документальный фильм.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Весёлая певица участвует в забавном песенном конкурсе.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "survival",
+    "split": "development",
+    "query": "Выживание в одиночестве на необитаемом острове",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "После кораблекрушения человек один обустраивает жизнь на необитаемом острове.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Жители большого города ведут офисную жизнь.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Одинокий путешественник выживает на безлюдном острове.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "examples",
+    "split": "development",
+    "query": "Что-то похожее на фильм-пример о первом контакте",
+    "examples": [
+      {
+        "key": "tmdb:movie:999",
+        "title": "Пример",
+        "type": "movie",
+        "year": 2010,
+        "overview": "Лингвист устанавливает мирный контакт с внеземной цивилизацией."
+      }
+    ],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Лингвист знакомится с инопланетянами и учится понимать их язык.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Повара соревнуются в приготовлении десертов.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Учёные пытаются понять мирные сигналы внеземной цивилизации.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "missing",
+    "split": "development",
+    "query": "Фантастика о космосе",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Космонавт исследует новую планету.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:2"
+    ],
+    "expectedFallback": true
+  },
+  {
+    "id": "hold-heist",
+    "split": "holdout",
+    "query": "Ограбление с хитрым планом",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Команда воров разрабатывает хитрый план кражи из банка.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Тихая семейная история о рождении ребёнка.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Воры готовят сложное ограбление музея.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "hold-road",
+    "split": "holdout",
+    "query": "Добрый роуд-муви о дружбе",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Двое друзей путешествуют на машине и помогают друг другу.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Люди заперты в комнате, сюжет о пытках.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Старые друзья едут через страну, мирятся и становятся ближе.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "hold-science",
+    "split": "holdout",
+    "query": "Документальный фильм о науке",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Документальная картина объясняет работу телескопов и открытия астрономов.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Художественная комедия о свадьбе.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Учёные в документальном фильме рассказывают об океане и биологии.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "hold-no-zombies",
+    "split": "holdout",
+    "query": "Постапокалипсис без зомби",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "После глобальной засухи семья выживает в пустыне; зомби нет.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "После вируса зомби охотятся на людей.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Люди восстанавливают жизнь после солнечной катастрофы, без зомби.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "hold-pets",
+    "split": "holdout",
+    "query": "Добрый фильм о собаке",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Дружелюбная собака помогает одинокому человеку обрести друзей.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Триллер о жестоких преступлениях без животных.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Щенок находит любящую семью; добрая семейная история.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "hold-reordered",
+    "split": "holdout",
+    "query": "Фантастика о первом контакте с инопланетянами",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Повар открывает ресторан в Париже.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Учёные расшифровывают послание внеземной цивилизации.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Лингвист устанавливает контакт с прибывшими на Землю инопланетянами.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:2",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "hold-negation",
+    "split": "holdout",
+    "query": "Детектив с расследованием, без сверхъестественного",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Сыщик раскрывает преступление с помощью улик; мистических сил нет.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Призрак убивает людей, магия решает загадку.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Полицейские находят преступника по документам и свидетельствам, без мистики.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "hold-evidence",
+    "split": "holdout",
+    "query": "Фильм о путешествии во времени",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "История шпионов без путешествий во времени.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {},
+        "webSources": [
+          {
+            "id": "a",
+            "evidenceText": "Подборка о путешествиях во времени упоминает фильм, но в нём нет путешествий во времени."
+          }
+        ]
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Герой на машине времени отправляется в прошлое.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Фантастическое путешествие через разные эпохи.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:2",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  },
+  {
+    "id": "hold-all-missing",
+    "split": "holdout",
+    "query": "Психологический триллер",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [],
+    "expectedFallback": true
+  },
+  {
+    "id": "hold-quiet",
+    "split": "holdout",
+    "query": "Медленная созерцательная драма о природе",
+    "examples": [],
+    "candidates": [
+      {
+        "key": "tmdb:movie:1",
+        "id": 1,
+        "type": "movie",
+        "title": "Синтетический фильм 1",
+        "year": 2010,
+        "overview": "Одинокий садовник тихо наблюдает за сменой сезонов и размышляет о жизни.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:2",
+        "id": 2,
+        "type": "movie",
+        "title": "Синтетический фильм 2",
+        "year": 2010,
+        "overview": "Шумный боевик о гонках и взрывах.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      },
+      {
+        "key": "tmdb:movie:3",
+        "id": 3,
+        "type": "movie",
+        "title": "Синтетический фильм 3",
+        "year": 2010,
+        "overview": "Неторопливая история смотрителя леса, много созерцательных сцен природы.",
+        "genreIds": [],
+        "countries": [],
+        "runtimeMinutes": 100,
+        "ratings": {},
+        "card": {}
+      }
+    ],
+    "expectedAdmitted": [
+      "tmdb:movie:1",
+      "tmdb:movie:3"
+    ],
+    "expectedFallback": false
+  }
+]

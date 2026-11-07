@@ -1,0 +1,359 @@
+[
+  {
+    "id": "ru",
+    "split": "development",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Фильмы: Прибытие (2016), Связь (2013)."
+      }
+    ],
+    "expected": {
+      "Прибытие": [
+        "a"
+      ],
+      "Связь": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "en",
+    "split": "development",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Try Arrival and Coherence tonight."
+      }
+    ],
+    "expected": {
+      "Arrival": [
+        "a"
+      ],
+      "Coherence": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "emoji",
+    "split": "development",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "😀 Прибытие и Луна 2112."
+      }
+    ],
+    "expected": {
+      "Прибытие": [
+        "a"
+      ],
+      "Луна 2112": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "short",
+    "split": "development",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Посмотрите фильм Оно (2017)."
+      }
+    ],
+    "expected": {
+      "Оно": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "remakes",
+    "split": "development",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Фильмы Дюна (1984) и Дюна (2021)."
+      }
+    ],
+    "expected": {
+      "Дюна": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "negative",
+    "split": "development",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Не советую Сияние, лучше Амели."
+      }
+    ],
+    "expected": {
+      "Сияние": [
+        "a"
+      ],
+      "Амели": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "person",
+    "split": "development",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Дени Вильнёв снял Прибытие."
+      }
+    ],
+    "expected": {
+      "Прибытие": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "site",
+    "split": "development",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "На сайте КиноПоиск обсуждают Интерстеллар."
+      }
+    ],
+    "expected": {
+      "Интерстеллар": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "duplicate",
+    "split": "development",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Фильм Прибытие. Прибытие рассказывает о контакте."
+      },
+      {
+        "id": "b",
+        "title": "",
+        "content": "Обсуждение фильма Прибытие."
+      }
+    ],
+    "expected": {
+      "Прибытие": [
+        "a",
+        "b"
+      ]
+    }
+  },
+  {
+    "id": "empty",
+    "split": "development",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Здесь нет названий фильмов. Поговорим о погоде."
+      }
+    ],
+    "expected": {}
+  },
+  {
+    "id": "hold-quote",
+    "split": "holdout",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Рекомендую «Гаттака» и «Она»."
+      }
+    ],
+    "expected": {
+      "Гаттака": [
+        "a"
+      ],
+      "Она": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "hold-mixed",
+    "split": "holdout",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Попробуйте The Martian — Марсианин."
+      }
+    ],
+    "expected": {
+      "The Martian": [
+        "a"
+      ],
+      "Марсианин": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "hold-series",
+    "split": "holdout",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Сериалы: Тьма и Разделение."
+      }
+    ],
+    "expected": {
+      "Тьма": [
+        "a"
+      ],
+      "Разделение": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "hold-title",
+    "split": "holdout",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Обзор фильма Бегущий по лезвию 2049."
+      }
+    ],
+    "expected": {
+      "Бегущий по лезвию 2049": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "hold-list",
+    "split": "holdout",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Список: 1) Moon 2) Solaris 3) Contact."
+      }
+    ],
+    "expected": {
+      "Moon": [
+        "a"
+      ],
+      "Solaris": [
+        "a"
+      ],
+      "Contact": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "hold-book",
+    "split": "holdout",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Это статья о погоде и кулинарии, без фильмов."
+      }
+    ],
+    "expected": {}
+  },
+  {
+    "id": "hold-negation",
+    "split": "holdout",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Это не фильм Прибытие, а обзор фильма Контакт."
+      }
+    ],
+    "expected": {
+      "Прибытие": [
+        "a"
+      ],
+      "Контакт": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "hold-punctuation",
+    "split": "holdout",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Фильм Чужой: Завет — продолжение истории."
+      }
+    ],
+    "expected": {
+      "Чужой: Завет": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "hold-year",
+    "split": "holdout",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Смотрите 12 разгневанных мужчин (1957)."
+      }
+    ],
+    "expected": {
+      "12 разгневанных мужчин": [
+        "a"
+      ]
+    }
+  },
+  {
+    "id": "hold-source",
+    "split": "holdout",
+    "pages": [
+      {
+        "id": "a",
+        "title": "",
+        "content": "Рекомендации: Прибытие и Coherence."
+      },
+      {
+        "id": "b",
+        "title": "",
+        "content": "Обсуждение фильма Прибытие."
+      }
+    ],
+    "expected": {
+      "Прибытие": [
+        "a",
+        "b"
+      ],
+      "Coherence": [
+        "a"
+      ]
+    }
+  }
+]
