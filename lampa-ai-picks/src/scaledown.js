@@ -18,12 +18,21 @@ function createScaleDown(options) {
                 var choice = body && body.choices && body.choices[0], value;
                 if (choice && choice.finish_reason === 'length') { finish(net.appError('model_output_limit'));return; }
                 try { value = JSON.parse(choice.message.content); } catch (ignore) {}
-                if (!value || !Array.isArray(value.entities) || value.entities.length > 200) { finish(net.appError('invalid_response'));return; }
-                var titles = [], seen = Object.create(null);
+                if (!value || !Array.isArray(value.entities) || value.entities.length > 200 || !value.entities.every(function (entity) {
+                    return entity && typeof entity.type === 'string' && typeof entity.text === 'string' && entity.text.trim() &&
+                        typeof entity.start === 'number' && isFinite(entity.start) && Math.floor(entity.start) === entity.start &&
+                        typeof entity.end === 'number' && isFinite(entity.end) && Math.floor(entity.end) === entity.end &&
+                        typeof entity.confidence === 'number' && isFinite(entity.confidence) && entity.confidence >= 0 && entity.confidence <= 1;
+                })) { finish(net.appError('invalid_response'));return; }
+                var titles = [], resolved = [], seen = Object.create(null);
                 value.entities.forEach(function (entity) {
                     if (!entity || entity.type !== 'movie_title' || typeof entity.confidence !== 'number' || !isFinite(entity.confidence) || entity.confidence < 0 || entity.confidence > 1) return;
                     var span = sources.resolveSpan(doc,entity);
-                    if (!span || seen[entity.text] || titles.length >= 20) return;
+                    if (span) resolved.push({entity:entity,span:span});
+                });
+                resolved.sort(function (a,b) { return a.span.start - b.span.start || (a.entity.text < b.entity.text ? -1 : a.entity.text > b.entity.text ? 1 : 0); }).forEach(function (row) {
+                    var entity = row.entity, span = row.span;
+                    if (seen[entity.text] || titles.length >= 20) return;
                     seen[entity.text] = true;titles.push({title:entity.text,type:'unknown',sourceIds:span.sourceIds,confidence:entity.confidence,evidenceBySource:span.evidenceBySource});
                 });
                 finish(null,{titles:titles,stats:{count:titles.length},modelVersion:typeof body.model === 'string' ? body.model : null,usage:body.usage});

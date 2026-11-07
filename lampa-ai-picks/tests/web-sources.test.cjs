@@ -19,3 +19,10 @@ test('ambiguous unicode positions and spans across different sources are rejecte
  const start=other.text.indexOf('Y'),end=other.text.indexOf('Z')+1;
  assert.equal(resolveSpan(other,{text:other.text.slice(start,end),start,end}),null);
 });
+test('additional sources require whole mentions, including short Latin and Cyrillic titles',()=>{
+ for(const [title,text,unrelated] of [['It','We watched It yesterday.','Italy has beautiful beaches.'],['Она','Фильм Она.','Онанизм как термин.']]){
+  const doc=buildSourceDocument([{id:'a',content:text},{id:'b',content:unrelated},{id:'c',content:unrelated+' Фильм: '+title+'.'}]),at=doc.text.indexOf(title);
+  const found=resolveSpan(doc,{text:title,start:at,end:at+title.length});assert.deepEqual(found.sourceIds,['a','c']);
+  assert.equal(found.evidenceBySource.b,undefined);
+ }
+});

@@ -79,3 +79,11 @@ test('selection diagnostics retain safe counts without free-form exclusion text'
  const row=h.records().at(-1);assert.equal(row.event,'selection');assert.equal(row.stats.aiUndecided,13);assert.equal(row.stats.aiAvailable,50);
  assert.equal(h.journal.exportText().includes('PRIVATE-EXPLANATION'),false);
 });
+test('Decisions diagnostics include safe model version usage and counts without question text',()=>{
+ const h=setup();h.journal.setEnabled(true);
+ h.journal.request({url:'https://routerai.ru/api/v1/decisions',method:'POST',headers:{Authorization:'Bearer PRIVATE-KEY'},json:{state:'PRIVATE-QUERY',questions:{private:'PRIVATE-QUESTION'}},timeoutMs:1000},()=>{});
+ h.nativeReply(0,{model:'typesafe/jev-1.14-20261014',answers:{a:{choice:'match'}},usage:{input_tokens:12,output_tokens:4,secret:'PRIVATE-USAGE'}});
+ const start=h.records().find(r=>r.event==='request_start'),end=h.records().at(-1);
+ assert.equal(start.endpoint,'decisions');assert.equal(start.scope,'model');assert.equal(end.modelVersion,'typesafe/jev-1.14-20261014');assert.deepEqual(end.usage,{input_tokens:12,output_tokens:4});
+ for(const secret of ['PRIVATE-KEY','PRIVATE-QUERY','PRIVATE-QUESTION','PRIVATE-USAGE'])assert.equal(h.journal.exportText().includes(secret),false);
+});

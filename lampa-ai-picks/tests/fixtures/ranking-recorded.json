@@ -1,0 +1,1886 @@
+{
+  "recordedAt": "2026-11-07T20:02:01.755Z",
+  "primaryModel": "openai/gpt-4.1-mini",
+  "cases": [
+    {
+      "id": "contact",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 953,
+                "prompt_tokens": 849,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 104,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.05403077108
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Фильм о лингвисте, который устанавливает контакт с инопланетянами, подходит под запрос о первом контакте.\"},{\"key\":\"tmdb:movie:2\",\"reason\":\"История о расшифровке послания внеземной цивилизации соответствует теме первого контакта.\"}],\"excluded\":[{\"key\":\"tmdb:movie:3\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 2007
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.13,
+                    "match": 0.23,
+                    "not_match": 0,
+                    "strong_match": 0.62,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.52
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.09,
+                    "match": 0.32,
+                    "not_match": 0.01,
+                    "strong_match": 0.48,
+                    "weak_match": 0.1
+                  },
+                  "confidence": 0.35
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.04,
+                    "match": 0,
+                    "not_match": 0.93,
+                    "strong_match": 0,
+                    "weak_match": 0.03
+                  },
+                  "confidence": 0.91
+                }
+              },
+              "usage": {
+                "input_tokens": 2004,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 498
+      }
+    },
+    {
+      "id": "cozy",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 942,
+                "prompt_tokens": 852,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 90,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.051767031264
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Тихий и без насилия детектив с пожилой библиотекаршей в центральной роли, подходит под запрос уютного детектива без жестокости.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"},{\"key\":\"tmdb:movie:3\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 2101
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.03,
+                    "match": 0.38,
+                    "not_match": 0,
+                    "strong_match": 0.56,
+                    "weak_match": 0.03
+                  },
+                  "confidence": 0.45
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.01,
+                    "match": 0,
+                    "not_match": 0.98,
+                    "strong_match": 0,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.98
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.01,
+                    "match": 0,
+                    "not_match": 0.99,
+                    "strong_match": 0,
+                    "weak_match": 0
+                  },
+                  "confidence": 0.99
+                }
+              },
+              "usage": {
+                "input_tokens": 2037,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 402
+      }
+    },
+    {
+      "id": "space",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 938,
+                "prompt_tokens": 840,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 98,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.052621272704
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Фильм о мирном изучении далёкой планеты без элементов ужаса, спокойный и познавательный.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"Картина про тихую научную экспедицию в космосе, без ужасов и напряжённых сцен.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1706
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.08,
+                    "match": 0.39,
+                    "not_match": 0,
+                    "strong_match": 0.5,
+                    "weak_match": 0.03
+                  },
+                  "confidence": 0.37
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0,
+                    "match": 0,
+                    "not_match": 0.99,
+                    "strong_match": 0,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.99
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.11,
+                    "match": 0.4,
+                    "not_match": 0,
+                    "strong_match": 0.47,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.34
+                }
+              },
+              "usage": {
+                "input_tokens": 1993,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 331
+      }
+    },
+    {
+      "id": "family",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 938,
+                "prompt_tokens": 840,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 98,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.052621272704
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Фильм с поиском сокровищ, добрая история для всей семьи, подходит для семейного приключения.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"Весёлое путешествие семьи для спасения щенка, тёплый и добрый сюжет для всей семьи.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1742
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.08,
+                    "match": 0.19,
+                    "not_match": 0,
+                    "strong_match": 0.72,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.65
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0,
+                    "match": 0,
+                    "not_match": 0.99,
+                    "strong_match": 0,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.99
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.04,
+                    "match": 0.27,
+                    "not_match": 0,
+                    "strong_match": 0.68,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.6
+                }
+              },
+              "usage": {
+                "input_tokens": 1995,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 346
+      }
+    },
+    {
+      "id": "time",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 943,
+                "prompt_tokens": 840,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 103,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.05347551414400001
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Фильм с героем, который проживает один и тот же день снова и снова, подходит под тему временной петли.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"История учёной, застрявшей в повторяющемся часе, соответствует идее временной петли.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1724
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.01,
+                    "match": 0.33,
+                    "not_match": 0.01,
+                    "strong_match": 0.62,
+                    "weak_match": 0.03
+                  },
+                  "confidence": 0.52
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.01,
+                    "match": 0,
+                    "not_match": 0.97,
+                    "strong_match": 0,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.96
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.01,
+                    "match": 0.28,
+                    "not_match": 0,
+                    "strong_match": 0.7,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.62
+                }
+              },
+              "usage": {
+                "input_tokens": 1971,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 357
+      }
+    },
+    {
+      "id": "court",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 904,
+                "prompt_tokens": 826,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 78,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.048606337936
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:2\",\"reason\":\"Юридическая тематика и защита невиновного в суде соответствуют запросу судебной драмы.\"}],\"excluded\":[{\"key\":\"tmdb:movie:1\",\"reasonCode\":\"insufficient_data\"},{\"key\":\"tmdb:movie:3\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1590
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.02,
+                    "match": 0.34,
+                    "not_match": 0,
+                    "strong_match": 0.61,
+                    "weak_match": 0.03
+                  },
+                  "confidence": 0.51
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.04,
+                    "match": 0.3,
+                    "not_match": 0,
+                    "strong_match": 0.64,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.55
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.05,
+                    "match": 0,
+                    "not_match": 0.94,
+                    "strong_match": 0,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.92
+                }
+              },
+              "usage": {
+                "input_tokens": 1962,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 351
+      }
+    },
+    {
+      "id": "music",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 919,
+                "prompt_tokens": 830,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 89,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.050656517392
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Фильм о музыкантах и смешных ситуациях соответствует жанру музыкальной комедии.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"Весёлая певица в песенном конкурсе подходит под музыкальную комедию.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1621
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "match",
+                  "probabilities": {
+                    "insufficient_data": 0.06,
+                    "match": 0.47,
+                    "not_match": 0,
+                    "strong_match": 0.4,
+                    "weak_match": 0.07
+                  },
+                  "confidence": 0.34
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.01,
+                    "match": 0,
+                    "not_match": 0.98,
+                    "strong_match": 0,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.98
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.06,
+                    "match": 0.39,
+                    "not_match": 0,
+                    "strong_match": 0.46,
+                    "weak_match": 0.09
+                  },
+                  "confidence": 0.32
+                }
+              },
+              "usage": {
+                "input_tokens": 1977,
+                "output_tokens": 182
+              }
+            }
+          }
+        ],
+        "elapsedMs": 317
+      }
+    },
+    {
+      "id": "survival",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 940,
+                "prompt_tokens": 847,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 93,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.052066015768
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Фильм про выживание одного человека на необитаемом острове после кораблекрушения.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"История одинокого путешественника, который выживает на безлюдном острове.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1561
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.03,
+                    "match": 0.17,
+                    "not_match": 0,
+                    "strong_match": 0.8,
+                    "weak_match": 0
+                  },
+                  "confidence": 0.75
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.04,
+                    "match": 0,
+                    "not_match": 0.94,
+                    "strong_match": 0,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.92
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.12,
+                    "match": 0.2,
+                    "not_match": 0,
+                    "strong_match": 0.67,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.59
+                }
+              },
+              "usage": {
+                "input_tokens": 2008,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 321
+      }
+    },
+    {
+      "id": "examples",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 1012,
+                "prompt_tokens": 900,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 112,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.057575873056
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Фильм про лингвиста, который устанавливает контакт и учится понимать язык инопланетян, близок по теме к примеру.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"Фильм о попытках учёных понять мирные сигналы внеземной цивилизации, совпадает с тематикой первого контакта.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 2347
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.02,
+                    "match": 0.03,
+                    "not_match": 0,
+                    "strong_match": 0.95,
+                    "weak_match": 0
+                  },
+                  "confidence": 0.94
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0,
+                    "match": 0,
+                    "not_match": 0.78,
+                    "strong_match": 0,
+                    "weak_match": 0.22
+                  },
+                  "confidence": 0.73
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.01,
+                    "match": 0.15,
+                    "not_match": 0,
+                    "strong_match": 0.81,
+                    "weak_match": 0.03
+                  },
+                  "confidence": 0.76
+                }
+              },
+              "usage": {
+                "input_tokens": 2110,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 393
+      }
+    },
+    {
+      "id": "missing",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 881,
+                "prompt_tokens": 805,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 76,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.047367687848
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:2\",\"reason\":\"Описание связано с исследованием космоса, подходит под запрос о фантастике о космосе.\"}],\"excluded\":[{\"key\":\"tmdb:movie:1\",\"reasonCode\":\"not_relevant\"},{\"key\":\"tmdb:movie:3\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1440
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "insufficient_data",
+                  "probabilities": {
+                    "insufficient_data": 1,
+                    "match": 0,
+                    "not_match": 0,
+                    "strong_match": 0,
+                    "weak_match": 0
+                  },
+                  "confidence": 1
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.11,
+                    "match": 0.32,
+                    "not_match": 0,
+                    "strong_match": 0.51,
+                    "weak_match": 0.06
+                  },
+                  "confidence": 0.39
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "insufficient_data",
+                  "probabilities": {
+                    "insufficient_data": 0.99,
+                    "match": 0,
+                    "not_match": 0,
+                    "strong_match": 0,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.99
+                }
+              },
+              "usage": {
+                "input_tokens": 1888,
+                "output_tokens": 189
+              }
+            }
+          }
+        ],
+        "elapsedMs": 328
+      }
+    },
+    {
+      "id": "hold-heist",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 945,
+                "prompt_tokens": 833,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 112,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.054714164232
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Фильм о команде воров, разрабатывающей хитрый план кражи из банка, что соответствует запросу об ограблении с планом.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"История о подготовке сложного ограбления музея командой воров, подходит по теме хитрого ограбления.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1749
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.02,
+                    "match": 0.21,
+                    "not_match": 0,
+                    "strong_match": 0.76,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.7
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.02,
+                    "match": 0,
+                    "not_match": 0.96,
+                    "strong_match": 0,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.95
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.02,
+                    "match": 0.35,
+                    "not_match": 0,
+                    "strong_match": 0.6,
+                    "weak_match": 0.03
+                  },
+                  "confidence": 0.5
+                }
+              },
+              "usage": {
+                "input_tokens": 1971,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 410
+      }
+    },
+    {
+      "id": "hold-road",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 935,
+                "prompt_tokens": 838,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 97,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.052365000272
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Теплый роуд-муви о дружбе, где двое друзей поддерживают друг друга в поездке.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"История старых друзей в путешествии, укрепляющая их дружбу и взаимопонимание.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 2322
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.06,
+                    "match": 0.34,
+                    "not_match": 0,
+                    "strong_match": 0.57,
+                    "weak_match": 0.03
+                  },
+                  "confidence": 0.46
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.01,
+                    "match": 0,
+                    "not_match": 0.98,
+                    "strong_match": 0,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.98
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.08,
+                    "match": 0.27,
+                    "not_match": 0,
+                    "strong_match": 0.63,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.54
+                }
+              },
+              "usage": {
+                "input_tokens": 1946,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 304
+      }
+    },
+    {
+      "id": "hold-science",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 934,
+                "prompt_tokens": 839,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 95,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.052066015768
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Документальный фильм о науке с фокусом на телескопах и астрономии.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"Документальный фильм о науке с рассказом учёных об океане и биологии.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1544
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.15,
+                    "match": 0.21,
+                    "not_match": 0,
+                    "strong_match": 0.61,
+                    "weak_match": 0.03
+                  },
+                  "confidence": 0.51
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0,
+                    "match": 0,
+                    "not_match": 0.99,
+                    "strong_match": 0,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.99
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.05,
+                    "match": 0.3,
+                    "not_match": 0.01,
+                    "strong_match": 0.61,
+                    "weak_match": 0.03
+                  },
+                  "confidence": 0.51
+                }
+              },
+              "usage": {
+                "input_tokens": 2004,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 264
+      }
+    },
+    {
+      "id": "hold-no-zombies",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 955,
+                "prompt_tokens": 846,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 109,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.054756876304
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Фильм о жизни после глобальной засухи, где отсутствуют зомби, подходит под тему постапокалипсиса.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"История восстановления жизни после солнечной катастрофы без зомби соответствует запросу постапокалипсиса без зомби.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1947
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "match",
+                  "probabilities": {
+                    "insufficient_data": 0.03,
+                    "match": 0.48,
+                    "not_match": 0,
+                    "strong_match": 0.47,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.35
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.01,
+                    "match": 0,
+                    "not_match": 0.98,
+                    "strong_match": 0,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.98
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.04,
+                    "match": 0.33,
+                    "not_match": 0,
+                    "strong_match": 0.62,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.52
+                }
+              },
+              "usage": {
+                "input_tokens": 1985,
+                "output_tokens": 182
+              }
+            }
+          }
+        ],
+        "elapsedMs": 392
+      }
+    },
+    {
+      "id": "hold-pets",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 948,
+                "prompt_tokens": 836,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 112,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.054842300448
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Фильм с дружелюбной собакой, которая помогает одинокому человеку обрести друзей, создаёт тёплую атмосферу.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"Добрая семейная история о щенке, который находит любящую семью, подходит под запрос о хорошем фильме о собаке.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1729
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "match",
+                  "probabilities": {
+                    "insufficient_data": 0.08,
+                    "match": 0.45,
+                    "not_match": 0,
+                    "strong_match": 0.42,
+                    "weak_match": 0.05
+                  },
+                  "confidence": 0.31
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.01,
+                    "match": 0,
+                    "not_match": 0.98,
+                    "strong_match": 0,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.98
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.1,
+                    "match": 0.27,
+                    "not_match": 0,
+                    "strong_match": 0.61,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.51
+                }
+              },
+              "usage": {
+                "input_tokens": 1967,
+                "output_tokens": 182
+              }
+            }
+          }
+        ],
+        "elapsedMs": 305
+      }
+    },
+    {
+      "id": "hold-reordered",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 958,
+                "prompt_tokens": 849,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 109,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.05488501252000001
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:2\",\"reason\":\"Фильм про расшифровку послания внеземной цивилизации, что соответствует теме первого контакта.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"История о лингвисте, налаживающем контакт с инопланетянами, явно связана с первым контактом.\"}],\"excluded\":[{\"key\":\"tmdb:movie:1\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1701
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.03,
+                    "match": 0,
+                    "not_match": 0.95,
+                    "strong_match": 0,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.94
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.1,
+                    "match": 0.34,
+                    "not_match": 0,
+                    "strong_match": 0.46,
+                    "weak_match": 0.1
+                  },
+                  "confidence": 0.32
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.09,
+                    "match": 0.2,
+                    "not_match": 0,
+                    "strong_match": 0.69,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.61
+                }
+              },
+              "usage": {
+                "input_tokens": 2004,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 299
+      }
+    },
+    {
+      "id": "hold-negation",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 931,
+                "prompt_tokens": 846,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 85,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.050656517392
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Фильм с классическим детективом и расследованием без сверхъестественных элементов.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"История расследования преступления с использованием доказательств без мистики.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1490
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.02,
+                    "match": 0.28,
+                    "not_match": 0,
+                    "strong_match": 0.7,
+                    "weak_match": 0
+                  },
+                  "confidence": 0.62
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0.01,
+                    "match": 0,
+                    "not_match": 0.98,
+                    "strong_match": 0,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.98
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.03,
+                    "match": 0.4,
+                    "not_match": 0,
+                    "strong_match": 0.54,
+                    "weak_match": 0.03
+                  },
+                  "confidence": 0.42
+                }
+              },
+              "usage": {
+                "input_tokens": 2035,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 311
+      }
+    },
+    {
+      "id": "hold-evidence",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 910,
+                "prompt_tokens": 825,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 85,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.04975956388
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:2\",\"reason\":\"Фильм про героя, который использует машину времени для путешествия в прошлое.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"Фантастическое путешествие через разные эпохи соответствует теме путешествий во времени.\"}],\"excluded\":[{\"key\":\"tmdb:movie:1\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1685
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0,
+                    "match": 0,
+                    "not_match": 0.99,
+                    "strong_match": 0,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.99
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.07,
+                    "match": 0.28,
+                    "not_match": 0,
+                    "strong_match": 0.64,
+                    "weak_match": 0.01
+                  },
+                  "confidence": 0.55
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.13,
+                    "match": 0.29,
+                    "not_match": 0,
+                    "strong_match": 0.54,
+                    "weak_match": 0.04
+                  },
+                  "confidence": 0.42
+                }
+              },
+              "usage": {
+                "input_tokens": 2008,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 269
+      }
+    },
+    {
+      "id": "hold-all-missing",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 852,
+                "prompt_tokens": 794,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 58,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.043822585872
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[],\"excluded\":[{\"key\":\"tmdb:movie:1\",\"reasonCode\":\"not_relevant\"},{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"},{\"key\":\"tmdb:movie:3\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1472
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "insufficient_data",
+                  "probabilities": {
+                    "insufficient_data": 1,
+                    "match": 0,
+                    "not_match": 0,
+                    "strong_match": 0,
+                    "weak_match": 0
+                  },
+                  "confidence": 1
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "insufficient_data",
+                  "probabilities": {
+                    "insufficient_data": 1,
+                    "match": 0,
+                    "not_match": 0,
+                    "strong_match": 0,
+                    "weak_match": 0
+                  },
+                  "confidence": 1
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "insufficient_data",
+                  "probabilities": {
+                    "insufficient_data": 1,
+                    "match": 0,
+                    "not_match": 0,
+                    "strong_match": 0,
+                    "weak_match": 0
+                  },
+                  "confidence": 1
+                }
+              },
+              "usage": {
+                "input_tokens": 1865,
+                "output_tokens": 192
+              }
+            }
+          }
+        ],
+        "elapsedMs": 339
+      }
+    },
+    {
+      "id": "hold-quiet",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 966,
+                "prompt_tokens": 851,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 115,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.05599552639199999
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"picks\":[{\"key\":\"tmdb:movie:1\",\"reason\":\"Фильм о садовнике с тихим наблюдением за сменой сезонов и размышлениями, подходит под медленную созерцательную драму о природе.\"},{\"key\":\"tmdb:movie:3\",\"reason\":\"Неторопливая история со смотрителем леса и множеством созерцательных природных сцен, подходит запросу.\"}],\"excluded\":[{\"key\":\"tmdb:movie:2\",\"reasonCode\":\"not_relevant\"}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1889
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "typesafe/jev-1.14-20261014",
+              "answers": {
+                "movie_1_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.12,
+                    "match": 0.25,
+                    "not_match": 0,
+                    "strong_match": 0.61,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.51
+                },
+                "movie_2_fit": {
+                  "type": "choice",
+                  "choice": "not_match",
+                  "probabilities": {
+                    "insufficient_data": 0,
+                    "match": 0,
+                    "not_match": 1,
+                    "strong_match": 0,
+                    "weak_match": 0
+                  },
+                  "confidence": 1
+                },
+                "movie_3_fit": {
+                  "type": "choice",
+                  "choice": "strong_match",
+                  "probabilities": {
+                    "insufficient_data": 0.13,
+                    "match": 0.23,
+                    "not_match": 0,
+                    "strong_match": 0.62,
+                    "weak_match": 0.02
+                  },
+                  "confidence": 0.52
+                }
+              },
+              "usage": {
+                "input_tokens": 2007,
+                "output_tokens": 183
+              }
+            }
+          }
+        ],
+        "elapsedMs": 322
+      }
+    }
+  ]
+}

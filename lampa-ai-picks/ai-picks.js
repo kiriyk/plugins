@@ -1,4 +1,4 @@
-/* AI Picks 0.4.1 | Lampa 3.3.8 | Configure RouterAI in Lampa settings. */
+/* AI Picks 0.5.0 | Lampa 3.3.8 | Configure RouterAI in Lampa settings. */
 "use strict";
 (function() {
   var __getOwnPropNames = Object.getOwnPropertyNames;
@@ -43,6 +43,7 @@
     "src/transport.js": function(exports, module) {
       "use strict";
       var messages = {
+        ranking_unavailable: "Не удалось надёжно оценить весь пул кандидатов в пределах бюджета.",
         web_key: "Для поиска в интернете введите ключ Tavily в настройках ИИ.",
         web_auth: "Tavily отклонил запрос. Проверьте ключ и доступность сервиса на устройстве.",
         web_quota: "Достигнут лимит интернет-поиска.",
@@ -389,10 +390,10 @@
       var normalizeLimits = require_limits().normalizeLimits;
       var STORAGE = "aip_diagnostic_journal";
       var events = ["run_start", "screening", "stage", "filters", "tool_start", "tool_result", "request_start", "request_end", "request_cancel", "candidate_rejected", "run_done", "run_error", "run_cancel", "clarification", "web_state", "selection", "decision"];
-      var codes = ["timeout", "network", "auth", "balance", "rate_limit", "server", "unsupported", "invalid_arguments", "invalid_response", "catalog_limit", "tool_limit", "search_limit", "context_limit", "incompatible_model", "unknown_title", "unknown_keyword", "intent_required", "clarification", "session_limit", "cancelled", "kp_key", "kp_limit", "web_key", "web_auth", "web_quota", "web_limit", "model_output_limit", "model_parameters", "unknown"];
+      var codes = ["timeout", "network", "auth", "balance", "rate_limit", "server", "unsupported", "invalid_arguments", "invalid_response", "catalog_limit", "tool_limit", "search_limit", "context_limit", "incompatible_model", "unknown_title", "unknown_keyword", "intent_required", "clarification", "session_limit", "cancelled", "kp_key", "kp_limit", "web_key", "web_auth", "web_quota", "web_limit", "model_output_limit", "model_parameters", "ranking_unavailable", "unknown"];
       var reasons = ["invalid_pick", "unknown_key", "already_shown", "duplicate", "count_limit", "invalid", "type", "unknown_genres", "genres", "excluded_genres", "year", "country", "runtime", "rating", "unknown_rating", "not_verified"];
-      var tools = ["set_search_intent", "search_titles", "resolve_keywords", "discover_titles", "get_related", "get_title_details", "unknown"];
-      var endpointPattern = /^(genre\/(movie|tv)\/list|configuration\/countries|search\/(movie|tv|keyword)|discover\/(movie|tv)|(movie|tv)\/[1-9][0-9]*(\/(recommendations|similar|external_ids))?|api\/ratings|api\/v2.2\/films(\/[1-9][0-9]*)?|chat\/completions|models)$/;
+      var tools = ["set_search_intent", "search_titles", "resolve_keywords", "discover_titles", "get_related", "get_title_details", "finish_search", "unknown"];
+      var endpointPattern = /^(genre\/(movie|tv)\/list|configuration\/countries|search\/(movie|tv|keyword)|discover\/(movie|tv)|(movie|tv)\/[1-9][0-9]*(\/(recommendations|similar|external_ids))?|api\/ratings|api\/v2.2\/films(\/[1-9][0-9]*)?|chat\/completions|decisions|models)$/;
       var paramPatterns = {
         page: /^[1-9][0-9]{0,2}$/,
         year: /^[0-9]{4}$/,
@@ -471,6 +472,13 @@
         if (typeof source.host === "string" && /^[a-z0-9.-]+(:[0-9]+)?$/i.test(source.host) && source.host.length <= 200) row.host = source.host;
         if (typeof source.endpoint === "string" && endpointPattern.test(source.endpoint)) row.endpoint = source.endpoint;
         if (["GET", "POST"].indexOf(source.method) >= 0) row.method = source.method;
+        if (typeof source.modelVersion === "string" && /^(typesafe\/jev-[0-9][a-z0-9.-]{0,90}|scaledown\/extract)$/.test(source.modelVersion)) row.modelVersion = source.modelVersion;
+        if (source.usage) {
+          row.usage = {};
+          ["input_tokens", "output_tokens", "prompt_tokens", "completion_tokens", "total_tokens"].forEach(function(key) {
+            if (integer(source.usage[key], 1e7)) row.usage[key] = source.usage[key];
+          });
+        }
         if (source.params) row.params = safeParams(source.params);
         if (source.filters) row.filters = safeFilters(source.filters);
         if (source.facts) {
@@ -506,7 +514,7 @@
       function networkInfo(spec) {
         var url = String(spec.url || ""), match = /^https?:\/\/([^/?#]+)([^?#]*)/.exec(url), params = {};
         var host = match ? match[1].split("@").pop() : "", path = match ? match[2] : "";
-        var endpoint = path.match(/\/(genre\/(?:movie|tv)\/list|configuration\/countries|search\/(?:movie|tv|keyword)|discover\/(?:movie|tv)|(?:movie|tv)\/[1-9][0-9]*(?:\/(?:recommendations|similar|external_ids))?|api\/ratings|api\/v2.2\/films(?:\/[1-9][0-9]*)?|chat\/completions|models)$/);
+        var endpoint = path.match(/\/(genre\/(?:movie|tv)\/list|configuration\/countries|search\/(?:movie|tv|keyword)|discover\/(?:movie|tv)|(?:movie|tv)\/[1-9][0-9]*(?:\/(?:recommendations|similar|external_ids))?|api\/ratings|api\/v2.2\/films(?:\/[1-9][0-9]*)?|chat\/completions|decisions|models)$/);
         var query = url.indexOf("?") >= 0 ? url.slice(url.indexOf("?") + 1).split("#")[0] : "";
         query.split("&").forEach(function(part) {
           var at = part.indexOf("="), name, value;
@@ -519,7 +527,7 @@
           }
           if (Object.prototype.hasOwnProperty.call(paramPatterns, name)) params[name] = value;
         });
-        return { host: host, endpoint: endpoint ? endpoint[1] : void 0, method: spec.method, params: safeParams(params), scope: host === "api.tavily.com" && path === "/search" ? "web" : endpoint && (endpoint[1] === "chat/completions" || endpoint[1] === "models") ? "model" : endpoint && /^api\//.test(endpoint[1]) ? "rating" : endpoint ? "catalog" : void 0 };
+        return { host: host, endpoint: endpoint ? endpoint[1] : void 0, method: spec.method, params: safeParams(params), scope: host === "api.tavily.com" && path === "/search" ? "web" : endpoint && (endpoint[1] === "chat/completions" || endpoint[1] === "decisions" || endpoint[1] === "models") ? "model" : endpoint && /^api\//.test(endpoint[1]) ? "rating" : endpoint ? "catalog" : void 0 };
       }
       function createDiagnostics(options) {
         var records = [], enabled = false, persistent = true, runNumber = 0, requestNumber = 0;
@@ -527,7 +535,7 @@
           return Date.now();
         } }, storage = options.Storage;
         function exportText() {
-          return JSON.stringify({ version: 1, pluginVersion: "0.4.1", persistence: persistent ? "local" : "memory", records: records }, null, 2);
+          return JSON.stringify({ version: 1, pluginVersion: "0.5.0", persistence: persistent ? "local" : "memory", records: records }, null, 2);
         }
         function trim() {
           while (records.length > 200 || exportText().length > 12e4) records.shift();
@@ -583,7 +591,7 @@
             settled = true;
             if (tracing) {
               var count = value && (Array.isArray(value) ? value.length : Array.isArray(value.results) ? value.results.length : Array.isArray(value.genres) ? value.genres.length : void 0);
-              record("request_end", { runId: info.runId, requestId: id, elapsedMs: clock.now() - started, ok: !error, scope: info.scope, code: error && error.code || void 0, status: error && error.status, count: count });
+              record("request_end", { runId: info.runId, requestId: id, elapsedMs: clock.now() - started, ok: !error, scope: info.scope, code: error && error.code || void 0, status: error && error.status, count: count, modelVersion: info.scope === "model" && value && value.model, usage: info.scope === "model" && value && value.usage });
             }
             done(error, value);
           }
@@ -1219,6 +1227,23 @@
             restore(previous);
           } });
         }
+        function probeStages(previous) {
+          var config = getConfig(), generation = revision;
+          if (!config.key.trim()) {
+            notify("Сначала введите ключ RouterAI.");
+            return;
+          }
+          if (!options.stageProbes) {
+            notify("Проверка моделей этапов недоступна.");
+            return;
+          }
+          notify("Проверяем выбранные модели этапов. До двух запросов RouterAI, без Tavily.");
+          cancels.push(options.stageProbes.probe(config, function(error, result) {
+            if (!alive || generation !== revision) return;
+            notify(error ? error.message : result.checked ? "Модели этапов работают. Проверено: " + result.checked + "." : "Специализированные модели не выбраны. Используется основная модель.");
+            restore(previous);
+          }));
+        }
         function probeWeb(previous) {
           var config = getConfig(), generation = revision;
           if (!config.web.key.trim()) {
@@ -1409,6 +1434,7 @@
             { title: "Основная модель", subtitle: escapeText(config.model || "Выберите модель с инструментами"), value: "model" },
             { title: "Извлечение названий", subtitle: config.stages.extraction === "primary" ? "Основная модель" : "ScaleDown Extract", value: "extraction" },
             { title: "Оценка соответствия", subtitle: config.stages.ranking === "primary" ? "Основная модель" : "Jev", value: "ranking" },
+            { title: "Проверить модели этапов", subtitle: "До двух запросов RouterAI, без Tavily", value: "stage-probe" },
             { title: "Проверить подключение", subtitle: "Короткий платный запрос к выбранной модели", value: "probe" },
             { title: "Параметры поиска", subtitle: "Шаги, запросы, тайм-ауты и число карточек", value: "limits" },
             { title: "Диагностика", subtitle: config.diagnostics ? "Включена" : "Выключена", value: "diagnostics" }
@@ -1420,6 +1446,7 @@
             else if (item.value === "result-count") displayCount(previous);
             else if (item.value === "model") models(previous);
             else if (item.value === "extraction" || item.value === "ranking") stageModel(item.value, previous);
+            else if (item.value === "stage-probe") probeStages(previous);
             else if (item.value === "limits") advanced(previous);
             else if (item.value === "diagnostics") diagnostics(previous);
             else probe();
@@ -1458,6 +1485,7 @@
             stageModel("ranking", previous);
           });
           addButton("model", "Основная модель", "Поиск по названию и ID, ручной ввод", models);
+          addButton("stage-probe", "Проверить модели этапов", "До двух запросов RouterAI, без Tavily", probeStages);
           addButton("probe", "Проверить подключение", "Короткий платный запрос к выбранной модели", probe);
           addButton("diagnostics", "Диагностика и журнал", "Включение, просмотр, копирование и скачивание", diagnostics);
           limits.definitions.forEach(function(def) {
@@ -3210,6 +3238,17 @@
         }
         return offsets;
       }
+      function word(character) {
+        return !!character && /[0-9A-Za-z_\u00c0-\u02ff\u0300-\u052f\u0530-\u1fff\u2c00-\ud7ff\uf900-\ufdcf\ufdf0-\uffef]/.test(character);
+      }
+      function mentionAt(text, value) {
+        var at = text.indexOf(value);
+        while (at >= 0) {
+          if ((!word(value.charAt(0)) || !word(text.charAt(at - 1))) && (!word(value.charAt(value.length - 1)) || !word(text.charAt(at + value.length)))) return at;
+          at = text.indexOf(value, at + 1);
+        }
+        return -1;
+      }
       function resolveSpan(doc, entity) {
         var start = entity.start, end = entity.end, value = entity.text;
         if (typeof value !== "string" || !value.trim() || value.length > 200 || typeof start !== "number" || typeof end !== "number" || start < 0 || end <= start || Math.floor(start) !== start || Math.floor(end) !== end || end > doc.text.length) return null;
@@ -3226,14 +3265,14 @@
         if (matches.length !== 1) return null;
         var sourceIds = [], evidence = /* @__PURE__ */ Object.create(null);
         doc.ranges.forEach(function(range) {
-          var at = doc.text.slice(range.start, range.end).indexOf(value);
+          var at = range === matches[0].range ? matches[0].start - range.start : mentionAt(doc.text.slice(range.start, range.end), value);
           if (at < 0) return;
           at += range.start;
           sourceIds.push(range.id);
           var left = Math.max(range.start, at - Math.floor((250 - value.length) / 2));
           evidence[range.id] = doc.text.slice(left, Math.min(range.end, left + 250));
         });
-        return { sourceIds: sourceIds, evidenceBySource: evidence };
+        return { sourceIds: sourceIds, evidenceBySource: evidence, start: matches[0].start };
       }
       module.exports = { buildSourceDocument: buildSourceDocument, resolveSpan: resolveSpan };
     }
@@ -3299,15 +3338,23 @@
                 value = JSON.parse(choice.message.content);
               } catch (ignore) {
               }
-              if (!value || !Array.isArray(value.entities) || value.entities.length > 200) {
+              if (!value || !Array.isArray(value.entities) || value.entities.length > 200 || !value.entities.every(function(entity) {
+                return entity && typeof entity.type === "string" && typeof entity.text === "string" && entity.text.trim() && typeof entity.start === "number" && isFinite(entity.start) && Math.floor(entity.start) === entity.start && typeof entity.end === "number" && isFinite(entity.end) && Math.floor(entity.end) === entity.end && typeof entity.confidence === "number" && isFinite(entity.confidence) && entity.confidence >= 0 && entity.confidence <= 1;
+              })) {
                 finish(net.appError("invalid_response"));
                 return;
               }
-              var titles = [], seen = /* @__PURE__ */ Object.create(null);
+              var titles = [], resolved = [], seen = /* @__PURE__ */ Object.create(null);
               value.entities.forEach(function(entity) {
                 if (!entity || entity.type !== "movie_title" || typeof entity.confidence !== "number" || !isFinite(entity.confidence) || entity.confidence < 0 || entity.confidence > 1) return;
                 var span = sources.resolveSpan(doc, entity);
-                if (!span || seen[entity.text] || titles.length >= 20) return;
+                if (span) resolved.push({ entity: entity, span: span });
+              });
+              resolved.sort(function(a, b) {
+                return a.span.start - b.span.start || (a.entity.text < b.entity.text ? -1 : a.entity.text > b.entity.text ? 1 : 0);
+              }).forEach(function(row) {
+                var entity = row.entity, span = row.span;
+                if (seen[entity.text] || titles.length >= 20) return;
                 seen[entity.text] = true;
                 titles.push({ title: entity.text, type: "unknown", sourceIds: span.sourceIds, confidence: entity.confidence, evidenceBySource: span.evidenceBySource });
               });
@@ -4174,6 +4221,56 @@
     }
   });
 
+  // src/stage-probes.js
+  var require_stage_probes = __commonJS({
+    "src/stage-probes.js": function(exports, module) {
+      "use strict";
+      var appError = require_transport().appError;
+      function createStageProbes(options) {
+        function probe(args, done) {
+          var active = true, tasks = [], cancels = [], checked = 0, stages = args.stages || {};
+          function stop() {
+            active = false;
+            cancels.forEach(function(cancel) {
+              if (cancel) cancel();
+            });
+          }
+          function next(error) {
+            if (!active) return;
+            if (error || !tasks.length) {
+              stop();
+              done(error || null, { checked: checked });
+              return;
+            }
+            var task = tasks.shift(), cancel = task(function(error2) {
+              if (!error2) checked++;
+              next(error2);
+            });
+            if (active) cancels.push(cancel);
+            else if (cancel) cancel();
+          }
+          if (stages.extraction === "scaledown/extract") tasks.push(function(callback) {
+            return require_scaledown().createScaleDown(options).extract({ key: args.key, pages: [{ id: "probe", title: "", content: "😀 Прибытие (2016) — научно-фантастический фильм." }], timeoutMs: 15e3 }, function(error, result) {
+              callback(error || (!result.titles.some(function(t) {
+                return t.title === "Прибытие";
+              }) ? appError("invalid_response") : null));
+            });
+          });
+          if (stages.ranking === "~typesafe/jev-latest") tasks.push(function(callback) {
+            var batch = require_candidate_ranking().prepareRanking({ query: "Фантастика о первом контакте", intent: { preferences: [] }, examples: [], candidates: [{ key: "tmdb:movie:329865", type: "movie", title: "Прибытие", year: 2016, overview: "Лингвист пытается установить контакт с прибывшими на Землю инопланетянами." }] }).batches[0];
+            return require_jev().createJev(options).evaluate({ key: args.key, state: batch.state, questions: batch.questions, timeoutMs: 15e3 }, function(error, result) {
+              callback(error || (["match", "strong_match"].indexOf(result.answers.movie_329865_fit.choice) < 0 ? appError("invalid_response") : null));
+            });
+          });
+          next();
+          return stop;
+        }
+        return { probe: probe };
+      }
+      module.exports = { createStageProbes: createStageProbes };
+    }
+  });
+
   // src/index.js
   var require_index = __commonJS({
     "src/index.js": function(exports, module) {
@@ -4207,7 +4304,7 @@
         } });
         var contexts = [];
         var webState = createWebState({ Storage: L.Storage, clock: clock }), webSearch = createWebSearch({ request: request, state: webState });
-        var settings = registerSettings({ Lampa: L, routerai: routerai, webSearch: webSearch, webState: webState, window: win, document: doc, $: win.jQuery || win.$, diagnostics: diagnostics, onChange: function(config) {
+        var settings = registerSettings({ Lampa: L, routerai: routerai, webSearch: webSearch, webState: webState, stageProbes: require_stage_probes().createStageProbes({ request: request, clock: clock }), window: win, document: doc, $: win.jQuery || win.$, diagnostics: diagnostics, onChange: function(config) {
           diagnostics.setEnabled(config.diagnostics);
           contexts.forEach(function(ctx) {
             ctx.controller.cancel();

@@ -1,0 +1,1566 @@
+{
+  "recordedAt": "2026-11-07T20:02:18.876Z",
+  "primaryModel": "openai/gpt-4.1-mini",
+  "cases": [
+    {
+      "id": "ru",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 306,
+                "prompt_tokens": 257,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 49,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.019348568616
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Прибытие\",\"year\":2016,\"type\":\"movie\",\"sourceIds\":[\"a\"]},{\"title\":\"Связь\",\"year\":2013,\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1833
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 412,
+                "prompt_tokens": 257,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 155,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010977002504
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435\",\"type\":\"movie_title\",\"confidence\":0.998,\"start\":18,\"end\":26,\"context\":\"Source 1\\n\\n\\u0424\\u0438\\u043b\\u044c\\u043c\\u044b: \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435 (2016), \\u0421\\u0432\\u044f\\u0437\\u044c (2013).\\n\\n\"},{\"text\":\"\\u0421\\u0432\\u044f\\u0437\\u044c\",\"type\":\"movie_title\",\"confidence\":1.0,\"start\":35,\"end\":40,\"context\":\"Source 1\\n\\n\\u0424\\u0438\\u043b\\u044c\\u043c\\u044b: \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435 (2016), \\u0421\\u0432\\u044f\\u0437\\u044c (2013).\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":257}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1017
+      }
+    },
+    {
+      "id": "en",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 290,
+                "prompt_tokens": 245,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 45,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0181526306
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Arrival\",\"year\":2016,\"type\":\"movie\",\"sourceIds\":[\"a\"]},{\"title\":\"Coherence\",\"year\":2013,\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1799
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 332,
+                "prompt_tokens": 242,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 90,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010336321424
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"Arrival\",\"type\":\"movie_title\",\"confidence\":0.999,\"start\":14,\"end\":21,\"context\":\"Source 1\\n\\nTry Arrival and Coherence tonight.\\n\\n\"},{\"text\":\"Coherence\",\"type\":\"movie_title\",\"confidence\":1.0,\"start\":26,\"end\":35,\"context\":\"Source 1\\n\\nTry Arrival and Coherence tonight.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":242}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1581
+      }
+    },
+    {
+      "id": "emoji",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 273,
+                "prompt_tokens": 250,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 23,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.014607528624
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Прибытие\",\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1458
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 386,
+                "prompt_tokens": 248,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 138,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010592593856
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435\",\"type\":\"movie_title\",\"confidence\":0.773,\"start\":12,\"end\":20,\"context\":\"Source 1\\n\\n\\ud83d\\ude00 \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435 \\u0438 \\u041b\\u0443\\u043d\\u0430 2112.\\n\\n\"},{\"text\":\"\\u041b\\u0443\\u043d\\u0430 2112\",\"type\":\"movie_title\",\"confidence\":0.999,\"start\":23,\"end\":32,\"context\":\"Source 1\\n\\n\\ud83d\\ude00 \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435 \\u0438 \\u041b\\u0443\\u043d\\u0430 2112.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":248}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 4991
+      }
+    },
+    {
+      "id": "short",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 277,
+                "prompt_tokens": 246,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 31,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.01580346664
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Оно\",\"originalTitle\":\"It\",\"year\":2017,\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1541
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 325,
+                "prompt_tokens": 247,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 78,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010549881784
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u041e\\u043d\\u043e\",\"type\":\"movie_title\",\"confidence\":0.999,\"start\":27,\"end\":30,\"context\":\"Source 1\\n\\n\\u041f\\u043e\\u0441\\u043c\\u043e\\u0442\\u0440\\u0438\\u0442\\u0435 \\u0444\\u0438\\u043b\\u044c\\u043c \\u041e\\u043d\\u043e (2017).\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":247}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 2711
+      }
+    },
+    {
+      "id": "remakes",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 310,
+                "prompt_tokens": 256,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 54,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.020160097984
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Дюна\",\"originalTitle\":\"\",\"year\":1984,\"type\":\"movie\",\"sourceIds\":[\"a\"]},{\"title\":\"Дюна\",\"originalTitle\":\"\",\"year\":2021,\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1480
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 395,
+                "prompt_tokens": 257,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 138,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010977002504
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u0414\\u044e\\u043d\\u0430 (1984)\",\"type\":\"movie_title\",\"confidence\":0.527,\"start\":17,\"end\":28,\"context\":\"Source 1\\n\\n\\u0424\\u0438\\u043b\\u044c\\u043c\\u044b \\u0414\\u044e\\u043d\\u0430 (1984) \\u0438 \\u0414\\u044e\\u043d\\u0430 (2021).\\n\\n\"},{\"text\":\"\\u0414\\u044e\\u043d\\u0430 (2021)\",\"type\":\"movie_title\",\"confidence\":1.0,\"start\":31,\"end\":42,\"context\":\"Source 1\\n\\n\\u0424\\u0438\\u043b\\u044c\\u043c\\u044b \\u0414\\u044e\\u043d\\u0430 (1984) \\u0438 \\u0414\\u044e\\u043d\\u0430 (2021).\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":257}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 6915
+      }
+    },
+    {
+      "id": "negative",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 286,
+                "prompt_tokens": 249,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 37,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.016956692584
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Сияние\",\"type\":\"movie\",\"sourceIds\":[\"a\"]},{\"title\":\"Амели\",\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1454
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 410,
+                "prompt_tokens": 246,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 164,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010507169712
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u0421\\u0438\\u044f\\u043d\\u0438\\u0435\",\"type\":\"movie_title\",\"confidence\":0.995,\"start\":21,\"end\":27,\"context\":\"Source 1\\n\\n\\u041d\\u0435 \\u0441\\u043e\\u0432\\u0435\\u0442\\u0443\\u044e \\u0421\\u0438\\u044f\\u043d\\u0438\\u0435, \\u043b\\u0443\\u0447\\u0448\\u0435 \\u0410\\u043c\\u0435\\u043b\\u0438.\\n\\n\"},{\"text\":\"\\u0410\\u043c\\u0435\\u043b\\u0438\",\"type\":\"movie_title\",\"confidence\":0.999,\"start\":35,\"end\":40,\"context\":\"Source 1\\n\\n\\u041d\\u0435 \\u0441\\u043e\\u0432\\u0435\\u0442\\u0443\\u044e \\u0421\\u0438\\u044f\\u043d\\u0438\\u0435, \\u043b\\u0443\\u0447\\u0448\\u0435 \\u0410\\u043c\\u0435\\u043b\\u0438.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":246}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 821
+      }
+    },
+    {
+      "id": "person",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 284,
+                "prompt_tokens": 251,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 33,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.016358723576
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Прибытие\",\"originalTitle\":\"Arrival\",\"year\":2016,\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1653
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 339,
+                "prompt_tokens": 247,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 92,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010549881784
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435\",\"type\":\"movie_title\",\"confidence\":0.999,\"start\":28,\"end\":36,\"context\":\"Source 1\\n\\n\\u0414\\u0435\\u043d\\u0438 \\u0412\\u0438\\u043b\\u044c\\u043d\\u0451\\u0432 \\u0441\\u043d\\u044f\\u043b \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":247}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 2962
+      }
+    },
+    {
+      "id": "site",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 286,
+                "prompt_tokens": 251,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 35,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.016700420152
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Интерстеллар\",\"originalTitle\":\"Interstellar\",\"year\":2014,\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1559
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 367,
+                "prompt_tokens": 248,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 119,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010592593856
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u0418\\u043d\\u0442\\u0435\\u0440\\u0441\\u0442\\u0435\\u043b\\u043b\\u0430\\u0440\",\"type\":\"movie_title\",\"confidence\":0.998,\"start\":39,\"end\":51,\"context\":\"Source 1\\n\\n\\u041d\\u0430 \\u0441\\u0430\\u0439\\u0442\\u0435 \\u041a\\u0438\\u043d\\u043e\\u041f\\u043e\\u0438\\u0441\\u043a \\u043e\\u0431\\u0441\\u0443\\u0436\\u0434\\u0430\\u044e\\u0442 \\u0418\\u043d\\u0442\\u0435\\u0440\\u0441\\u0442\\u0435\\u043b\\u043b\\u0430\\u0440.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":248}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 5909
+      }
+    },
+    {
+      "id": "duplicate",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 304,
+                "prompt_tokens": 274,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 30,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.016828556368
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Прибытие\",\"year\":2016,\"type\":\"movie\",\"sourceIds\":[\"a\",\"b\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1463
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 425,
+                "prompt_tokens": 264,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 161,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0011275987008
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435\",\"type\":\"movie_title\",\"confidence\":1.0,\"start\":16,\"end\":24,\"context\":\"Source 1\\n\\n\\u0424\\u0438\\u043b\\u044c\\u043c \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435. \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435 \\u0440\\u0430\\u0441\\u0441\\u043a\\u0430\\u0437\\u044b\\u0432\\u0430\\u0435\\u0442 \\u043e \\u043a\\u043e\\u043d\\u0442\\u0430\\u043a\\u0442\\u0435.\\n\\nSource 2\\n\\n\\u041e\\u0431\\u0441\\u0443\\u0436\\u0434\\u0435\\u043d\\u0438\\u0435 \\u0444\\u0438\\u043b\\u044c\\u043c\\u0430 \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":264}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 6154
+      }
+    },
+    {
+      "id": "empty",
+      "split": "development",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 259,
+                "prompt_tokens": 254,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 5,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.011703107728
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1224
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 269,
+                "prompt_tokens": 250,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 19,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010678018
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":250}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 675
+      }
+    },
+    {
+      "id": "hold-quote",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 290,
+                "prompt_tokens": 253,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 37,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.017127540872
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Гаттака\",\"type\":\"movie\",\"sourceIds\":[\"a\"]},{\"title\":\"Она\",\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1545
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 411,
+                "prompt_tokens": 250,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 161,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010678018
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u0413\\u0430\\u0442\\u0442\\u0430\\u043a\\u0430\",\"type\":\"movie_title\",\"confidence\":0.966,\"start\":22,\"end\":29,\"context\":\"Source 1\\n\\n\\u0420\\u0435\\u043a\\u043e\\u043c\\u0435\\u043d\\u0434\\u0443\\u044e \\u00ab\\u0413\\u0430\\u0442\\u0442\\u0430\\u043a\\u0430\\u00bb \\u0438 \\u00ab\\u041e\\u043d\\u0430\\u00bb.\\n\\n\"},{\"text\":\"\\u041e\\u043d\\u0430\",\"type\":\"movie_title\",\"confidence\":1.0,\"start\":34,\"end\":37,\"context\":\"Source 1\\n\\n\\u0420\\u0435\\u043a\\u043e\\u043c\\u0435\\u043d\\u0434\\u0443\\u044e \\u00ab\\u0413\\u0430\\u0442\\u0442\\u0430\\u043a\\u0430\\u00bb \\u0438 \\u00ab\\u041e\\u043d\\u0430\\u00bb.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":250}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 839
+      }
+    },
+    {
+      "id": "hold-mixed",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 285,
+                "prompt_tokens": 250,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 35,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.01665770808
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Марсианин\",\"originalTitle\":\"The Martian\",\"year\":2015,\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1452
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 400,
+                "prompt_tokens": 247,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 153,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010549881784
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"The Martian\",\"type\":\"movie_title\",\"confidence\":0.998,\"start\":21,\"end\":32,\"context\":\"Source 1\\n\\n\\u041f\\u043e\\u043f\\u0440\\u043e\\u0431\\u0443\\u0439\\u0442\\u0435 The Martian \\u2014 \\u041c\\u0430\\u0440\\u0441\\u0438\\u0430\\u043d\\u0438\\u043d.\\n\\n\"},{\"text\":\"\\u041c\\u0430\\u0440\\u0441\\u0438\\u0430\\u043d\\u0438\\u043d\",\"type\":\"movie_title\",\"confidence\":1.0,\"start\":35,\"end\":44,\"context\":\"Source 1\\n\\n\\u041f\\u043e\\u043f\\u0440\\u043e\\u0431\\u0443\\u0439\\u0442\\u0435 The Martian \\u2014 \\u041c\\u0430\\u0440\\u0441\\u0438\\u0430\\u043d\\u0438\\u043d.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":247}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1112
+      }
+    },
+    {
+      "id": "hold-series",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 288,
+                "prompt_tokens": 250,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 38,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.017170252944
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Тьма\",\"type\":\"tv\",\"sourceIds\":[\"a\"]},{\"title\":\"Разделение\",\"type\":\"tv\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1648
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 405,
+                "prompt_tokens": 247,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 158,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010549881784
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u0422\\u044c\\u043c\\u0430\",\"type\":\"movie_title\",\"confidence\":0.948,\"start\":19,\"end\":23,\"context\":\"Source 1\\n\\n\\u0421\\u0435\\u0440\\u0438\\u0430\\u043b\\u044b: \\u0422\\u044c\\u043c\\u0430 \\u0438 \\u0420\\u0430\\u0437\\u0434\\u0435\\u043b\\u0435\\u043d\\u0438\\u0435.\\n\\n\"},{\"text\":\"\\u0420\\u0430\\u0437\\u0434\\u0435\\u043b\\u0435\\u043d\\u0438\\u0435\",\"type\":\"movie_title\",\"confidence\":1.0,\"start\":26,\"end\":36,\"context\":\"Source 1\\n\\n\\u0421\\u0435\\u0440\\u0438\\u0430\\u043b\\u044b: \\u0422\\u044c\\u043c\\u0430 \\u0438 \\u0420\\u0430\\u0437\\u0434\\u0435\\u043b\\u0435\\u043d\\u0438\\u0435.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":247}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 3193
+      }
+    },
+    {
+      "id": "hold-title",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 283,
+                "prompt_tokens": 253,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 30,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.015931602856
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Бегущий по лезвию 2049\",\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1464
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 363,
+                "prompt_tokens": 253,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 110,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010806154216
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u0411\\u0435\\u0433\\u0443\\u0449\\u0438\\u0439 \\u043f\\u043e \\u043b\\u0435\\u0437\\u0432\\u0438\\u044e 2049\",\"type\":\"movie_title\",\"confidence\":0.998,\"start\":23,\"end\":45,\"context\":\"Source 1\\n\\n\\u041e\\u0431\\u0437\\u043e\\u0440 \\u0444\\u0438\\u043b\\u044c\\u043c\\u0430 \\u0411\\u0435\\u0433\\u0443\\u0449\\u0438\\u0439 \\u043f\\u043e \\u043b\\u0435\\u0437\\u0432\\u0438\\u044e 2049.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":253}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 827
+      }
+    },
+    {
+      "id": "hold-list",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 318,
+                "prompt_tokens": 254,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 64,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.02178315672
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Moon\",\"year\":2010,\"type\":\"movie\",\"sourceIds\":[\"a\"]},{\"title\":\"Solaris\",\"year\":2010,\"type\":\"movie\",\"sourceIds\":[\"a\"]},{\"title\":\"Contact\",\"year\":2010,\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1641
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 402,
+                "prompt_tokens": 253,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 149,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010806154216
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"Moon\",\"type\":\"movie_title\",\"confidence\":1.0,\"start\":21,\"end\":25,\"context\":\"Source 1\\n\\n\\u0421\\u043f\\u0438\\u0441\\u043e\\u043a: 1) Moon 2) Solaris 3) Contact.\\n\\n\"},{\"text\":\"Solaris\",\"type\":\"movie_title\",\"confidence\":1.0,\"start\":29,\"end\":36,\"context\":\"Source 1\\n\\n\\u0421\\u043f\\u0438\\u0441\\u043e\\u043a: 1) Moon 2) Solaris 3) Contact.\\n\\n\"},{\"text\":\"Contact\",\"type\":\"movie_title\",\"confidence\":1.0,\"start\":40,\"end\":47,\"context\":\"Source 1\\n\\n\\u0421\\u043f\\u0438\\u0441\\u043e\\u043a: 1) Moon 2) Solaris 3) Contact.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":253}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1143
+      }
+    },
+    {
+      "id": "hold-book",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 258,
+                "prompt_tokens": 253,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 5,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.011660395656
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1812
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 266,
+                "prompt_tokens": 247,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 19,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010549881784
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":247}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 561
+      }
+    },
+    {
+      "id": "hold-negation",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 273,
+                "prompt_tokens": 252,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 21,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.014351256192
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Контакт\",\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1416
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 454,
+                "prompt_tokens": 247,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 207,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010549881784
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435\",\"type\":\"movie_title\",\"confidence\":0.94,\"start\":23,\"end\":31,\"context\":\"Source 1\\n\\n\\u042d\\u0442\\u043e \\u043d\\u0435 \\u0444\\u0438\\u043b\\u044c\\u043c \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435, \\u0430 \\u043e\\u0431\\u0437\\u043e\\u0440 \\u0444\\u0438\\u043b\\u044c\\u043c\\u0430 \\u041a\\u043e\\u043d\\u0442\\u0430\\u043a\\u0442.\\n\\n\"},{\"text\":\"\\u041a\\u043e\\u043d\\u0442\\u0430\\u043a\\u0442\",\"type\":\"movie_title\",\"confidence\":1.0,\"start\":48,\"end\":55,\"context\":\"Source 1\\n\\n\\u042d\\u0442\\u043e \\u043d\\u0435 \\u0444\\u0438\\u043b\\u044c\\u043c \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435, \\u0430 \\u043e\\u0431\\u0437\\u043e\\u0440 \\u0444\\u0438\\u043b\\u044c\\u043c\\u0430 \\u041a\\u043e\\u043d\\u0442\\u0430\\u043a\\u0442.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":247}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 721
+      }
+    },
+    {
+      "id": "hold-punctuation",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 281,
+                "prompt_tokens": 251,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 30,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.015846178712
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Чужой: Завет\",\"year\":2017,\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1339
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 361,
+                "prompt_tokens": 249,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 112,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010635305928
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u0427\\u0443\\u0436\\u043e\\u0439: \\u0417\\u0430\\u0432\\u0435\\u0442\",\"type\":\"movie_title\",\"confidence\":0.999,\"start\":16,\"end\":28,\"context\":\"Source 1\\n\\n\\u0424\\u0438\\u043b\\u044c\\u043c \\u0427\\u0443\\u0436\\u043e\\u0439: \\u0417\\u0430\\u0432\\u0435\\u0442 \\u2014 \\u043f\\u0440\\u043e\\u0434\\u043e\\u043b\\u0436\\u0435\\u043d\\u0438\\u0435 \\u0438\\u0441\\u0442\\u043e\\u0440\\u0438\\u0438.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":249}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 626
+      }
+    },
+    {
+      "id": "hold-year",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 281,
+                "prompt_tokens": 251,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 30,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.015846178712
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"12 разгневанных мужчин\",\"year\":1957,\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1515
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 366,
+                "prompt_tokens": 252,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 114,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.0010763442144
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"12 \\u0440\\u0430\\u0437\\u0433\\u043d\\u0435\\u0432\\u0430\\u043d\\u043d\\u044b\\u0445 \\u043c\\u0443\\u0436\\u0447\\u0438\\u043d\",\"type\":\"movie_title\",\"confidence\":0.98,\"start\":19,\"end\":41,\"context\":\"Source 1\\n\\n\\u0421\\u043c\\u043e\\u0442\\u0440\\u0438\\u0442\\u0435 12 \\u0440\\u0430\\u0437\\u0433\\u043d\\u0435\\u0432\\u0430\\u043d\\u043d\\u044b\\u0445 \\u043c\\u0443\\u0436\\u0447\\u0438\\u043d (1957).\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":252}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1257
+      }
+    },
+    {
+      "id": "hold-source",
+      "split": "holdout",
+      "primary": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "openai/gpt-4.1-mini",
+              "usage": {
+                "total_tokens": 331,
+                "prompt_tokens": 270,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 61,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.021954005008
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"titles\":[{\"title\":\"Прибытие\",\"originalTitle\":\"Arrival\",\"year\":2016,\"type\":\"movie\",\"sourceIds\":[\"a\",\"b\"]},{\"title\":\"Coherence\",\"originalTitle\":\"Coherence\",\"year\":2013,\"type\":\"movie\",\"sourceIds\":[\"a\"]}]}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1591
+      },
+      "specialized": {
+        "responses": [
+          {
+            "error": null,
+            "body": {
+              "model": "scaledown/extract",
+              "usage": {
+                "total_tokens": 608,
+                "prompt_tokens": 260,
+                "prompt_tokens_details": {
+                  "cached_tokens": 0,
+                  "cache_write_tokens": 0,
+                  "audio_tokens": 0,
+                  "video_tokens": 0
+                },
+                "completion_tokens": 348,
+                "completion_tokens_details": {
+                  "reasoning_tokens": 0,
+                  "image_tokens": 0,
+                  "audio_tokens": 0
+                },
+                "cost": 0.001110513872
+              },
+              "choices": [
+                {
+                  "finish_reason": "stop",
+                  "message": {
+                    "role": "assistant",
+                    "content": "{\"entities\":[{\"text\":\"\\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435\",\"type\":\"movie_title\",\"confidence\":0.986,\"start\":24,\"end\":32,\"context\":\"Source 1\\n\\n\\u0420\\u0435\\u043a\\u043e\\u043c\\u0435\\u043d\\u0434\\u0430\\u0446\\u0438\\u0438: \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435 \\u0438 Coherence.\\n\\nSource 2\\n\\n\\u041e\\u0431\\u0441\\u0443\\u0436\\u0434\\u0435\\u043d\\u0438\\u0435 \\u0444\\u0438\\u043b\\u044c\\u043c\\u0430 \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435.\\n\\n\"},{\"text\":\"Coherence\",\"type\":\"movie_title\",\"confidence\":0.957,\"start\":35,\"end\":44,\"context\":\"Source 1\\n\\n\\u0420\\u0435\\u043a\\u043e\\u043c\\u0435\\u043d\\u0434\\u0430\\u0446\\u0438\\u0438: \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435 \\u0438 Coherence.\\n\\nSource 2\\n\\n\\u041e\\u0431\\u0441\\u0443\\u0436\\u0434\\u0435\\u043d\\u0438\\u0435 \\u0444\\u0438\\u043b\\u044c\\u043c\\u0430 \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435.\\n\\n\"},{\"text\":\"\\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435\",\"type\":\"movie_title\",\"confidence\":0.998,\"start\":75,\"end\":83,\"context\":\"Source 1\\n\\n\\u0420\\u0435\\u043a\\u043e\\u043c\\u0435\\u043d\\u0434\\u0430\\u0446\\u0438\\u0438: \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435 \\u0438 Coherence.\\n\\nSource 2\\n\\n\\u041e\\u0431\\u0441\\u0443\\u0436\\u0434\\u0435\\u043d\\u0438\\u0435 \\u0444\\u0438\\u043b\\u044c\\u043c\\u0430 \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":260}"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "elapsedMs": 1135
+      }
+    }
+  ]
+}

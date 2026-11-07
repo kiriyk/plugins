@@ -173,3 +173,13 @@ for(const action of ['clear','reset'])for(const mode of ['more','refine'])test('
  assert.equal(state.intent.filters.ratingMin,null,'empty visible threshold must clear the previous mandatory minimum');
  h.finish(3);assert.equal(h.screen.element().querySelector('[data-key]').getAttribute('data-key'),'tmdb:movie:3');
 });
+test('stored Extract and Jev roles reach the full Lampa search pipeline',t=>{
+ const h=setup(t,{storage:{aip_extraction_model:'scaledown/extract',aip_ranking_model:'~typesafe/jev-latest',aip_tavily_key:'web-key',aip_model_steps:'3',aip_web_enabled:'true'}});
+ h.text('Фантастика');h.enter('[data-action="submit"]');h.boot();h.model([{id:'intent',name:'set_search_intent',arguments:{webQueries:['science fiction films']}}]);
+ const web=h.nativeRequests.findIndex(r=>r.url==='https://api.tavily.com/search');assert.ok(web>=0);h.nativeRequests[web].answered=true;h.nativeReply(web,{results:[{url:'https://films.example',title:'',content:'Film'}]});
+ const extraction=h.nativeRequests.findIndex(r=>r.post&&!r.answered),payload=JSON.parse(h.nativeRequests[extraction].post);assert.equal(payload.model,'scaledown/extract');const at=payload.messages[0].content.indexOf('Film');
+ h.nativeRequests[extraction].answered=true;h.nativeReply(extraction,{choices:[{message:{content:JSON.stringify({entities:[{type:'movie_title',text:'Film',confidence:1,start:at,end:at+4}]})}}]});
+ const match=h.nativeRequests.findIndex(r=>r.url.includes('search/movie')&&!r.answered);assert.ok(match>=0);h.nativeRequests[match].answered=true;h.nativeReply(match,{results:[{id:21,title:'Film',overview:'Космическое приключение.'}],total_pages:1});
+ const decision=h.nativeRequests.findIndex(r=>r.url.endsWith('/decisions'));assert.ok(decision>=0);h.nativeRequests[decision].answered=true;h.nativeReply(decision,{answers:{movie_21_fit:{type:'choice',choice:'match',confidence:1,probabilities:{strong_match:0,match:1,weak_match:0,not_match:0,insufficient_data:0}}}});
+ h.model([],JSON.stringify({picks:[{key:'tmdb:movie:999',reason:'Заменить'}]}));assert.equal(h.screen.element().querySelectorAll('.aip-pick').length,1);assert.equal(h.screen.element().querySelector('[data-key]').getAttribute('data-key'),'tmdb:movie:21');
+});

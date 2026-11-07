@@ -121,3 +121,10 @@ test('stage model selectors persist independently and default safely without req
  h.settings.open();h.choose('Оценка соответствия');h.choose('~typesafe/jev-latest');
  assert.equal(h.settings.getConfig().stages.ranking,'~typesafe/jev-latest');assert.equal(h.probes(),0);assert.equal(h.requests.length,0);
 });
+test('stage probes are explicit, use saved roles, and cancel on settings changes',()=>{
+ const h=createDOMHarness({storage:{aip_api_key:'k',aip_extraction_model:'scaledown/extract',aip_ranking_model:'~typesafe/jev-latest'}});let calls=0,cancelled=0,late;
+ const s=registerSettings({Lampa:h.Lampa,routerai:{},stageProbes:{probe:(args,done)=>{calls++;assert.equal(args.stages.ranking,'~typesafe/jev-latest');late=done;return ()=>cancelled++;}}});
+ s.open();assert.equal(calls,0);h.choose('Проверить модели этапов');assert.equal(calls,1);
+ s.open();h.choose('Извлечение названий');h.choose('primary');assert.equal(cancelled,1);
+ const before=h.notices.length;late(null,{checked:2});assert.equal(h.notices.length,before);
+});

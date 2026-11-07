@@ -57,6 +57,16 @@ function registerSettings(options) {
             {title:extraction ? 'ScaleDown Extract' : 'Jev',subtitle:extraction ? 'Один запрос RouterAI для веб-названий' : 'До четырёх дополнительных запросов RouterAI',value:extraction ? 'scaledown/extract' : '~typesafe/jev-latest'}
         ],onSelect:function (item) { save(extraction ? 'aip_extraction_model' : 'aip_ranking_model',item.value);restore(previous); },onBack:function () { restore(previous); }});
     }
+    function probeStages(previous) {
+        var config = getConfig(), generation = revision;
+        if (!config.key.trim()) { notify('Сначала введите ключ RouterAI.');return; }
+        if (!options.stageProbes) { notify('Проверка моделей этапов недоступна.');return; }
+        notify('Проверяем выбранные модели этапов. До двух запросов RouterAI, без Tavily.');
+        cancels.push(options.stageProbes.probe(config,function (error, result) {
+            if (!alive || generation !== revision) return;
+            notify(error ? error.message : result.checked ? 'Модели этапов работают. Проверено: ' + result.checked + '.' : 'Специализированные модели не выбраны. Используется основная модель.');restore(previous);
+        }));
+    }
     function probeWeb(previous) {
         var config = getConfig(), generation = revision;
         if (!config.web.key.trim()) { notify('Сначала введите ключ Tavily.');return; }
@@ -176,6 +186,7 @@ function registerSettings(options) {
             {title:'Основная модель',subtitle:escapeText(config.model || 'Выберите модель с инструментами'),value:'model'},
             {title:'Извлечение названий',subtitle:config.stages.extraction === 'primary' ? 'Основная модель' : 'ScaleDown Extract',value:'extraction'},
             {title:'Оценка соответствия',subtitle:config.stages.ranking === 'primary' ? 'Основная модель' : 'Jev',value:'ranking'},
+            {title:'Проверить модели этапов',subtitle:'До двух запросов RouterAI, без Tavily',value:'stage-probe'},
             {title:'Проверить подключение',subtitle:'Короткий платный запрос к выбранной модели',value:'probe'},
             {title:'Параметры поиска',subtitle:'Шаги, запросы, тайм-ауты и число карточек',value:'limits'},
             {title:'Диагностика',subtitle:config.diagnostics ? 'Включена' : 'Выключена',value:'diagnostics'}
@@ -187,6 +198,7 @@ function registerSettings(options) {
             else if (item.value === 'result-count') displayCount(previous);
             else if (item.value === 'model') models(previous);
             else if (item.value === 'extraction' || item.value === 'ranking') stageModel(item.value,previous);
+            else if (item.value === 'stage-probe') probeStages(previous);
             else if (item.value === 'limits') advanced(previous);
             else if (item.value === 'diagnostics') diagnostics(previous);
             else probe();
@@ -205,6 +217,7 @@ function registerSettings(options) {
         addButton('extraction','Извлечение названий','Основная модель или ScaleDown Extract',function (previous) { stageModel('extraction',previous); });
         addButton('ranking','Оценка соответствия','Основная модель или Jev',function (previous) { stageModel('ranking',previous); });
         addButton('model','Основная модель','Поиск по названию и ID, ручной ввод',models);
+        addButton('stage-probe','Проверить модели этапов','До двух запросов RouterAI, без Tavily',probeStages);
         addButton('probe','Проверить подключение','Короткий платный запрос к выбранной модели',probe);
         addButton('diagnostics','Диагностика и журнал','Включение, просмотр, копирование и скачивание',diagnostics);
         limits.definitions.forEach(function (def) { addButton(def.key,def.title,def.choice ? '10, 20 или без лимита' : 'От ' + def.min / def.unit + ' до ' + def.max / def.unit,function (previous) { number(def,previous); }); });

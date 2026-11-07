@@ -1,4 +1,4 @@
-/* AI Picks 0.4.1 | Lampa 3.3.8 */
+/* AI Picks 0.5.0 | Lampa 3.3.8 */
 'use strict';
 var openText = require('./dialog').openText;
 var createDiagnostics = require('./diagnostics').createDiagnostics;
@@ -16,7 +16,7 @@ function registerPlugin(options) {
     var request = diagnostics.request, routerai = createRouterAI({request:request}), catalog = createCatalog({request:request,Lampa:L,getTimeoutMs:function () { return settings.getConfig().limits.catalogTimeoutMs; }});
     var contexts = [];
     var webState = createWebState({Storage:L.Storage,clock:clock}), webSearch = createWebSearch({request:request,state:webState});
-    var settings = registerSettings({Lampa:L,routerai:routerai,webSearch:webSearch,webState:webState,window:win,document:doc,$:win.jQuery || win.$,diagnostics:diagnostics,onChange:function (config) {
+    var settings = registerSettings({Lampa:L,routerai:routerai,webSearch:webSearch,webState:webState,stageProbes:require('./stage-probes').createStageProbes({request:request,clock:clock}),window:win,document:doc,$:win.jQuery || win.$,diagnostics:diagnostics,onChange:function (config) {
         diagnostics.setEnabled(config.diagnostics);
         contexts.forEach(function (ctx) { ctx.controller.cancel();ctx.screen.setStage('cancelled');ctx.screen.setMessage('Настройки ИИ изменены. Можно запустить новую подборку.'); });
     }});

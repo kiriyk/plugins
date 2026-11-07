@@ -31,3 +31,15 @@ test('recorded RouterAI response resolves codepoint offsets and repeated sources
  h.api.extract({key:'k',pages:fixture.pages},(e,r)=>{assert.equal(e,null);result=r});h.reply(0,fixture.response);
  assert.deepEqual(result.titles.map(t=>t.title),['Прибытие','Coherence']);assert.deepEqual(result.titles[0].sourceIds,['p','q']);
 });
+test('malformed nonempty entities are contract errors rather than successful empty extraction',()=>{
+ for(const entities of [[null],[{name:'Прибытие',offset:9}],[{type:'movie_title',text:'Film',start:0,end:4,confidence:2}]]){
+  const h=setup();let error,result;h.api.extract({key:'k',pages:[{id:'a',content:'Film'}]},(e,r)=>{error=e;result=r});reply(h,entities);
+  assert.equal(error?.code,'invalid_response');assert.equal(result,undefined);assert.equal(h.timers.size,0);
+ }
+});
+test('Extract proposals use first text occurrence before applying twenty-title limit',()=>{
+ const h=setup();let result;const names=Array.from({length:21},(_,i)=>'Movie'+String(i).padStart(2,'0'));
+ h.api.extract({key:'k',pages:[{id:'a',content:names.join('; ')}]},(e,r)=>{assert.equal(e,null);result=r});const text=h.requests[0].json.messages[0].content;
+ reply(h,names.slice().reverse().map(name=>({type:'movie_title',text:name,start:text.indexOf(name),end:text.indexOf(name)+name.length,confidence:1})));
+ assert.deepEqual(result.titles.map(t=>t.title),names.slice(0,20));
+});

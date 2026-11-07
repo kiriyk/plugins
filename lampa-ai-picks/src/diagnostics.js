@@ -2,10 +2,10 @@
 var appError = require('./transport').appError, domain = require('./domain'), normalizeLimits = require('./limits').normalizeLimits;
 var STORAGE = 'aip_diagnostic_journal';
 var events = ['run_start','screening','stage','filters','tool_start','tool_result','request_start','request_end','request_cancel','candidate_rejected','run_done','run_error','run_cancel','clarification','web_state','selection','decision'];
-var codes = ['timeout','network','auth','balance','rate_limit','server','unsupported','invalid_arguments','invalid_response','catalog_limit','tool_limit','search_limit','context_limit','incompatible_model','unknown_title','unknown_keyword','intent_required','clarification','session_limit','cancelled','kp_key','kp_limit','web_key','web_auth','web_quota','web_limit','model_output_limit','model_parameters','unknown'];
+var codes = ['timeout','network','auth','balance','rate_limit','server','unsupported','invalid_arguments','invalid_response','catalog_limit','tool_limit','search_limit','context_limit','incompatible_model','unknown_title','unknown_keyword','intent_required','clarification','session_limit','cancelled','kp_key','kp_limit','web_key','web_auth','web_quota','web_limit','model_output_limit','model_parameters','ranking_unavailable','unknown'];
 var reasons = ['invalid_pick','unknown_key','already_shown','duplicate','count_limit','invalid','type','unknown_genres','genres','excluded_genres','year','country','runtime','rating','unknown_rating','not_verified'];
-var tools = ['set_search_intent','search_titles','resolve_keywords','discover_titles','get_related','get_title_details','unknown'];
-var endpointPattern = /^(genre\/(movie|tv)\/list|configuration\/countries|search\/(movie|tv|keyword)|discover\/(movie|tv)|(movie|tv)\/[1-9][0-9]*(\/(recommendations|similar|external_ids))?|api\/ratings|api\/v2.2\/films(\/[1-9][0-9]*)?|chat\/completions|models)$/;
+var tools = ['set_search_intent','search_titles','resolve_keywords','discover_titles','get_related','get_title_details','finish_search','unknown'];
+var endpointPattern = /^(genre\/(movie|tv)\/list|configuration\/countries|search\/(movie|tv|keyword)|discover\/(movie|tv)|(movie|tv)\/[1-9][0-9]*(\/(recommendations|similar|external_ids))?|api\/ratings|api\/v2.2\/films(\/[1-9][0-9]*)?|chat\/completions|decisions|models)$/;
 var paramPatterns = {
     page:/^[1-9][0-9]{0,2}$/,year:/^[0-9]{4}$/,first_air_date_year:/^[0-9]{4}$/,
     with_genres:/^[0-9|,]{1,300}$/,without_genres:/^[0-9|,]{1,300}$/,with_keywords:/^[0-9|,]{1,300}$/,
@@ -68,6 +68,10 @@ function safeRecord(event, source, at) {
     if (typeof source.host === 'string' && /^[a-z0-9.-]+(:[0-9]+)?$/i.test(source.host) && source.host.length <= 200) row.host = source.host;
     if (typeof source.endpoint === 'string' && endpointPattern.test(source.endpoint)) row.endpoint = source.endpoint;
     if (['GET','POST'].indexOf(source.method) >= 0) row.method = source.method;
+    if (typeof source.modelVersion === 'string' && /^(typesafe\/jev-[0-9][a-z0-9.-]{0,90}|scaledown\/extract)$/.test(source.modelVersion)) row.modelVersion = source.modelVersion;
+    if (source.usage) {
+        row.usage = {};['input_tokens','output_tokens','prompt_tokens','completion_tokens','total_tokens'].forEach(function (key) { if (integer(source.usage[key],10000000)) row.usage[key] = source.usage[key]; });
+    }
     if (source.params) row.params = safeParams(source.params);
     if (source.filters) row.filters = safeFilters(source.filters);
     if (source.facts) {
@@ -93,19 +97,19 @@ function safeRecord(event, source, at) {
 function networkInfo(spec) {
     var url = String(spec.url || ''), match = /^https?:\/\/([^/?#]+)([^?#]*)/.exec(url), params = {};
     var host = match ? match[1].split('@').pop() : '', path = match ? match[2] : '';
-    var endpoint = path.match(/\/(genre\/(?:movie|tv)\/list|configuration\/countries|search\/(?:movie|tv|keyword)|discover\/(?:movie|tv)|(?:movie|tv)\/[1-9][0-9]*(?:\/(?:recommendations|similar|external_ids))?|api\/ratings|api\/v2.2\/films(?:\/[1-9][0-9]*)?|chat\/completions|models)$/);
+    var endpoint = path.match(/\/(genre\/(?:movie|tv)\/list|configuration\/countries|search\/(?:movie|tv|keyword)|discover\/(?:movie|tv)|(?:movie|tv)\/[1-9][0-9]*(?:\/(?:recommendations|similar|external_ids))?|api\/ratings|api\/v2.2\/films(?:\/[1-9][0-9]*)?|chat\/completions|decisions|models)$/);
     var query = url.indexOf('?') >= 0 ? url.slice(url.indexOf('?') + 1).split('#')[0] : '';
     query.split('&').forEach(function (part) {
         var at = part.indexOf('='), name, value;if (at < 0) return;
         try { name = decodeURIComponent(part.slice(0,at));value = decodeURIComponent(part.slice(at + 1)); } catch (ignore) { return; }
         if (Object.prototype.hasOwnProperty.call(paramPatterns,name)) params[name] = value;
     });
-    return {host:host,endpoint:endpoint ? endpoint[1] : undefined,method:spec.method,params:safeParams(params),scope:host === 'api.tavily.com' && path === '/search' ? 'web' : endpoint && (endpoint[1] === 'chat/completions' || endpoint[1] === 'models') ? 'model' : endpoint && /^api\//.test(endpoint[1]) ? 'rating' : endpoint ? 'catalog' : undefined};
+    return {host:host,endpoint:endpoint ? endpoint[1] : undefined,method:spec.method,params:safeParams(params),scope:host === 'api.tavily.com' && path === '/search' ? 'web' : endpoint && (endpoint[1] === 'chat/completions' || endpoint[1] === 'decisions' || endpoint[1] === 'models') ? 'model' : endpoint && /^api\//.test(endpoint[1]) ? 'rating' : endpoint ? 'catalog' : undefined};
 }
 function createDiagnostics(options) {
     var records = [], enabled = false, persistent = true, runNumber = 0, requestNumber = 0;
     var clock = options.clock || {now:function () { return Date.now(); }}, storage = options.Storage;
-    function exportText() { return JSON.stringify({version:1,pluginVersion:'0.4.1',persistence:persistent ? 'local' : 'memory',records:records},null,2); }
+    function exportText() { return JSON.stringify({version:1,pluginVersion:'0.5.0',persistence:persistent ? 'local' : 'memory',records:records},null,2); }
     function trim() { while (records.length > 200 || exportText().length > 120000) records.shift(); }
     function persist() {
         try { if (!storage) throw new Error('storage');storage.set(STORAGE,exportText());persistent = true; }
@@ -135,7 +139,7 @@ function createDiagnostics(options) {
             if (settled) return;settled = true;
             if (tracing) {
                 var count = value && (Array.isArray(value) ? value.length : Array.isArray(value.results) ? value.results.length : Array.isArray(value.genres) ? value.genres.length : undefined);
-                record('request_end',{runId:info.runId,requestId:id,elapsedMs:clock.now() - started,ok:!error,scope:info.scope,code:error && error.code || undefined,status:error && error.status,count:count});
+                record('request_end',{runId:info.runId,requestId:id,elapsedMs:clock.now() - started,ok:!error,scope:info.scope,code:error && error.code || undefined,status:error && error.status,count:count,modelVersion:info.scope === 'model' && value && value.model,usage:info.scope === 'model' && value && value.usage});
             }
             done(error,value);
         }
