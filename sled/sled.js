@@ -1,4 +1,4 @@
-/* Sled 0.4.0 | Lampa + KADR: resume, next episode and watch history sync.
+/* Sled 0.5.0 | Lampa + KADR: resume, next episode and watch history sync.
  * The profile key stays in Lampa storage on this device; KADR receives only a per-playback token.
  */
 (function () {
@@ -6,10 +6,10 @@
     if (window.Sled) return;
 
     var L;
-    var PAIR_POLL_MS = 3000, PAIR_MAX_POLLS = 220, REWIND_MS = 10000, RESUME_MIN_MS = 10000, PENDING_TTL_MS = 12 * 3600000, NEXT_RECHECK_MS = 3000, INTENT_TTL_MS = 30 * 60000;
+    var PAIR_POLL_MS = 3000, PAIR_MAX_POLLS = 220, REWIND_MS = 10000, RESUME_MIN_MS = 10000, NEXT_RECHECK_MS = 3000, INTENT_TTL_MS = 30 * 60000;
     var SYNC_BEFORE_LAUNCH_MS = 2500, REGISTER_TIMEOUT_MS = 4000;
     var AUTO_SYNC_MS = 60000, AUTO_SYNC_MIN_MS = 60000;
-    var KH = window.Sled = {version: '0.4.0'};
+    var KH = window.Sled = {version: '0.5.0'};
     var syncing = false, waiting = [], captured = null, pending = null, intent = null;
     var writing = false, lastSyncTry = 0;
 
@@ -104,13 +104,16 @@
     function save(state, key) { key = key || stateKey(); latestCache = null; if (key) put(key, state); }
     function merge(state, data) {
         // A delete still waiting in the queue wins over an older copy from the feed.
-        var removing = {}, rating = {};
+        var removing = {}, rating = {}, watched = [];
         state.outbox.forEach(function (event) {
             if (event.type === 'delete') removing[event.item_key] = true;
             if (event.type === 'rating' || event.type === 'rating_delete') rating[event.content_id] = true;
         });
         (data.items || []).forEach(function (item) {
             if (!item || !item.item_key) return;
+            // Offer on a genuine in_progress -> watched turn; an item arriving already watched is history.
+            var before = state.items[item.item_key];
+            if (before && before.status !== 'watched' && item.status === 'watched') watched.push(item.item_key);
             state.items[item.item_key] = removing[item.item_key] ? extend({}, item, {deleted: true}) : item;
         });
         (data.prefs || []).forEach(function (pref) { if (pref && pref.content_id) state.prefs[pref.content_id] = pref.prefs; });
@@ -125,6 +128,7 @@
         (data.playbacks || []).forEach(function (playback) { if (playback && playback.playback_id) state.playbacks[playback.playback_id] = playback; });
         if (data.cursor) state.cursor = data.cursor;
         state.synced = now();
+        return watched;
     }
     function enqueue(event, key) {
         var state = load(key);
@@ -177,9 +181,17 @@
         var cursor = load(run.key).cursor;
         api('/v1/changes' + (cursor ? '?cursor=' + encodeURIComponent(cursor) : ''), null, function (data) {
             var state = load(run.key);
-            merge(state, data);
+            run.watched = (run.watched || []).concat(merge(state, data));
             save(state, run.key);
-            if (data.more && round < 20) pull(run, round + 1, done); else done(state, null);
+            if (data.more && round < 20) pull(run, round + 1, done);
+            else {
+                // Read every page before prompting: ratings may arrive after watched transitions.
+                if (!data.more && stateKey() === run.key) {
+                    run.watched.forEach(function (key) { offerRatingFor(state.items[key], state); });
+                    save(state, run.key);
+                }
+                done(state, null);
+            }
         }, function (error) {
             // A cursor the server no longer accepts (a restored database, say) would fail every sync: start over.
             if (error && error.status === 400 && cursor && round < 20) {
@@ -476,7 +488,6 @@
         if (!record || !record.hash || String(data.hash) !== String(record.hash)) return;
         pending = null;
         put('pending', null);
-        if (now() - record.started > PENDING_TTL_MS) return;
         var road = data.road || {}, completed = road.percent >= 100;
         reportFallback(record, road, completed);
         sync(function (state, error) {
@@ -660,7 +671,9 @@
     }
     function changeItem(item, change, event) {
         var state = load(), current = state.items[item.item_key] || item;
-        state.items[item.item_key] = extend({}, current, change);
+        var merged = extend({}, current, change);
+        state.items[item.item_key] = merged;
+        if (change.status === 'watched' && current.status !== 'watched') offerRatingFor(merged, state);
         save(state);
         enqueue(event);
         sync();
@@ -823,8 +836,26 @@
             if (done) done();
         });
     }
+    // The shared rating window: scores 1-10 plus "Не сейчас", then optionally impressions.
+    function askRating(content) {
+        var rated = {content_id: content.content_id, meta: content.meta};
+        pickScore(rated, function (score) {
+            var next = [{title: 'Готово', run: function () {}}];
+            if (canComment()) next.unshift({title: 'Добавить впечатления', run: function () { editComment(rated); }});
+            choose('Оценка сохранена · ★ ' + score, next);
+        }, 'Оценить «' + ratingTitle(rated) + '»?', [{title: 'Не сейчас', run: function () {}}]);
+    }
+    // Once per content, for movies only, when a rating is missing. The caller saves the state with the flag.
+    function offerRatingFor(item, state) {
+        if (!stateKey() || !item || item.deleted || item.episode_id || item.status !== 'watched') return;
+        if (state.offered[item.content_id] || ratingOf(state, item.content_id)) return;
+        // Never pop the window over an open playback; its own return will offer instead.
+        if (pending || get('pending', null)) return;
+        state.offered[item.content_id] = true;
+        askRating(item);
+    }
     // After a finished movie (not an episode), once per movie, unless it already has a score.
-    var RATE_PERCENT = 95;
+    var RATE_PERCENT = 88;
     function offerRating(record, road, error) {
         var content = record.body && record.body.content, state = load();
         if (!stateKey() || !content || content.episode_id || ratingOf(state, content.content_id) || state.offered[content.content_id]) return;
@@ -836,12 +867,7 @@
         if (!finished) return;
         state.offered[content.content_id] = true;
         save(state);
-        var rated = {content_id: content.content_id, meta: content.meta};
-        pickScore(rated, function (score) {
-            var next = [{title: 'Готово', run: function () {}}];
-            if (canComment()) next.unshift({title: 'Добавить впечатления', run: function () { editComment(rated); }});
-            choose('Оценка сохранена · ★ ' + score, next);
-        }, 'Оценить «' + ratingTitle(rated) + '»?', [{title: 'Не сейчас', run: function () {}}]);
+        askRating(content);
     }
     // changed() lets the caller refresh what it shows (the card button) after any edit.
     function ratingMenu(content, card, extra, changed) {

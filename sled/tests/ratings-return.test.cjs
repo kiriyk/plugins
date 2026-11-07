@@ -83,7 +83,24 @@ test('offline, the timeline percent decides', async () => {
     await tick();
     await watch(h, {time: 5000, duration: 6128, percent: 80}, () => ({status: 503}));
     assert.equal(asks(h).length, 0);
-    await watch(h, {time: 5900, duration: 6128, percent: 96});
+    await watch(h, {time: 5392, duration: 6128, percent: 88});
+    assert.equal(asks(h).length, 1);
+});
+
+test('a return a day later still offers a rating', async () => {
+    const h = movieSetup();
+    await tick();
+    h.Lampa.Player.play({url: 'http://cdn.test/clayface.m3u8', timeline: {hash: HASH}});
+    await tick(20);
+    const record = JSON.parse(JSON.stringify(h.storage['sled_pending']));
+    h.returned(HASH, {time: 3000, duration: 6128, percent: 49});
+    await tick(30);
+    assert.equal(asks(h).length, 0);
+    // The playback stays open across days (a TV keeps KADR in memory); only the stored record goes stale.
+    h.storage['sled_pending'] = Object.assign({}, record, {started: Date.now() - 26 * 3600000});
+    h.routes['GET /v1/changes'] = changes([film('watched')]);
+    h.returned(HASH, {time: 6000, duration: 6128, percent: 96});
+    await tick(30);
     assert.equal(asks(h).length, 1);
 });
 
