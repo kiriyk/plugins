@@ -1,7 +1,7 @@
 'use strict';
 var appError = require('./transport').appError, domain = require('./domain'), normalizeLimits = require('./limits').normalizeLimits;
 var STORAGE = 'aip_diagnostic_journal';
-var events = ['run_start','screening','stage','filters','tool_start','tool_result','request_start','request_end','request_cancel','candidate_rejected','run_done','run_error','run_cancel','clarification','web_state','selection'];
+var events = ['run_start','screening','stage','filters','tool_start','tool_result','request_start','request_end','request_cancel','candidate_rejected','run_done','run_error','run_cancel','clarification','web_state','selection','decision'];
 var codes = ['timeout','network','auth','balance','rate_limit','server','unsupported','invalid_arguments','invalid_response','catalog_limit','tool_limit','search_limit','context_limit','incompatible_model','unknown_title','unknown_keyword','intent_required','clarification','session_limit','cancelled','kp_key','kp_limit','web_key','web_auth','web_quota','web_limit','model_output_limit','model_parameters','unknown'];
 var reasons = ['invalid_pick','unknown_key','already_shown','duplicate','count_limit','invalid','type','unknown_genres','genres','excluded_genres','year','country','runtime','rating','unknown_rating','not_verified'];
 var tools = ['set_search_intent','search_titles','resolve_keywords','discover_titles','get_related','get_title_details','unknown'];
@@ -86,7 +86,7 @@ function safeRecord(event, source, at) {
     if (source.limits) row.limits = normalizeLimits(source.limits);
     if (source.budget) {
         row.budget = {};
-        ['modelCalls','toolCalls','catalogRequests','webRequests','activeCatalog'].forEach(function (key) { if (integer(source.budget[key])) row.budget[key] = source.budget[key]; });
+        ['modelCalls','decisionCalls','toolCalls','catalogRequests','webRequests','activeCatalog'].forEach(function (key) { if (integer(source.budget[key])) row.budget[key] = source.budget[key]; });
     }
     return row;
 }

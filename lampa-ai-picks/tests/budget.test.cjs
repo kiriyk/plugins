@@ -58,3 +58,9 @@ test('web and catalog share three slots but have independent limits and web time
  assert.equal(h.requests.length,3);assert.equal(h.requests[0].timeoutMs,15000);
  h.reply(0,{});assert.equal(errors.at(-1).code,'web_limit');assert.equal(b.snapshot().catalogRequests,1);assert.equal(b.snapshot().webRequests,2);b.cancel();
 });
+test('Jev request budget is independent from search calls and refuses work after deadline',()=>{
+ const h=createHarness(),b=createBudget({clock:h.clock,request:h.request,limits:{decisionCalls:2}});
+ assert.equal(b.consumeDecision(),true);assert.equal(b.consumeDecision(),true);assert.equal(b.consumeDecision(),false);
+ assert.equal(b.snapshot().decisionCalls,2);assert.equal(b.snapshot().modelCalls,0);assert.equal(b.consumeModel(),true);
+ h.advance(90001);assert.equal(b.consumeDecision(),false);b.cancel();
+});

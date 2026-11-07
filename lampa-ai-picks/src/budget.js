@@ -4,7 +4,7 @@ function noop() {}
 function createBudget(options) {
     var limits = normalizeLimits(options.limits);
     var clock = options.clock, started = clock.now(), stopped = false, queue = [], records = [];
-    var counts = {modelCalls:0,toolCalls:0,catalogRequests:0,webRequests:0,activeCatalog:0}, pumping = false;
+    var counts = {modelCalls:0,decisionCalls:0,toolCalls:0,catalogRequests:0,webRequests:0,activeCatalog:0}, pumping = false;
     function remainingMs() { return Math.max(0,limits.totalTimeoutMs - (clock.now() - started)); }
     function pump() {
         if (pumping || stopped) return;
@@ -52,9 +52,10 @@ function createBudget(options) {
     function consume(key, max) { if (stopped || !remainingMs() || counts[key] >= max) return false; counts[key]++; return true; }
     return {
         catalogRequest:function (spec, done) { return enqueue(spec,done,false); },webRequest:function (spec, done) { return enqueue(spec,done,true); },remainingMs:remainingMs,
+        consumeDecision:function () { return consume('decisionCalls',limits.decisionCalls); },
         consumeModel:function () { return consume('modelCalls',limits.modelCalls); },
         consumeTool:function () { return consume('toolCalls',limits.toolCalls); },
-        snapshot:function () { return {modelCalls:counts.modelCalls,toolCalls:counts.toolCalls,catalogRequests:counts.catalogRequests,webRequests:counts.webRequests,activeCatalog:counts.activeCatalog}; },
+        snapshot:function () { return {modelCalls:counts.modelCalls,decisionCalls:counts.decisionCalls,toolCalls:counts.toolCalls,catalogRequests:counts.catalogRequests,webRequests:counts.webRequests,activeCatalog:counts.activeCatalog}; },
         cancel:function (reason) {
             if (stopped) return;
             stopped = true; queue = [];

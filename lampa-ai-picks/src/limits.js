@@ -1,6 +1,7 @@
 'use strict';
 var definitions = [
-    {key:'modelCalls',storage:'aip_model_steps',title:'Шагов ИИ (включая итог)',min:3,max:12,value:5,unit:1},
+    {key:'decisionCalls',storage:'aip_decision_calls',title:'Запросов Jev за поиск',min:1,max:4,value:4,unit:1},
+    {key:'modelCalls',storage:'aip_model_steps',title:'Шагов поиска и объяснений',min:3,max:12,value:5,unit:1},
     {key:'toolCalls',storage:'aip_tool_calls',title:'Действий ИИ в каталоге',min:4,max:48,value:12,unit:1},
     {key:'kpRequests',storage:'aip_kp_requests',title:'Запросов рейтинга КП за поиск',min:1,max:80,value:10,unit:1},
     {key:'catalogRequests',storage:'aip_catalog_requests',title:'Запросов к каталогу',min:10,max:120,value:40,unit:1},

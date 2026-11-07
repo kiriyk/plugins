@@ -52,7 +52,7 @@ test('app settings validate numeric changes and corrupt stored limits fall back 
     assert.equal(h.settings.getConfig().limits.modelCalls,5);
     assert.equal(h.settings.getConfig().limits.modelTimeoutMs,60000);
     assert.equal(h.settings.getConfig().limits.resultCount,10);
-    const param=h.params.find(p=>p.field.name==='Шагов ИИ (включая итог)');assert.ok(param);
+    const param=h.params.find(p=>p.field.name==='Шагов поиска и объяснений');assert.ok(param);
     let enter;param.onRender({on:(name,fn)=>enter=fn});enter();h.inputs.at(-1).done('8');
     assert.equal(h.settings.getConfig().limits.modelCalls,8);
     enter();h.inputs.at(-1).done('0');assert.equal(h.settings.getConfig().limits.modelCalls,8);
