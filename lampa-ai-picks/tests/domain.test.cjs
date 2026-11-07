@@ -75,3 +75,8 @@ test('candidate metadata refresh merges rather than erases web source references
  store.add(movie({webSources:[a]}));store.add(movie({webSources:[b]}));store.add(movie());
  assert.deepEqual(store.all()[0].webSources,[a,b]);
 });
+test('source evidence enriches existing source without duplicates and survives metadata refresh',()=>{
+ const store=d.createCandidateStore(80),source={id:'p',url:'https://p.example',title:'P'};
+ store.add(movie({webSources:[source]}));store.add(movie({webSources:[{...source,evidenceText:'Фильм назван в статье.'}]}));store.add(movie());
+ assert.equal(store.all()[0].webSources.length,1);assert.equal(store.all()[0].webSources[0].evidenceText,'Фильм назван в статье.');
+});

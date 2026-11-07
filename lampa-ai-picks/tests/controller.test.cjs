@@ -287,3 +287,37 @@ test('supplemental selection cannot reverse an explicit semantic exclusion',()=>
  assert.equal(result.items.some(item=>item.candidate.key==='tmdb:movie:3'),false);
  assert.equal(result.stats.aiRejected,1);assert.equal(result.stats.answerRejected,1);
 });
+function startWeb(h,stages={},extra={}){
+ h.boot({webEnabled:true,web:{key:'web-key'},stages,...extra});h.intent({webQueries:['film list']});
+ const web=h.requests.findIndex(r=>r.url==='https://api.tavily.com/search'&&!r.answered);assert.ok(web>=0);
+ h.requests[web].answered=true;h.reply(web,{results:[{url:'https://films.example/list',title:'',content:'Film'}]});
+}
+function finishWeb(h,extraction='primary'){
+ const request=h.requests.findIndex(r=>r.method==='POST'&&!r.answered),raw=h.requests[request];
+ if(extraction==='scaledown/extract'){
+  const at=raw.json.messages[0].content.indexOf('Film');raw.answered=true;
+  h.reply(request,{choices:[{message:{content:JSON.stringify({entities:[{type:'movie_title',text:'Film',start:at,end:at+4,confidence:1}]})}}]});
+ }else h.model([],JSON.stringify({titles:[{title:'Film',type:'movie',sourceIds:['web-'+require('../src/web-state').createWebState({clock:h.clock}).fingerprint('https://films.example/list')]}]}));
+ const match=h.requests.findIndex(r=>r.url.includes('search/movie')&&!r.answered);assert.ok(match>=0);h.requests[match].answered=true;
+ h.reply(match,{results:[{id:21,title:'Film',release_date:'2010-01-01'}],total_pages:1});h.model([],finalPicks([21]));
+}
+test('Extract runs once before selection; failure continues TMDB without paid extraction retry',()=>{
+ const good=setup();startWeb(good,{extraction:'scaledown/extract'});assert.equal(good.posts().at(-1).json.model,'scaledown/extract');finishWeb(good,'scaledown/extract');
+ assert.equal(good.events.at(-1).data.result.items.length,1);assert.equal(good.posts().length,4);
+ const h=setup();startWeb(h,{extraction:'scaledown/extract'});
+ const i=h.requests.findIndex(r=>r.method==='POST'&&!r.answered);h.requests[i].answered=true;h.reject(i,{status:403});
+ assert.equal(h.events.some(e=>e.type==='notice'),true);h.model([{id:'fallback',name:'discover_titles',arguments:{type:'movie'}}]);h.found();h.model([],finalPicks([2]));
+ assert.equal(h.events.at(-1).data.result.items.length,1);assert.equal(h.requests.filter(r=>r.url==='https://api.tavily.com/search').length,1);
+ assert.equal(h.posts().filter(r=>r.json.model==='scaledown/extract').length,1);
+});
+test('web snapshots invalidate on extraction or primary model change while Tavily HTTP stays cached',()=>{
+ for(const change of ['extractor','model']){
+  const h=setup();startWeb(h);finishWeb(h);
+  h.boot({mode:'more',webEnabled:true,web:{key:'web-key'},stages:{extraction:change==='extractor'?'scaledown/extract':'primary'},model:change==='model'?'other/model':'test/model'});h.intent({webQueries:['film list']});
+  assert.equal(h.requests.filter(r=>r.url==='https://api.tavily.com/search').length,1);
+  const req=h.posts().at(-1).json;assert.equal(req.model,change==='extractor'?'scaledown/extract':'other/model');
+  assert.equal(req.messages[0].role,change==='extractor'?'user':'system');
+  if(change==='model')assert.match(req.messages[0].content,/Извлеки/);
+  h.c.cancel();assert.equal(h.timers.size,0);
+ }
+});

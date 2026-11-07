@@ -5,9 +5,11 @@ function registerSettings(options) {
     var L = options.Lampa, alive = true, revision = 0, cancels = [], diagnosticChoice = null;
     function notify(message) { if (L.Noty) L.Noty.show(message); }
     function getConfig() {
-        var config = {key:'',kpKey:'',model:'',web:{provider:'tavily',key:''},limits:limits.readLimits(L.Storage),diagnostics:false};
+        var config = {key:'',kpKey:'',model:'',web:{provider:'tavily',key:''},limits:limits.readLimits(L.Storage),diagnostics:false,stages:{extraction:'primary',ranking:'primary'}};
         try {
             config.key = String(L.Storage.get('aip_api_key','') || '');config.model = String(L.Storage.get('aip_model','') || '');
+            config.stages.extraction = L.Storage.get('aip_extraction_model','primary') === 'scaledown/extract' ? 'scaledown/extract' : 'primary';
+            config.stages.ranking = L.Storage.get('aip_ranking_model','primary') === '~typesafe/jev-latest' ? '~typesafe/jev-latest' : 'primary';
             config.kpKey = String(L.Storage.get('cr_api_key','') || '');
             config.web.key = String(L.Storage.get('aip_tavily_key','') || '');
             if (options.webState && config.web.key.trim()) config.web.localCredits = options.webState.usage(options.webState.fingerprint(config.web.key.trim()));
@@ -47,6 +49,13 @@ function registerSettings(options) {
     function displayCount(previous) {
         L.Select.show({title:'Показывать фильмов',items:[{title:'10',value:'10'},{title:'20',value:'20'},{title:'Без лимита',subtitle:'Все отобранные в пределах поиска',value:'all'}],
             onSelect:function (item) { save('aip_result_count',item.value);restore(previous); },onBack:function () { restore(previous); }});
+    }
+    function stageModel(role, previous) {
+        var extraction = role === 'extraction';
+        L.Select.show({title:extraction ? 'Извлечение названий' : 'Оценка соответствия',items:[
+            {title:'Основная модель',value:'primary'},
+            {title:extraction ? 'ScaleDown Extract' : 'Jev',subtitle:extraction ? 'Один запрос RouterAI для веб-названий' : 'До четырёх дополнительных запросов RouterAI',value:extraction ? 'scaledown/extract' : '~typesafe/jev-latest'}
+        ],onSelect:function (item) { save(extraction ? 'aip_extraction_model' : 'aip_ranking_model',item.value);restore(previous); },onBack:function () { restore(previous); }});
     }
     function probeWeb(previous) {
         var config = getConfig(), generation = revision;
@@ -164,7 +173,9 @@ function registerSettings(options) {
             {title:'Ключ Tavily',subtitle:config.web.key ? 'Учтено на этом устройстве: ' + (config.web.localCredits || 0) + ' из 950 кредитов за месяц' : 'Для поиска в интернете',value:'web-key'},
             {title:'Проверить интернет-поиск',subtitle:'Один запрос Tavily basic: 1 кредит',value:'web-probe'},
             {title:'Показывать фильмов',subtitle:config.limits.resultLimit === null ? 'Без лимита' : String(config.limits.resultLimit),value:'result-count'},
-            {title:'Модель',subtitle:escapeText(config.model || 'Выберите модель с инструментами'),value:'model'},
+            {title:'Основная модель',subtitle:escapeText(config.model || 'Выберите модель с инструментами'),value:'model'},
+            {title:'Извлечение названий',subtitle:config.stages.extraction === 'primary' ? 'Основная модель' : 'ScaleDown Extract',value:'extraction'},
+            {title:'Оценка соответствия',subtitle:config.stages.ranking === 'primary' ? 'Основная модель' : 'Jev',value:'ranking'},
             {title:'Проверить подключение',subtitle:'Короткий платный запрос к выбранной модели',value:'probe'},
             {title:'Параметры поиска',subtitle:'Шаги, запросы, тайм-ауты и число карточек',value:'limits'},
             {title:'Диагностика',subtitle:config.diagnostics ? 'Включена' : 'Выключена',value:'diagnostics'}
@@ -175,6 +186,7 @@ function registerSettings(options) {
             else if (item.value === 'web-probe') probeWeb(previous);
             else if (item.value === 'result-count') displayCount(previous);
             else if (item.value === 'model') models(previous);
+            else if (item.value === 'extraction' || item.value === 'ranking') stageModel(item.value,previous);
             else if (item.value === 'limits') advanced(previous);
             else if (item.value === 'diagnostics') diagnostics(previous);
             else probe();
@@ -190,7 +202,9 @@ function registerSettings(options) {
         addButton('kp-key','Ключ API Кинопоиска','Общий с плагином рейтингов; нужен только для фильтра КП',function (previous) { input('Ключ Kinopoisk API Unofficial','cr_api_key',true,previous); });
         addButton('web-key','Ключ Tavily','Для поиска в интернете; хранится на устройстве',function (previous) { input('Ключ Tavily','aip_tavily_key',true,previous); });
         addButton('web-probe','Проверить интернет-поиск','Один запрос Tavily basic: 1 кредит',probeWeb);
-        addButton('model','Модель','Поиск по названию и ID, ручной ввод',models);
+        addButton('extraction','Извлечение названий','Основная модель или ScaleDown Extract',function (previous) { stageModel('extraction',previous); });
+        addButton('ranking','Оценка соответствия','Основная модель или Jev',function (previous) { stageModel('ranking',previous); });
+        addButton('model','Основная модель','Поиск по названию и ID, ручной ввод',models);
         addButton('probe','Проверить подключение','Короткий платный запрос к выбранной модели',probe);
         addButton('diagnostics','Диагностика и журнал','Включение, просмотр, копирование и скачивание',diagnostics);
         limits.definitions.forEach(function (def) { addButton(def.key,def.title,def.choice ? '10, 20 или без лимита' : 'От ' + def.min / def.unit + ' до ' + def.max / def.unit,function (previous) { number(def,previous); }); });

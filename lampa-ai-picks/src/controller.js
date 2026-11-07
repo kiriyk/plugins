@@ -51,16 +51,17 @@ function createController(options) {
         stop(run);stage = 'done'; emit(run,'result',{result:result,intent:intent,mode:run.args.mode,dictionaries:run.dictionaries});
     }
     function searchWeb(run) {
+        var extractorId = run.args.stages && run.args.stages.extraction === 'scaledown/extract' ? 'scaledown/extract' : 'primary';
         var intent = run.tools.getIntent(), identity = webState.fingerprint(run.args.web.key), filterHash = JSON.stringify(intent.filters);
         run.webDone = true;
-        if (run.args.mode === 'more' && rememberedWeb && rememberedWeb.expiresAt > options.clock.now() && rememberedWeb.query === run.query && rememberedWeb.fingerprint === identity && rememberedWeb.filterHash === filterHash) {
+        if (run.args.mode === 'more' && rememberedWeb && rememberedWeb.extractorId === extractorId && rememberedWeb.schemaVersion === 1 && (extractorId !== 'primary' || rememberedWeb.primaryModelId === run.args.model) && rememberedWeb.expiresAt > options.clock.now() && rememberedWeb.query === run.query && rememberedWeb.fingerprint === identity && rememberedWeb.filterHash === filterHash) {
             run.webSnapshot = d.clone(rememberedWeb);
             run.webSnapshot.resolvedCandidates.forEach(function (c) { run.store.add(c); });
             takeStep(run,false,false);return;
         }
         var webSearch = createWebSearch({request:run.budget.webRequest,state:webState});
-        var discovery = createWebDiscovery({webSearch:webSearch,routerai:options.routerai,catalog:run.catalog,store:run.store,budget:run.budget,clock:options.clock,limits:run.limits});
-        run.cancels.push(discovery.run({key:run.key,model:run.args.model,webKey:run.args.web.key,query:run.query,queries:run.tools.getWebQueries(),intent:intent,traceId:run.traceId},function (error, result) {
+        var discovery = createWebDiscovery({extractor:extractorId === 'scaledown/extract' ? require('./scaledown').createScaleDown({request:options.request,clock:options.clock}) : null,webSearch:webSearch,routerai:options.routerai,catalog:run.catalog,store:run.store,budget:run.budget,clock:options.clock,limits:run.limits});
+        run.cancels.push(discovery.run({key:run.key,model:run.args.model,webKey:run.args.web.key,query:run.query,queries:run.tools.getWebQueries(),extractorId:extractorId,intent:intent,traceId:run.traceId},function (error, result) {
             if (!alive(run)) return;
             if (error) {
                 run.webNotice = 'Интернет-поиск не завершён: ' + error.message + ' Подбор продолжен через TMDB.';

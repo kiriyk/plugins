@@ -105,7 +105,11 @@ function createCandidateStore(limit) {
             Object.keys(c).forEach(function (key) {
                 if (key === 'webSources') {
                     var sources = (old.webSources || []).slice();
-                    (c.webSources || []).forEach(function (source) { if (!sources.some(function (item) { return item.id === source.id; })) sources.push(clone(source)); });
+                    (c.webSources || []).forEach(function (source) {
+                        var existing = sources.filter(function (item) { return item.id === source.id; })[0];
+                        if (!existing) sources.push(clone(source));
+                        else if (typeof source.evidenceText === 'string' && source.evidenceText) existing.evidenceText = source.evidenceText.slice(0,250);
+                    });
                     old.webSources = sources.slice(0,20);
                 } else if (c[key] !== null && c[key] !== '') old[key] = key === 'card' ? merge(old.card,c.card) : clone(c[key]);
             });

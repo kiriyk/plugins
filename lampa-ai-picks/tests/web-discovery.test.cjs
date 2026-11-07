@@ -52,3 +52,16 @@ test('inherited JavaScript property names cannot be used as web source IDs',()=>
   assert.equal(error&&error.code,'invalid_response');assert.equal(h.searches.length,0);
  }
 });
+test('configured Extract replaces primary extraction, counts once and retains evidence',()=>{
+ const h=setup(),{createScaleDown}=require('../src/scaledown');let result;
+ const discovery=createWebDiscovery({clock:h.clock,store:h.store,limits:{},extractor:createScaleDown({request:h.request,clock:h.clock}),
+  budget:{snapshot:()=>({catalogRequests:3,modelCalls:1}),consumeModel:()=>true,remainingMs:()=>90000},
+  webSearch:{search:(a,done)=>{done(null,{pages:[{id:'p',title:'',content:'Film'}]});return ()=>{};}},
+  routerai:{chat:()=>assert.fail('primary must not extract')},
+  catalog:{searchTitles:(a,done)=>{done(null,{items:[movie({title:'Film'})],hasMore:false});return ()=>{};}}});
+ discovery.run({key:'k',model:'m',webKey:'w',queries:['q'],extractorId:'scaledown/extract',intent:emptyIntent()},(e,r)=>{assert.equal(e,null);result=r});
+ assert.equal(h.requests.length,1);const text=h.requests[0].json.messages[0].content,at=text.indexOf('Film');
+ h.reply(0,{choices:[{message:{content:JSON.stringify({entities:[{type:'movie_title',text:'Film',confidence:1,start:at,end:at+4}]})}}]});
+ assert.deepEqual(result.candidateKeys,['tmdb:movie:1']);assert.equal(h.store.get('tmdb:movie:1').webSources[0].evidenceText,'\nFilm');
+ assert.equal(result.webSnapshot.extractorId,'scaledown/extract');assert.equal(result.webSnapshot.schemaVersion,1);
+});

@@ -32,7 +32,7 @@ function registerPlugin(options) {
             if (!config.key || !config.model) { screen.setMessage('Введите ключ RouterAI и выберите модель.');settings.open();return; }
             if (payload.webEnabled && !config.web.key.trim()) { screen.setMessage('Для поиска в интернете введите ключ Tavily.');settings.open();return; }
             diagnostics.setEnabled(config.diagnostics);
-            payload.key = config.key;payload.model = config.model;payload.limits = config.limits;payload.web = config.web;controller.start(payload);
+            payload.key = config.key;payload.model = config.model;payload.limits = config.limits;payload.web = config.web;payload.stages = config.stages;controller.start(payload);
         }
         screen = createScreen({Lampa:L,document:doc,window:win,navigator:win.Navigator,catalog:catalog,onSubmit:launch,onCancel:function () { if (controller) controller.cancel(); },onSettings:settings.open});
         renderer = createResults({Lampa:L,document:doc,$:win.jQuery || win.$,onFocus:screen.focusElement,onMore:function () { launch(screen.getRequest('more')); },onRefine:function () {

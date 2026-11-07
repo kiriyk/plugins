@@ -14,7 +14,7 @@ test('key input is masked and never appears in settings menus',()=>{
 });
 test('model chooser offers tools models and manual ID without automatic model switch',()=>{
     const h=setup({storage:{aip_api_key:'test-key'}});
-    h.settings.open();h.choose('Модель');
+    h.settings.open();h.choose('Основная модель');
     assert.ok(h.selects.at(-1).items.some(x=>x.value==='tools/model'));assert.equal(h.selects.at(-1).items.some(x=>x.value==='plain'),false);
     h.choose('tools/model');assert.equal(h.settings.getConfig().model,'tools/model');assert.equal(h.probes(),0);
 });
@@ -30,7 +30,7 @@ test('failed Storage write leaves existing key intact and gives a recoverable me
 test('manual model input is available when model catalog fails',()=>{
     const h=createDOMHarness({storage:{aip_api_key:'test-key'}});
     const s=registerSettings({Lampa:h.Lampa,routerai:{listModels:(key,cb)=>{cb({code:'network'});return ()=>{};}},onChange(){}});
-    s.open();h.choose('Модель');h.choose('Ввести ID модели');h.inputs.at(-1).done('custom/model');assert.equal(s.getConfig().model,'custom/model');
+    s.open();h.choose('Основная модель');h.choose('Ввести ID модели');h.inputs.at(-1).done('custom/model');assert.equal(s.getConfig().model,'custom/model');
 });
 
 
@@ -39,7 +39,7 @@ test('model search matches names and IDs locally without reloading the catalog',
     const s=registerSettings({Lampa:h.Lampa,routerai:{listModels:(key,cb)=>{requests++;cb(null,[
       {id:'vendor/alpha',name:'Fast Thinker',supportsTools:true},{id:'vendor/beta',name:'Deep Reader',supportsTools:true},{id:'vendor/plain',name:'Alpha plain',supportsTools:false}
     ]);return ()=>{};}}});
-    s.open();h.choose('Модель');h.choose('Найти модель');h.inputs.at(-1).done('THINK');
+    s.open();h.choose('Основная модель');h.choose('Найти модель');h.inputs.at(-1).done('THINK');
     assert.deepEqual(h.selects.at(-1).items.filter(x=>x.value.startsWith('vendor/')).map(x=>x.value),['vendor/alpha']);
     h.choose('search');h.inputs.at(-1).done('BETA');
     assert.deepEqual(h.selects.at(-1).items.filter(x=>x.value.startsWith('vendor/')).map(x=>x.value),['vendor/beta']);
@@ -111,4 +111,13 @@ test('settings show local Tavily accounting separately from account balance',()=
  const s=registerSettings({Lampa:h.Lampa,routerai:{},webState:{fingerprint:()=> 'fingerprint',usage:()=> 12}});
  s.open();assert.match(h.selects.at(-1).items.find(i=>i.value==='web-key').subtitle,/12.*950/);
  assert.equal(JSON.stringify(h.selects.at(-1)).includes('web-secret'),false);
+});
+
+test('stage model selectors persist independently and default safely without requests',()=>{
+ const h=setup({storage:{aip_model:'tools/model',aip_extraction_model:'broken',aip_ranking_model:'broken'}});
+ assert.deepEqual(h.settings.getConfig().stages,{extraction:'primary',ranking:'primary'});
+ h.settings.open();h.choose('Извлечение названий');h.choose('scaledown/extract');
+ assert.equal(h.storage.aip_extraction_model,'scaledown/extract');assert.equal(h.settings.getConfig().model,'tools/model');
+ h.settings.open();h.choose('Оценка соответствия');h.choose('~typesafe/jev-latest');
+ assert.equal(h.settings.getConfig().stages.ranking,'~typesafe/jev-latest');assert.equal(h.probes(),0);assert.equal(h.requests.length,0);
 });
