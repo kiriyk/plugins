@@ -1,0 +1,49 @@
+{
+  "origin": "Live RouterAI synthetic probe 2026-11-07; codepoint offsets after emoji",
+  "pages": [
+    {
+      "id": "p",
+      "title": "",
+      "content": "😀 Фильмы: Прибытие (2016), Coherence (2013)."
+    },
+    {
+      "id": "q",
+      "title": "",
+      "content": "Прибытие (2016) — фильм о первом контакте."
+    }
+  ],
+  "response": {
+    "model": "scaledown/extract",
+    "choices": [
+      {
+        "index": 0,
+        "logprobs": null,
+        "finish_reason": "stop",
+        "native_finish_reason": null,
+        "message": {
+          "role": "assistant",
+          "content": "{\"entities\":[{\"text\":\"\\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435\",\"type\":\"movie_title\",\"confidence\":0.999,\"start\":20,\"end\":28,\"context\":\"Source 1\\n\\n\\ud83d\\ude00 \\u0424\\u0438\\u043b\\u044c\\u043c\\u044b: \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435 (2016), Coherence (2013).\\n\\nSource 2\\n\\n\\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435 (2016) \\u2014 \\u0444\\u0438\\u043b\\u044c\\u043c \\u043e \\u043f\\u0435\\u0440\\u0432\\u043e\\u043c \\u043a\\u043e\\u043d\\u0442\\u0430\\u043a\\u0442\\u0435.\\n\\n\"},{\"text\":\"Coherence\",\"type\":\"movie_title\",\"confidence\":1.0,\"start\":37,\"end\":46,\"context\":\"Source 1\\n\\n\\ud83d\\ude00 \\u0424\\u0438\\u043b\\u044c\\u043c\\u044b: \\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435 (2016), Coherence (2013).\\n\\nSource 2\\n\\n\\u041f\\u0440\\u0438\\u0431\\u044b\\u0442\\u0438\\u0435 (2016) \\u2014 \\u0444\\u0438\\u043b\\u044c\\u043c \\u043e \\u043f\\u0435\\u0440\\u0432\\u043e\\u043c \\u043a\\u043e\\u043d\\u0442\\u0430\\u043a\\u0442\\u0435.\\n\\n\"}],\"structured_result\":null,\"ocr_text\":null,\"input_tokens\":277}",
+          "refusal": null,
+          "reasoning": null
+        }
+      }
+    ],
+    "usage": {
+      "total_tokens": 524,
+      "prompt_tokens": 277,
+      "prompt_tokens_details": {
+        "cached_tokens": 0,
+        "cache_write_tokens": 0,
+        "audio_tokens": 0,
+        "video_tokens": 0
+      },
+      "completion_tokens": 247,
+      "completion_tokens_details": {
+        "reasoning_tokens": 0,
+        "image_tokens": 0,
+        "audio_tokens": 0
+      },
+      "cost": 0.0011831243944
+    }
+  }
+}
