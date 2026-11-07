@@ -340,3 +340,76 @@ test('failed example detail lookup keeps known facts and cancelled callbacks can
  other.reply(pending,{id:1,title:'Старый',overview:'OLD'});
  assert.deepEqual(JSON.parse(other.posts()[0].json.messages[1].content).exampleContext,[]);other.c.cancel();
 });
+function jevReply(h,choose=()=> 'match'){
+ const i=h.requests.findIndex(r=>r.url.endsWith('/decisions')&&!r.answered);assert.ok(i>=0,'pending Jev request');
+ const row=h.requests[i],answers={};row.answered=true;
+ for(const key of Object.keys(row.json.questions)){const choice=choose(key);answers[key]={type:'choice',choice,confidence:1,probabilities:Object.fromEntries(Object.keys(row.json.questions[key].criteria).map(k=>[k,k===choice?1:0]))};}
+ h.reply(i,{model:'typesafe/jev-fixture',answers});return i;
+}
+test('Jev finishes after the whole tool batch, freezes eligible films and preserves reserved explanation call',()=>{
+ const h=setup();h.boot({stages:{ranking:'~typesafe/jev-latest'},limits:{modelCalls:3},formFilters:{yearMin:2000}});h.intent();
+ assert.ok(h.posts().at(-1).json.tools.some(t=>t.function.name==='finish_search'));
+ h.model([{id:'finish',name:'finish_search',arguments:{}},{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);
+ assert.equal(h.requests.some(r=>r.url.endsWith('/decisions')),false);
+ const i=h.requests.findIndex(r=>r.url.includes('discover/'));h.reply(i,{results:[{id:1,title:'A',release_date:'2010-01-01'},{id:2,title:'B',release_date:'2011-01-01'},{id:3,title:'Old',release_date:'1990-01-01'}]});
+ const req=h.requests.find(r=>r.url.endsWith('/decisions'));assert.ok(req);assert.deepEqual(Object.keys(req.json.questions),['movie_1_fit','movie_2_fit']);assert.equal(h.session.size(),0);
+ jevReply(h);assert.equal(h.c.getState().stage,'explaining');assert.equal(h.posts().at(-1).json.tool_choice,'none');
+ h.model([],finalPicks([999,2]));const result=h.events.at(-1).data.result;
+ assert.deepEqual(result.items.map(i=>i.candidate.key),['tmdb:movie:1','tmdb:movie:2']);assert.equal(result.items[0].reason,'Соответствует заданным условиям подбора.');assert.equal(h.posts().length,4);assert.equal(h.timers.size,0);
+});
+test('premature primary picks only close collection in Jev mode and cannot dictate final IDs',()=>{
+ const h=setup();h.boot({stages:{ranking:'~typesafe/jev-latest'}});h.intent();h.model([{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);
+ const i=h.requests.findIndex(r=>r.url.includes('discover/'));h.reply(i,{results:[{id:1,title:'A'},{id:2,title:'B'}]});
+ h.model([],finalPicks([1]));jevReply(h,k=>k==='movie_1_fit'?'not_match':'match');h.model([],finalPicks([1,2]));
+ assert.deepEqual(h.events.at(-1).data.result.items.map(i=>i.candidate.key),['tmdb:movie:2']);
+});
+test('Jev failure falls back once on the entire pool; zero matches skip explanations',()=>{
+ for(const mode of ['failure','insufficient','none']){
+  const h=setup();h.boot({stages:{ranking:'~typesafe/jev-latest'},limits:{modelCalls:3}});h.intent();h.model([{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);
+  const i=h.requests.findIndex(r=>r.url.includes('discover/'));h.reply(i,{results:[{id:1,title:'A'},{id:2,title:'B'}]});
+  if(mode==='failure'){const d=h.requests.findIndex(r=>r.url.endsWith('/decisions'));assert.ok(d>=0);h.requests[d].answered=true;h.reject(d,{status:429});}
+  else jevReply(h,()=>mode==='none'?'not_match':'insufficient_data');
+  if(mode==='none'){assert.equal(h.events.at(-1).data.result.items.length,0);assert.equal(h.posts().length,3);}
+  else {const state=JSON.parse(h.posts().at(-1).json.messages[1].content);assert.deepEqual(state.candidates.map(c=>c.key),['tmdb:movie:1','tmdb:movie:2']);h.model([],finalPicks([2]));assert.equal(h.events.at(-1).data.result.items.length,1);assert.match(h.events.at(-1).data.result.notice,/Jev/);assert.equal(h.posts().length,4);}
+ }
+});
+test('Jev cancel and late callbacks never commit, while explanation failures retain fixed selection',()=>{
+ for(const mode of ['cancel','network','malformed','timeout']){
+  const h=setup();h.boot({stages:{ranking:'~typesafe/jev-latest'},limits:{modelCalls:3}});h.intent();h.model([{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);h.found();
+  if(mode==='cancel'){
+   const i=h.requests.findIndex(r=>r.url.endsWith('/decisions'));h.c.cancel();h.reply(i,{answers:{}});assert.equal(h.session.size(),0);assert.equal(h.events.some(e=>e.type==='result'),false);
+  }else{
+   jevReply(h);
+   if(mode==='network'){const i=h.requests.findIndex(r=>r.method==='POST'&&!r.answered);h.requests[i].answered=true;h.reject(i,{status:402});}
+   else if(mode==='malformed')h.model([],'bad JSON');else h.advance(25000);
+   assert.equal(h.events.at(-1).data.result.items.length,1);assert.equal(h.session.size(),1);
+  }
+  assert.equal(h.timers.size,0);
+ }
+});
+test('Jev mode works with both extraction models and reserves final call even at minimum budget',()=>{
+ for(const extraction of ['primary','scaledown/extract']){
+  const h=setup();startWeb(h,{extraction,ranking:'~typesafe/jev-latest'},{limits:{modelCalls:3}});
+  const request=h.requests.findIndex(r=>r.method==='POST'&&!r.answered),raw=h.requests[request];
+  if(extraction==='scaledown/extract'){
+   const at=raw.json.messages[0].content.indexOf('Film');raw.answered=true;h.reply(request,{choices:[{message:{content:JSON.stringify({entities:[{type:'movie_title',text:'Film',start:at,end:at+4,confidence:1}]})}}]});
+  }else h.model([],JSON.stringify({titles:[{title:'Film',type:'movie',sourceIds:['web-'+require('../src/web-state').createWebState({clock:h.clock}).fingerprint('https://films.example/list')]}]}));
+  const match=h.requests.findIndex(r=>r.url.includes('search/movie'));h.requests[match].answered=true;h.reply(match,{results:[{id:21,title:'Film',overview:'Тихая драма.'}],total_pages:1});
+  jevReply(h);h.model([],finalPicks([21]));assert.equal(h.events.at(-1).data.result.items.length,1);assert.equal(h.posts().length,5);
+  assert.equal(h.requests.filter(r=>r.url==='https://api.tavily.com/search').length,1);assert.equal(h.timers.size,0);
+ }
+});
+test('Jev all mode evaluates every film and code applies 10 20 all and remaining session cap',()=>{
+ for(const resultLimit of [10,20,null]){
+  const h=setup();h.boot({stages:{ranking:'~typesafe/jev-latest'},limits:{modelCalls:3,resultLimit}});h.intent();
+  h.model([{id:'a',name:'discover_titles',arguments:{type:'movie',page:1}},{id:'b',name:'discover_titles',arguments:{type:'movie',page:2}}]);
+  let n=1;for(let i=0;i<h.requests.length;i++)if(h.requests[i].url.includes('discover/')&&!h.requests[i].answered){h.requests[i].answered=true;h.reply(i,{results:Array.from({length:20},()=>({id:n++,title:'Film',overview:'Космос.'}))});}
+  while(h.requests.some(r=>r.url.endsWith('/decisions')&&!r.answered))jevReply(h);
+  h.model([],finalPicks([1]));const result=h.events.at(-1).data.result;assert.equal(result.items.length,resultLimit===null?40:resultLimit);assert.equal(result.stats.aiAvailable,40);assert.equal(result.stats.aiUndecided,0);
+ }
+});
+test('empty verified pool makes no Decisions request and primary mode never exposes finish_search',()=>{
+ const normal=setup();normal.boot();assert.equal(normal.posts()[0].json.tools.some(t=>t.function.name==='finish_search'),false);normal.c.cancel();
+ const h=setup();h.boot({stages:{ranking:'~typesafe/jev-latest'},limits:{modelCalls:3},formFilters:{yearMin:2020}});h.intent();h.model([{id:'finish',name:'finish_search',arguments:{}},{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);h.found();
+ assert.equal(h.events.at(-1).data.result.items.length,0);assert.equal(h.requests.some(r=>r.url.endsWith('/decisions')),false);assert.equal(h.timers.size,0);
+});

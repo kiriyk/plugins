@@ -25,6 +25,7 @@ function createController(options) {
     }
     function fail(run, error, scope) {
         if (!alive(run)) return;
+        if (run.fixedSelection) { complete(run,fixedResult(run,null,'Не удалось получить объяснения: ' + error.message));return; }
         if (run.reviewingSelection && run.selection) {
             log(run,'selection',{code:error.code,status:error.status});
             complete(run,run.selection.finish('Дополнительный отбор ИИ не завершён: ' + error.message));return;
@@ -43,6 +44,7 @@ function createController(options) {
         rememberedExamples = intent.examples.map(function (key) { return run.store.get(key); }).filter(Boolean);
         rememberedQuery = run.query;
         rememberedWeb = run.webSnapshot || null;
+        if (run.rankingNotice) result.notice = (result.notice ? result.notice + ' ' : '') + run.rankingNotice;
         if (run.webNotice) result.notice = (result.notice ? result.notice + ' ' : '') + run.webNotice;
         result.stats = run.screening.snapshot();result.stats.selected = result.items.length;
         Object.keys(result.selectionStats || {}).forEach(function (key) { result.stats[key] = result.selectionStats[key]; });
@@ -80,6 +82,41 @@ function createController(options) {
         pending = {value:clarification,args:d.clone(run.args),examples:run.tools.getIntent().examples.map(function (key) { return run.store.get(key); }).filter(Boolean)};
         stop(run); stage = 'clarification'; emit(run,'clarification',clarification);
     }
+    function jevEnabled(run) { return run.args.stages && run.args.stages.ranking === '~typesafe/jev-latest' && !run.rankingFallback; }
+    function fixedResult(run, content, warning) {
+        var intent = run.tools.getIntent(), excluded = run.shown.concat(intent.examples);
+        var keys = run.fixedSelection.filter(function (key) { return excluded.indexOf(key) < 0 && d.validateCandidate(run.frozenStore.get(key),intent.filters).ok; });
+        var items = prompts.applyExplanations(content,keys,run.frozenStore), notices = [];
+        var partial = run.limits.resultLimit !== null && items.length < Math.min(run.limits.resultLimit,200 - run.shown.length);
+        if (partial) notices.push('Найдено меньше запрошенного числа подходящих вариантов. Условия сохранены.');
+        if (warning) { partial = true;notices.push(warning); }
+        else if (items.some(function (item) { return item.reason === prompts.NEUTRAL_REASON; })) notices.push('Для части фильмов показаны стандартные подписи вместо объяснений ИИ.');
+        return {items:items,partial:partial,notice:notices.join(' ') || null,selectionStats:run.rankingStats};
+    }
+    function rankCandidates(run) {
+        if (!alive(run) || run.rankingStarted) return;
+        run.rankingStarted = true;
+        var candidates = d.clone(run.screening.eligible()), intent = run.tools.getIntent();
+        run.frozenStore = d.createCandidateStore(80);candidates.forEach(function (c) { run.frozenStore.add(c); });
+        if (!candidates.length) { complete(run,{items:[],partial:run.limits.resultLimit !== null,notice:'Подходящие варианты не найдены.'});return; }
+        change(run,'decision_ranking');
+        var ranker = require('./candidate-ranking').createCandidateRanker({clock:options.clock,budget:run.budget,decisions:options.decisions || require('./jev').createJev({request:options.request,clock:options.clock})});
+        run.cancels.push(ranker.rank({key:run.key,query:run.query,intent:intent,examples:buildExampleContext(run.store,intent.examples),candidates:candidates,resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length,traceId:run.traceId},function (error, result) {
+            if (!alive(run)) return;
+            if (error) {
+                log(run,'decision',{code:error.code,status:error.status});
+                if (!run.budget.remainingMs()) { fail(run,appError('timeout'),'search');return; }
+                run.rankingFallback = true;run.rankingNotice = 'Jev не завершила оценку: ' + error.message + ' Выполнен обычный отбор всего проверенного пула.';
+                emit(run,'notice',{message:run.rankingNotice});takeStep(run,true,false,true);return;
+            }
+            run.fixedSelection = result.selectedKeys;
+            run.rankingStats = {aiAvailable:candidates.length,aiTarget:Math.min(candidates.length,run.limits.resultLimit === null ? 80 : run.limits.resultLimit,200 - run.shown.length),
+                aiProposed:result.selectedKeys.length,aiRejected:result.rows.filter(function (row) { return row.choice === 'not_match' || row.choice === 'weak_match'; }).length,aiInsufficient:0,aiUndecided:0,answerRejected:0};
+            log(run,'selection',{stats:run.rankingStats});
+            if (!run.fixedSelection.length) { complete(run,fixedResult(run,null));return; }
+            takeStep(run,true,false,true);
+        }));
+    }
     function finalResult(run, content) {
         if (!alive(run)) return;
         change(run,'ranking');
@@ -94,7 +131,7 @@ function createController(options) {
             if (!run.selection) run.selection = createSelectionReview({eligibleKeys:eligibleKeys,resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length});
             run.selection.accept(result);
             log(run,'selection',{stats:run.selection.finish().selectionStats});
-            if (!run.reviewingSelection && run.selection.needsReview() && run.budget.snapshot().modelCalls < run.limits.modelCalls && run.budget.remainingMs() > 0) {
+            if (!run.rankingFallback && !run.reviewingSelection && run.selection.needsReview() && run.budget.snapshot().modelCalls < run.limits.modelCalls && run.budget.remainingMs() > 0) {
                 var progress = run.screening.snapshot(), selectionStats = run.selection.finish().selectionStats;
                 Object.keys(selectionStats).forEach(function (key) { progress[key] = selectionStats[key]; });progress.selected = result.items.length;emit(run,'progress',progress);
                 run.reviewingSelection = true;takeStep(run,true,false);return;
@@ -132,12 +169,13 @@ function createController(options) {
         var count = run.budget.snapshot();
         finalOnly = finalOnly || count.modelCalls >= run.limits.modelCalls - 1 || count.toolCalls >= run.limits.toolCalls;
         if (finalOnly && !run.tools.isReady()) return fail(run,appError('intent_required'));
+        if (jevEnabled(run) && !run.fixedSelection && (finalOnly || run.collectionFinished)) { rankCandidates(run);return; }
         if (finalOnly && !repair && !run.store.all().length) return complete(run,{items:[],partial:true,notice:'Подходящие варианты не найдены. Попробуйте изменить условия.'});
         if (!run.budget.consumeModel()) return fail(run,appError('search_limit'));
-        change(run,run.reviewingSelection ? 'selection_review' : finalOnly ? 'ranking' : count.modelCalls ? 'searching' : 'parsing');
+        change(run,run.fixedSelection ? 'explaining' : run.reviewingSelection ? 'selection_review' : finalOnly ? 'ranking' : count.modelCalls ? 'searching' : 'parsing');
         var timeout = Math.min(run.limits.modelTimeoutMs,run.budget.remainingMs()), messages;
-        try { messages = prompts.buildMessages({query:run.query,intent:run.tools.getIntent(),formFilters:run.args.formFilters,examples:run.tools.getIntent().examples,
-            exampleContext:buildExampleContext(run.store,run.tools.getIntent().examples),shown:run.shown,candidates:run.screening.eligible(),eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),trace:run.trace,dictionaries:run.dictionaries,resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length,webEnabled:run.args.webEnabled,selectionReview:run.reviewingSelection ? run.selection.hint() : null}); }
+        try { messages = run.fixedSelection ? prompts.buildExplanationMessages({query:run.query,intent:run.tools.getIntent(),exampleContext:buildExampleContext(run.store,run.tools.getIntent().examples),selectedKeys:run.fixedSelection,store:run.frozenStore}) : prompts.buildMessages({query:run.query,intent:run.tools.getIntent(),formFilters:run.args.formFilters,examples:run.tools.getIntent().examples,
+            exampleContext:buildExampleContext(run.store,run.tools.getIntent().examples),shown:run.shown,candidates:run.screening.eligible(),eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),trace:run.trace,dictionaries:run.dictionaries,resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length,webEnabled:run.args.webEnabled,jevEnabled:jevEnabled(run),selectionReview:run.reviewingSelection ? run.selection.hint() : null}); }
         catch (error) { return fail(run,error); }
         if (repair) messages.push({role:'user',content:'Предыдущий итоговый ответ некорректен. Верни только JSON {"picks":[{"key":"...","reason":"..."}]} с известными кандидатами.'});
         var choice = finalOnly ? 'none' : !run.tools.isReady() ? {type:'function',function:{name:'set_search_intent'}} : 'auto';
@@ -148,7 +186,7 @@ function createController(options) {
             if (settled || !alive(run)) return;
             settled = true; options.clock.clearTimeout(run.modelTimer); run.modelTimer = null;
             if (error) {
-                if (run.reviewingSelection) return fail(run,error,'model');
+                if (run.fixedSelection || run.reviewingSelection) return fail(run,error,'model');
                 if (error.code === 'model_output_limit' && !run.outputRepair && run.budget.snapshot().modelCalls < run.limits.modelCalls && run.budget.remainingMs() > 0) {
                     run.outputRepair = true;takeStep(run,true,true);return;
                 }
@@ -157,6 +195,8 @@ function createController(options) {
             if (!message.tool_calls.length) {
                 if (count.modelCalls === 0) return fail(run,appError('incompatible_model'));
                 if (!run.tools.isReady() || !run.webDone) return fail(run,appError('intent_required'));
+                if (run.fixedSelection) { complete(run,fixedResult(run,message.content));return; }
+                if (jevEnabled(run)) { takeStep(run,true,false);return; }
                 return finalResult(run,message.content);
             }
             if (finalOnly) return fail(run,appError('invalid_response'));
@@ -169,6 +209,7 @@ function createController(options) {
                 function received(toolError, data) {
                     if (!alive(run)) return;
                     log(run,'tool_result',{tool:call.name,code:toolError && toolError.code,ok:!toolError,count:data && data.items && data.items.length});
+                    if (!toolError && call.name === 'finish_search') run.collectionFinished = true;
                     if (!toolError && call.name === 'set_search_intent') log(run,'filters',{filters:run.tools.getIntent().filters});
                     replies[index] = {role:'tool',tool_call_id:call.id,content:JSON.stringify(toolError ? {error:{code:toolError.code,message:toolError.message}} : data)};
                     if (!--left) {
@@ -219,7 +260,7 @@ function createController(options) {
             if (!alive(run)) return;
             if (error) return fail(run,error,'catalog');
             run.dictionaries = dictionaries;
-            run.tools = createTools({catalog:catalog,store:run.store,webEnabled:!!run.args.webEnabled,formFilters:run.args.formFilters || {},dictionaries:dictionaries,intent:base,
+            run.tools = createTools({catalog:catalog,store:run.store,jevEnabled:jevEnabled(run),webEnabled:!!run.args.webEnabled,formFilters:run.args.formFilters || {},dictionaries:dictionaries,intent:base,
                 onClarification:function (value) { pause(run,value); }});
             takeStep(run,false,false);
         }));

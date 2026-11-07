@@ -53,7 +53,7 @@ function safeRecord(event, source, at) {
     var row = {at:integer(at,9007199254740991) ? at : 0,event:event};
     ['runId','requestId','elapsedMs','count','candidates','rejected','queryLength'].forEach(function (key) { if (integer(source[key])) row[key] = source[key]; });
     if (['new','more','refine'].indexOf(source.mode) >= 0) row.mode = source.mode;
-    if (['idle','parsing','searching','checking','ranking','done','error','cancelled','clarification','web_searching','web_resolving','selection_review'].indexOf(source.stage) >= 0) row.stage = source.stage;
+    if (['idle','parsing','searching','checking','ranking','done','error','cancelled','clarification','web_searching','web_resolving','selection_review','decision_ranking','explaining'].indexOf(source.stage) >= 0) row.stage = source.stage;
     if (['filters','example'].indexOf(source.kind) >= 0) row.kind = source.kind;
     if (['catalog','model','search','rating','web'].indexOf(source.scope) >= 0) row.scope = source.scope;
     if (source.provider === 'tavily') row.provider = 'tavily';

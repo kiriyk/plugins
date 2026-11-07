@@ -77,3 +77,17 @@ test('punctuation-only explanations count as rejected output after normalization
  assert.equal(result.items.length,0);assert.equal(result.assessment.answerRejected,1);
  assert.deepEqual(rejected,[{key:'tmdb:movie:1',reason:'invalid_pick'}]);
 });
+test('fixed explanations preserve chosen IDs and order despite replacement, duplicates or malformed content',()=>{
+ const p=require('../src/prompts'),store=createCandidateStore(80);for(let i=1;i<=3;i++)store.add(movie({key:'tmdb:movie:'+i,id:i}));
+ const selected=['tmdb:movie:2','tmdb:movie:1'];
+ for(const content of ['bad',JSON.stringify({picks:[{key:'tmdb:movie:3',reason:'Replace'},{key:'tmdb:movie:1',reason:'Good'},{key:'tmdb:movie:1',reason:'Duplicate'}]})]){
+  const items=p.applyExplanations(content,selected,store);assert.deepEqual(items.map(i=>i.candidate.key),selected);assert.equal(items[0].reason,'Соответствует заданным условиям подбора.');
+ }
+ const messages=p.buildExplanationMessages({query:'Кино',intent:intent(),selectedKeys:selected,store,exampleContext:[]});
+ assert.deepEqual(JSON.parse(messages[1].content).selectedKeys,selected);
+});
+test('fixed explanations accept valid TV reasons as well as movie reasons',()=>{
+ const p=require('../src/prompts'),store=createCandidateStore(80);store.add(tv());
+ const items=p.applyExplanations('{"picks":[{"key":"tmdb:tv:1","reason":"Детективный сериал."}]}',['tmdb:tv:1'],store);
+ assert.equal(items[0].reason,'Детективный сериал.');
+});

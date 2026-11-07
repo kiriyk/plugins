@@ -193,14 +193,14 @@ function createScreen(options) {
     }
     function getRequest(mode) { return {query:query,formFilters:cleanForm(mode || 'new'),examples:d.clone(examples),mode:mode || 'new',webEnabled:webEnabled}; }
     function setStage(value) {
-        busy = ['parsing','searching','checking','ranking','web_searching','web_resolving','selection_review'].indexOf(value) >= 0;
+        busy = ['parsing','searching','checking','ranking','web_searching','web_resolving','selection_review','decision_ranking','explaining'].indexOf(value) >= 0;
         Array.prototype.forEach.call(root.querySelectorAll('button[data-action]'),function (control) {
             var action = control.getAttribute('data-action');
             control.disabled = busy && action !== 'cancel' && action !== 'settings';
             control.setAttribute('aria-disabled',String(control.disabled));
         });
         cancel.hidden = !busy;
-        status.textContent = {parsing:'Разбираем запрос…',searching:'Ищем фильмы…',web_searching:'Ищем в интернете…',web_resolving:'Находим карточки фильмов…',checking:'Проверяем условия и рейтинги…',ranking:'Выбираем варианты…',selection_review:'Пересматриваем неполную подборку…',cancelled:'Поиск отменён.'}[value] || '';
+        status.textContent = {parsing:'Разбираем запрос…',searching:'Ищем фильмы…',web_searching:'Ищем в интернете…',web_resolving:'Находим карточки фильмов…',checking:'Проверяем условия и рейтинги…',ranking:'Выбираем варианты…',decision_ranking:'Jev оценивает соответствие…',explaining:'Готовим объяснения…',selection_review:'Пересматриваем неполную подборку…',cancelled:'Поиск отменён.'}[value] || '';
         root.setAttribute('aria-busy',String(busy));
         if (busy) { lastFocus = cancel; focus(); }
     }

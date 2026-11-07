@@ -19,6 +19,7 @@ var schemas = {
     get_title_details:object({keys:array(key,10)},['keys'])
 };
 var descriptions = {
+    finish_search:'Завершить сбор кандидатов для отдельного смыслового отбора. Вызови, когда направлений поиска достаточно.',
     set_search_intent:'Зафиксировать смысл запроса и обязательные условия до поиска; изменяй только явно уточнённые поля. Пустые поля формы не являются запретами.',
     search_titles:'Искать конкретное название. Для названного пользователем примера укажи purpose=example; для кандидата purpose=candidate.',
     resolve_keywords:'Найти реальные ключевые слова TMDB; можно использовать английские термины.',
@@ -49,6 +50,7 @@ function createTools(options) {
     var catalog = options.catalog, store = options.store, current = d.clone(options.intent || d.emptyIntent()), ready = false;
     var keywords = Object.create(null), calls = Object.create(null);
     var localSchemas = d.clone(schemas), webQueries = [];
+    if (options.jevEnabled) localSchemas.finish_search = object({});
     if (options.webEnabled) {
         localSchemas.set_search_intent.properties.webQueries = {type:'array',items:text,minItems:1,maxItems:2};
         localSchemas.set_search_intent.required.push('webQueries');
@@ -86,6 +88,7 @@ function createTools(options) {
             current = resolved.intent;if (args.webQueries) webQueries = args.webQueries.slice();ready = true; finish(null,{intent:current}); return noop;
         }
         if (!ready) { finish(appError('intent_required')); return noop; }
+        if (call.name === 'finish_search') { finish(null,{finished:true});return noop; }
         if (call.name === 'resolve_keywords') return catalog.resolveKeywords(args,function (error, result) {
             if (error) return finish(error);
             result.items = result.items.slice(0,20);
