@@ -210,3 +210,80 @@ test('model final and exhausted budget cannot claim success before a valid inten
  const exhausted=setup();exhausted.boot({webEnabled:true,web:{key:'web-key'},limits:{modelCalls:3}});
  exhausted.intent({});exhausted.intent({});assert.equal(exhausted.c.getState().stage,'error');assert.equal(exhausted.events.some(e=>e.type==='result'),false);
 });
+
+function broadSearch(count=50,limits={}){
+ const h=setup();h.boot({query:'Что-нибудь посмотреть вечером',limits});h.intent();
+ h.model(Array.from({length:Math.ceil(count/20)},(_,i)=>({id:'broad-'+i,name:'discover_titles',arguments:{type:'movie',page:i+1}})));
+ let next=1;
+ for(let i=0;i<h.requests.length;i++)if(h.requests[i].url.includes('discover/')&&!h.requests[i].answered){
+  const size=Math.min(20,count-next+1);h.requests[i].answered=true;
+  h.reply(i,{results:Array.from({length:size},()=>({id:next++,title:'Фильм',overview:'Лёгкий фильм для вечера.'}))});
+ }
+ return h;
+}
+function finalPicks(ids){return JSON.stringify({picks:ids.map(id=>({key:'tmdb:movie:'+id,reason:'Подходит для вечера.'}))});}
+test('two picks from fifty eligible films trigger one bounded review instead of silently ending',()=>{
+ const h=broadSearch();h.model([],finalPicks([1,2]));
+ assert.equal(h.c.getState().stage,'selection_review');assert.equal(h.session.size(),0);
+ const review=h.posts().at(-1).json;assert.equal(review.tool_choice,'none');
+ const state=JSON.parse(review.messages[1].content);assert.equal(state.selectionReview.pendingKeys.length,48);
+ assert.deepEqual(state.selectionReview.selectedKeys,['tmdb:movie:1','tmdb:movie:2']);
+ h.model([],finalPicks([3,4,5,6,7,8,9,10]));
+ const result=h.events.at(-1).data.result;assert.equal(result.items.length,10);assert.equal(result.stats.aiAvailable,50);assert.equal(result.stats.aiProposed,10);assert.equal(h.posts().length,4);assert.equal(h.timers.size,0);
+});
+test('review preserves valid picks and never invents extras on error or budget exhaustion',()=>{
+ for(const failure of ['network','malformed','same']){
+  const h=broadSearch();h.model([],finalPicks([1,2]));
+  assert.equal(h.c.getState().stage,'selection_review');
+  if(failure==='network'){const i=h.requests.findIndex(r=>r.method==='POST'&&!r.answered);h.requests[i].answered=true;h.reject(i,{status:503});}
+  else h.model([],failure==='same'?finalPicks([1,2]):'not json');
+  const result=h.events.at(-1).data.result;assert.equal(result.items.length,2);assert.equal(result.partial,true);assert.equal(result.stats.aiUndecided,48);assert.equal(h.posts().length,4);
+ }
+ const h=broadSearch(50,{modelCalls:3});h.model([],finalPicks([1,2]));
+ assert.equal(h.events.at(-1).data.result.stats.aiUndecided,48);assert.equal(h.posts().length,3);
+});
+test('explicit semantic exclusions explain a short result without another paid review',()=>{
+ const h=broadSearch();h.model([],JSON.stringify({picks:[{key:'tmdb:movie:1',reason:'Подходит.'}],excluded:Array.from({length:49},(_,i)=>({key:'tmdb:movie:'+(i+2),reasonCode:'not_relevant'}))}));
+ const result=h.events.at(-1).data.result;assert.equal(result.items.length,1);assert.equal(result.stats.aiRejected,49);assert.equal(result.stats.aiUndecided,0);assert.equal(h.posts().length,3);
+});
+test('unlimited review includes every eligible decision and preserves twenty-plus selected items',()=>{
+ const h=broadSearch(50,{resultLimit:null});h.model([],finalPicks([1,2]));
+ assert.equal(h.c.getState().stage,'selection_review');h.model([],finalPicks(Array.from({length:48},(_,i)=>i+3)));
+ assert.equal(h.events.at(-1).data.result.items.length,50);assert.equal(h.events.at(-1).data.result.stats.aiUndecided,0);
+});
+test('cancelling or replacing a pending selection review ignores late picks without committing',()=>{
+ for(const replace of [false,true]){
+  const h=broadSearch();h.model([],finalPicks([1,2]));
+  const pending=h.requests.findIndex(r=>r.method==='POST'&&!r.answered);
+  if(replace)h.boot({query:'Другой поиск'});else h.c.cancel();
+  h.reply(pending,assistant([],finalPicks([3,4,5,6,7,8,9,10])));
+  assert.equal(h.events.filter(e=>e.type==='result').length,0);assert.equal(h.session.size(),0);
+  h.c.cancel();h.advance(90001);assert.equal(h.timers.size,0);
+ }
+});
+test('overall deadline during selection review returns only previously validated picks',()=>{
+ const h=broadSearch(50,{totalTimeoutMs:30000,modelTimeoutMs:60000});h.model([],finalPicks([1,2]));
+ const pending=h.requests.findIndex(r=>r.method==='POST'&&!r.answered);h.advance(30000);
+ assert.equal(h.c.getState().stage,'done');
+ const result=h.events.at(-1).data.result;assert.equal(result.items.length,2);assert.equal(result.partial,true);assert.match(result.notice,/не завершён/);
+ h.reply(pending,assistant([],finalPicks([3,4,5,6,7,8,9,10])));
+ assert.equal(h.events.filter(e=>e.type==='result').length,1);assert.equal(h.session.size(),2);assert.equal(h.timers.size,0);
+});
+test('supplemental selection cannot reintroduce candidates rejected by hard filters',()=>{
+ const h=setup();h.boot({formFilters:{yearMin:2000}});h.intent();
+ h.model([{id:'find',name:'discover_titles',arguments:{type:'movie'}}]);
+ const i=h.requests.findIndex(r=>r.url.includes('discover/'));
+ h.reply(i,{results:[{id:1,title:'Первый',release_date:'2010-01-01'},{id:2,title:'Второй',release_date:'2011-01-01'},{id:3,title:'Старый',release_date:'1990-01-01'}]});
+ h.model([],finalPicks([1]));assert.equal(h.c.getState().stage,'selection_review');
+ h.model([],finalPicks([1,3,999,2]));
+ const result=h.events.at(-1).data.result;assert.deepEqual(result.items.map(item=>item.candidate.key),['tmdb:movie:1','tmdb:movie:2']);
+ assert.equal(result.stats.answerRejected,2);assert.equal(h.posts().length,4);
+});
+test('supplemental selection cannot reverse an explicit semantic exclusion',()=>{
+ const h=broadSearch();h.model([],JSON.stringify({picks:JSON.parse(finalPicks([1,2])).picks,excluded:[{key:'tmdb:movie:3',reasonCode:'not_relevant'}]}));
+ assert.equal(h.c.getState().stage,'selection_review');
+ h.model([],finalPicks([3,4,5,6,7,8,9,10,11]));
+ const result=h.events.at(-1).data.result;assert.equal(result.items.length,10);
+ assert.equal(result.items.some(item=>item.candidate.key==='tmdb:movie:3'),false);
+ assert.equal(result.stats.aiRejected,1);assert.equal(result.stats.answerRejected,1);
+});

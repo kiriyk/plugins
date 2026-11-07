@@ -193,14 +193,14 @@ function createScreen(options) {
     }
     function getRequest(mode) { return {query:query,formFilters:cleanForm(mode || 'new'),examples:d.clone(examples),mode:mode || 'new',webEnabled:webEnabled}; }
     function setStage(value) {
-        busy = ['parsing','searching','checking','ranking','web_searching','web_resolving'].indexOf(value) >= 0;
+        busy = ['parsing','searching','checking','ranking','web_searching','web_resolving','selection_review'].indexOf(value) >= 0;
         Array.prototype.forEach.call(root.querySelectorAll('button[data-action]'),function (control) {
             var action = control.getAttribute('data-action');
             control.disabled = busy && action !== 'cancel' && action !== 'settings';
             control.setAttribute('aria-disabled',String(control.disabled));
         });
         cancel.hidden = !busy;
-        status.textContent = {parsing:'Разбираем запрос…',searching:'Ищем фильмы…',web_searching:'Ищем в интернете…',web_resolving:'Находим карточки фильмов…',checking:'Проверяем условия и рейтинги…',ranking:'Выбираем варианты…',cancelled:'Поиск отменён.'}[value] || '';
+        status.textContent = {parsing:'Разбираем запрос…',searching:'Ищем фильмы…',web_searching:'Ищем в интернете…',web_resolving:'Находим карточки фильмов…',checking:'Проверяем условия и рейтинги…',ranking:'Выбираем варианты…',selection_review:'Пересматриваем неполную подборку…',cancelled:'Поиск отменён.'}[value] || '';
         root.setAttribute('aria-busy',String(busy));
         if (busy) { lastFocus = cancel; focus(); }
     }
@@ -209,6 +209,14 @@ function createScreen(options) {
         var passed = ['Прошли условия: ' + (s.conditionsPassed || 0)];
         if (s.ratingEnabled) passed.push('Прошли рейтинг ' + (sourceNames[s.ratingSource] || 'IMDb') + ': ' + (s.ratingPassed || 0));
         passed.push('Выбрано: ' + (s.selected || 0));lines.push(passed.join(' · '));
+        if (typeof s.aiAvailable === 'number') {
+            var selection = ['Доступно ИИ: ' + s.aiAvailable,'Предложений ИИ: ' + (s.aiProposed || 0)];
+            if (s.aiRejected) selection.push('Отклонено по смыслу: ' + s.aiRejected);
+            if (s.aiInsufficient) selection.push('Недостаточно данных ИИ: ' + s.aiInsufficient);
+            if (s.aiUndecided && (s.selected || 0) < s.aiTarget) selection.push('Без решения ИИ: ' + s.aiUndecided);
+            if (s.answerRejected) selection.push('Отклонено проверкой ответа: ' + s.answerRejected);
+            lines.push(selection.join(' · '));
+        }
         var errors = [];
         if (s.missingRatings) errors.push('Нет рейтинга: ' + s.missingRatings);
         if (s.ratingErrors) errors.push('Ошибок рейтинга: ' + s.ratingErrors);

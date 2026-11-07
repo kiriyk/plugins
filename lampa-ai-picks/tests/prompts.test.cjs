@@ -62,3 +62,18 @@ test('10 20 and unlimited modes accept the entire selected set without truncatin
  const state=JSON.parse(messages[1].content);assert.equal(state.candidates.length,80);
  assert.ok(JSON.stringify(state.candidates).length<=60000);assert.match(messages[0].content,/все подходящие/);
 });
+
+test('final assessment distinguishes semantic exclusions and invalid output from missing decisions',()=>{
+ const store=createCandidateStore(80);for(let i=1;i<=4;i++)store.add(movie({key:'tmdb:movie:'+i,id:i}));
+ const result=parseFinal(JSON.stringify({picks:[{key:'tmdb:movie:1',reason:'Good'},{key:'tmdb:movie:999',reason:'Bad'}],excluded:[
+  {key:'tmdb:movie:2',reasonCode:'not_relevant'},{key:'tmdb:movie:3',reasonCode:'insufficient_data'},
+  {key:'tmdb:movie:4',reasonCode:'SECRET-TEXT'},{key:'constructor',reasonCode:'not_relevant'}
+ ]}),store,filters(),[],{eligibleKeys:store.all().map(c=>c.key)});
+ assert.deepEqual(result.assessment,{proposed:2,answerRejected:1,excluded:[{key:'tmdb:movie:2',reasonCode:'not_relevant'},{key:'tmdb:movie:3',reasonCode:'insufficient_data'}]});
+});
+test('punctuation-only explanations count as rejected output after normalization',()=>{
+ const store=createCandidateStore(80),rejected=[];store.add(movie());
+ const result=parseFinal('{"picks":[{"key":"tmdb:movie:1","reason":"!!!"}]}',store,filters(),[],{onReject:r=>rejected.push(r)});
+ assert.equal(result.items.length,0);assert.equal(result.assessment.answerRejected,1);
+ assert.deepEqual(rejected,[{key:'tmdb:movie:1',reason:'invalid_pick'}]);
+});

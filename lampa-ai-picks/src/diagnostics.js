@@ -1,7 +1,7 @@
 'use strict';
 var appError = require('./transport').appError, domain = require('./domain'), normalizeLimits = require('./limits').normalizeLimits;
 var STORAGE = 'aip_diagnostic_journal';
-var events = ['run_start','screening','stage','filters','tool_start','tool_result','request_start','request_end','request_cancel','candidate_rejected','run_done','run_error','run_cancel','clarification','web_state'];
+var events = ['run_start','screening','stage','filters','tool_start','tool_result','request_start','request_end','request_cancel','candidate_rejected','run_done','run_error','run_cancel','clarification','web_state','selection'];
 var codes = ['timeout','network','auth','balance','rate_limit','server','unsupported','invalid_arguments','invalid_response','catalog_limit','tool_limit','search_limit','context_limit','incompatible_model','unknown_title','unknown_keyword','intent_required','clarification','session_limit','cancelled','kp_key','kp_limit','web_key','web_auth','web_quota','web_limit','model_output_limit','model_parameters','unknown'];
 var reasons = ['invalid_pick','unknown_key','already_shown','duplicate','count_limit','invalid','type','unknown_genres','genres','excluded_genres','year','country','runtime','rating','unknown_rating','not_verified'];
 var tools = ['set_search_intent','search_titles','resolve_keywords','discover_titles','get_related','get_title_details','unknown'];
@@ -53,7 +53,7 @@ function safeRecord(event, source, at) {
     var row = {at:integer(at,9007199254740991) ? at : 0,event:event};
     ['runId','requestId','elapsedMs','count','candidates','rejected','queryLength'].forEach(function (key) { if (integer(source[key])) row[key] = source[key]; });
     if (['new','more','refine'].indexOf(source.mode) >= 0) row.mode = source.mode;
-    if (['idle','parsing','searching','checking','ranking','done','error','cancelled','clarification','web_searching','web_resolving'].indexOf(source.stage) >= 0) row.stage = source.stage;
+    if (['idle','parsing','searching','checking','ranking','done','error','cancelled','clarification','web_searching','web_resolving','selection_review'].indexOf(source.stage) >= 0) row.stage = source.stage;
     if (['filters','example'].indexOf(source.kind) >= 0) row.kind = source.kind;
     if (['catalog','model','search','rating','web'].indexOf(source.scope) >= 0) row.scope = source.scope;
     if (source.provider === 'tavily') row.provider = 'tavily';
@@ -79,7 +79,7 @@ function safeRecord(event, source, at) {
     }
     if (source.stats) {
         row.stats = {};
-        ['candidates','checked','conditionsPassed','ratingChecked','ratingPassed','missingRatings','ratingErrors','metadataErrors','metadataMissing','unverified','selected'].forEach(function (key) { if (integer(source.stats[key])) row.stats[key] = source.stats[key]; });
+        ['candidates','checked','conditionsPassed','ratingChecked','ratingPassed','missingRatings','ratingErrors','metadataErrors','metadataMissing','unverified','selected','aiAvailable','aiTarget','aiProposed','aiRejected','aiInsufficient','aiUndecided','answerRejected'].forEach(function (key) { if (integer(source.stats[key])) row.stats[key] = source.stats[key]; });
         if (['imdb','kp','tmdb'].indexOf(source.stats.ratingSource) >= 0) row.stats.ratingSource = source.stats.ratingSource;
         if (codes.indexOf(source.stats.stopReason) >= 0) row.stats.stopReason = source.stats.stopReason;
     }
@@ -105,7 +105,7 @@ function networkInfo(spec) {
 function createDiagnostics(options) {
     var records = [], enabled = false, persistent = true, runNumber = 0, requestNumber = 0;
     var clock = options.clock || {now:function () { return Date.now(); }}, storage = options.Storage;
-    function exportText() { return JSON.stringify({version:1,pluginVersion:'0.4.0',persistence:persistent ? 'local' : 'memory',records:records},null,2); }
+    function exportText() { return JSON.stringify({version:1,pluginVersion:'0.4.1',persistence:persistent ? 'local' : 'memory',records:records},null,2); }
     function trim() { while (records.length > 200 || exportText().length > 120000) records.shift(); }
     function persist() {
         try { if (!storage) throw new Error('storage');storage.set(STORAGE,exportText());persistent = true; }

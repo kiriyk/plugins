@@ -73,3 +73,9 @@ test('web diagnostics retain scope and counters but exclude keys queries and pag
  const row=h.records().at(-1);assert.equal(row.localCredits,4);assert.equal(row.cacheHit,true);
  for(const value of ['WEB-SECRET','PRIVATE-WEB-QUERY','PRIVATE-PAGE','PRIVATE-CONTENT'])assert.equal(h.journal.exportText().includes(value),false);
 });
+
+test('selection diagnostics retain safe counts without free-form exclusion text',()=>{
+ const h=setup();h.journal.setEnabled(true);h.journal.record('selection',{stats:{aiAvailable:50,aiTarget:10,aiProposed:2,aiRejected:30,aiInsufficient:5,aiUndecided:13,answerRejected:1},excluded:'PRIVATE-EXPLANATION'});
+ const row=h.records().at(-1);assert.equal(row.event,'selection');assert.equal(row.stats.aiUndecided,13);assert.equal(row.stats.aiAvailable,50);
+ assert.equal(h.journal.exportText().includes('PRIVATE-EXPLANATION'),false);
+});

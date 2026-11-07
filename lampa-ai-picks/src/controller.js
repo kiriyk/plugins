@@ -4,6 +4,7 @@ var normalizeLimits = require('./limits').normalizeLimits;
 var createBudget = require('./budget').createBudget, createCatalog = require('./catalog').createCatalog;
 var createTools = require('./tools').createTools, prompts = require('./prompts');
 var createRatings = require('./ratings').createRatings, createScreening = require('./screening').createScreening;
+var createSelectionReview = require('./selection-review').createSelectionReview;
 var createWebState = require('./web-state').createWebState, createWebSearch = require('./web-search').createWebSearch, createWebDiscovery = require('./web-discovery').createWebDiscovery;
 function createController(options) {
     var active = null, next = 0, stage = 'idle', pending = null, rememberedExamples = [], rememberedQuery = '';
@@ -23,6 +24,10 @@ function createController(options) {
     }
     function fail(run, error, scope) {
         if (!alive(run)) return;
+        if (run.reviewingSelection && run.selection) {
+            log(run,'selection',{code:error.code,status:error.status});
+            complete(run,run.selection.finish('Дополнительный отбор ИИ не завершён: ' + error.message));return;
+        }
         if (run.screening) { var progress = run.screening.snapshot();progress.stopReason = error.code;emit(run,'progress',progress); }
         log(run,'run_error',{stage:stage,code:error.code,status:error.status,scope:scope,budget:run.budget.snapshot()});
         stop(run,error.code === 'timeout' ? scope === 'search' ? 'search_timeout' : 'timeout' : undefined);stage = 'error';emit(run,'error',error);
@@ -39,6 +44,7 @@ function createController(options) {
         rememberedWeb = run.webSnapshot || null;
         if (run.webNotice) result.notice = (result.notice ? result.notice + ' ' : '') + run.webNotice;
         result.stats = run.screening.snapshot();result.stats.selected = result.items.length;
+        Object.keys(result.selectionStats || {}).forEach(function (key) { result.stats[key] = result.selectionStats[key]; });
         if (result.stats.unverified) result.notice = (result.notice ? result.notice + ' ' : '') + 'Не проверено кандидатов: ' + result.stats.unverified + '. См. счётчик поиска.';
         emit(run,'progress',result.stats);
         log(run,'run_done',{count:result.items.length,candidates:result.stats.candidates,budget:run.budget.snapshot()});
@@ -77,8 +83,23 @@ function createController(options) {
         change(run,'ranking');
         try {
             var intent = run.tools.getIntent();
-            complete(run,prompts.parseFinal(content,run.store,intent.filters,run.shown.concat(intent.examples),{resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length,eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),onReject:function (value) { var c = run.store.get(value.key);if (c) value.facts = {type:c.type,year:c.year,runtimeMinutes:c.runtimeMinutes,genreIds:c.genreIds,countries:c.countries};log(run,'candidate_rejected',value); }}));
+            var eligibleKeys = run.screening.eligible().map(function (c) { return c.key; });
+            if (run.reviewingSelection) {
+                var review = run.selection.hint();
+                eligibleKeys = eligibleKeys.filter(function (key) { return review.selectedKeys.indexOf(key) >= 0 || review.pendingKeys.indexOf(key) >= 0; });
+            }
+            var result = prompts.parseFinal(content,run.store,intent.filters,run.shown.concat(intent.examples),{resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length,eligibleKeys:eligibleKeys,onReject:function (value) { var c = run.store.get(value.key);if (c) value.facts = {type:c.type,year:c.year,runtimeMinutes:c.runtimeMinutes,genreIds:c.genreIds,countries:c.countries};log(run,'candidate_rejected',value); }});
+            if (!run.selection) run.selection = createSelectionReview({eligibleKeys:eligibleKeys,resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length});
+            run.selection.accept(result);
+            log(run,'selection',{stats:run.selection.finish().selectionStats});
+            if (!run.reviewingSelection && run.selection.needsReview() && run.budget.snapshot().modelCalls < run.limits.modelCalls && run.budget.remainingMs() > 0) {
+                var progress = run.screening.snapshot(), selectionStats = run.selection.finish().selectionStats;
+                Object.keys(selectionStats).forEach(function (key) { progress[key] = selectionStats[key]; });progress.selected = result.items.length;emit(run,'progress',progress);
+                run.reviewingSelection = true;takeStep(run,true,false);return;
+            }
+            complete(run,run.selection.finish());
         } catch (error) {
+            if (run.reviewingSelection) { fail(run,appError('invalid_response'),'model');return; }
             if (run.budget.snapshot().modelCalls < run.limits.modelCalls && run.budget.remainingMs() > 0) {
                 run.trace.push({role:'assistant',content:String(content).slice(0,3000)});
                 takeStep(run,true,true);
@@ -99,10 +120,10 @@ function createController(options) {
         if (finalOnly && !run.tools.isReady()) return fail(run,appError('intent_required'));
         if (finalOnly && !repair && !run.store.all().length) return complete(run,{items:[],partial:true,notice:'Подходящие варианты не найдены. Попробуйте изменить условия.'});
         if (!run.budget.consumeModel()) return fail(run,appError('search_limit'));
-        change(run,finalOnly ? 'ranking' : count.modelCalls ? 'searching' : 'parsing');
+        change(run,run.reviewingSelection ? 'selection_review' : finalOnly ? 'ranking' : count.modelCalls ? 'searching' : 'parsing');
         var timeout = Math.min(run.limits.modelTimeoutMs,run.budget.remainingMs()), messages;
         try { messages = prompts.buildMessages({query:run.query,intent:run.tools.getIntent(),formFilters:run.args.formFilters,examples:run.tools.getIntent().examples,
-            shown:run.shown,candidates:run.screening.eligible(),eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),trace:run.trace,dictionaries:run.dictionaries,resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length,webEnabled:run.args.webEnabled}); }
+            shown:run.shown,candidates:run.screening.eligible(),eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),trace:run.trace,dictionaries:run.dictionaries,resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length,webEnabled:run.args.webEnabled,selectionReview:run.reviewingSelection ? run.selection.hint() : null}); }
         catch (error) { return fail(run,error); }
         if (repair) messages.push({role:'user',content:'Предыдущий итоговый ответ некорректен. Верни только JSON {"picks":[{"key":"...","reason":"..."}]} с известными кандидатами.'});
         var choice = finalOnly ? 'none' : !run.tools.isReady() ? {type:'function',function:{name:'set_search_intent'}} : 'auto';
@@ -113,6 +134,7 @@ function createController(options) {
             if (settled || !alive(run)) return;
             settled = true; options.clock.clearTimeout(run.modelTimer); run.modelTimer = null;
             if (error) {
+                if (run.reviewingSelection) return fail(run,error,'model');
                 if (error.code === 'model_output_limit' && !run.outputRepair && run.budget.snapshot().modelCalls < run.limits.modelCalls && run.budget.remainingMs() > 0) {
                     run.outputRepair = true;takeStep(run,true,true);return;
                 }

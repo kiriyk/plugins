@@ -100,3 +100,12 @@ test('internet search is an explicit persisted selector and busy web phases prev
  const count=h.selects.length;h.enter('[data-action="web-search"]');assert.equal(h.selects.length,count);
  h.screen.setStage('web_resolving');assert.match(h.screen.element().textContent,/карточки/);
 });
+
+test('selection progress distinguishes eligibility, semantic exclusions and unanswered candidates',()=>{
+ const h=setup();h.screen.setStage('selection_review');assert.equal(h.screen.element().getAttribute('aria-busy'),'true');
+ h.screen.setProgress({candidates:50,checked:50,conditionsPassed:50,selected:2,aiAvailable:50,aiTarget:10,aiProposed:2,aiRejected:30,aiInsufficient:5,aiUndecided:13,answerRejected:1});
+ const text=h.screen.element().querySelector('.aip-progress').textContent;
+ for(const expected of ['Доступно ИИ: 50','Предложений ИИ: 2','Отклонено по смыслу: 30','Недостаточно данных ИИ: 5','Без решения ИИ: 13','Отклонено проверкой ответа: 1'])assert.ok(text.includes(expected),expected);
+ h.screen.setProgress({candidates:50,checked:50,conditionsPassed:50,selected:10,aiAvailable:50,aiTarget:10,aiProposed:10,aiUndecided:40});
+ assert.equal(h.screen.element().querySelector('.aip-progress').textContent.includes('Без решения ИИ'),false);
+});
