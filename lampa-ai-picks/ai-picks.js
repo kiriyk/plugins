@@ -2132,6 +2132,7 @@
           intent: args.intent,
           formFilters: args.formFilters || {},
           examples: args.examples || [],
+          exampleContext: args.exampleContext || [],
           shown: args.shown || [],
           dictionaries: args.dictionaries || {},
           candidates: (args.candidates || []).map(summarize)
@@ -2867,6 +2868,21 @@
     }
   });
 
+  // src/request-context.js
+  var require_request_context = __commonJS({
+    "src/request-context.js": function(exports, module) {
+      "use strict";
+      function buildExampleContext(store, keys) {
+        return (keys || []).slice(0, 3).map(function(key) {
+          return store.get(key);
+        }).filter(Boolean).map(function(c) {
+          return { key: c.key, title: String(c.title || "").slice(0, 200), type: c.type, year: c.year, overview: String(c.overview || "").slice(0, 500) };
+        });
+      }
+      module.exports = { buildExampleContext: buildExampleContext };
+    }
+  });
+
   // src/selection-review.js
   var require_selection_review = __commonJS({
     "src/selection-review.js": function(exports, module) {
@@ -3277,6 +3293,7 @@
       var prompts = require_prompts();
       var createRatings = require_ratings().createRatings;
       var createScreening = require_screening().createScreening;
+      var buildExampleContext = require_request_context().buildExampleContext;
       var createSelectionReview = require_selection_review().createSelectionReview;
       var createWebState = require_web_state().createWebState;
       var createWebSearch = require_web_search().createWebSearch;
@@ -3447,6 +3464,23 @@
         }
         function takeStep(run, finalOnly, repair, screened) {
           if (!alive(run)) return;
+          var exampleKeys = run.tools.getIntent().examples.filter(function(key) {
+            var c = run.store.get(key);
+            return c && (!c.title || !c.overview) && !run.exampleAttempts[key];
+          }).slice(0, 3);
+          if (exampleKeys.length) {
+            exampleKeys.forEach(function(key) {
+              run.exampleAttempts[key] = true;
+            });
+            run.cancels.push(run.catalog.getTitleDetails({ keys: exampleKeys }, function(error, rows) {
+              if (!alive(run)) return;
+              if (!error) rows.forEach(function(c) {
+                run.store.add(c);
+              });
+              takeStep(run, finalOnly, repair, screened);
+            }));
+            return;
+          }
           if (!run.webDone && run.tools.isReady()) {
             searchWeb(run);
             return;
@@ -3472,6 +3506,7 @@
               intent: run.tools.getIntent(),
               formFilters: run.args.formFilters,
               examples: run.tools.getIntent().examples,
+              exampleContext: buildExampleContext(run.store, run.tools.getIntent().examples),
               shown: run.shown,
               candidates: run.screening.eligible(),
               eligibleKeys: run.screening.eligible().map(function(c) {
@@ -3574,6 +3609,7 @@
             key: String(args.key).trim(),
             cancels: [],
             trace: [],
+            exampleAttempts: /* @__PURE__ */ Object.create(null),
             store: d.createCandidateStore(80),
             shown: mode === "new" ? [] : options.session.getShown()
           };

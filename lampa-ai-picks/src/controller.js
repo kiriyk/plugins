@@ -4,6 +4,7 @@ var normalizeLimits = require('./limits').normalizeLimits;
 var createBudget = require('./budget').createBudget, createCatalog = require('./catalog').createCatalog;
 var createTools = require('./tools').createTools, prompts = require('./prompts');
 var createRatings = require('./ratings').createRatings, createScreening = require('./screening').createScreening;
+var buildExampleContext = require('./request-context').buildExampleContext;
 var createSelectionReview = require('./selection-review').createSelectionReview;
 var createWebState = require('./web-state').createWebState, createWebSearch = require('./web-search').createWebSearch, createWebDiscovery = require('./web-discovery').createWebDiscovery;
 function createController(options) {
@@ -109,6 +110,18 @@ function createController(options) {
     }
     function takeStep(run, finalOnly, repair, screened) {
         if (!alive(run)) return;
+        var exampleKeys = run.tools.getIntent().examples.filter(function (key) {
+            var c = run.store.get(key);
+            return c && (!c.title || !c.overview) && !run.exampleAttempts[key];
+        }).slice(0,3);
+        if (exampleKeys.length) {
+            exampleKeys.forEach(function (key) { run.exampleAttempts[key] = true; });
+            run.cancels.push(run.catalog.getTitleDetails({keys:exampleKeys},function (error, rows) {
+                if (!alive(run)) return;
+                if (!error) rows.forEach(function (c) { run.store.add(c); });
+                takeStep(run,finalOnly,repair,screened);
+            }));return;
+        }
         if (!run.webDone && run.tools.isReady()) { searchWeb(run);return; }
         if (!screened) {
             change(run,'checking');
@@ -124,7 +137,7 @@ function createController(options) {
         change(run,run.reviewingSelection ? 'selection_review' : finalOnly ? 'ranking' : count.modelCalls ? 'searching' : 'parsing');
         var timeout = Math.min(run.limits.modelTimeoutMs,run.budget.remainingMs()), messages;
         try { messages = prompts.buildMessages({query:run.query,intent:run.tools.getIntent(),formFilters:run.args.formFilters,examples:run.tools.getIntent().examples,
-            shown:run.shown,candidates:run.screening.eligible(),eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),trace:run.trace,dictionaries:run.dictionaries,resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length,webEnabled:run.args.webEnabled,selectionReview:run.reviewingSelection ? run.selection.hint() : null}); }
+            exampleContext:buildExampleContext(run.store,run.tools.getIntent().examples),shown:run.shown,candidates:run.screening.eligible(),eligibleKeys:run.screening.eligible().map(function (c) { return c.key; }),trace:run.trace,dictionaries:run.dictionaries,resultLimit:run.limits.resultLimit,remaining:200 - run.shown.length,webEnabled:run.args.webEnabled,selectionReview:run.reviewingSelection ? run.selection.hint() : null}); }
         catch (error) { return fail(run,error); }
         if (repair) messages.push({role:'user',content:'Предыдущий итоговый ответ некорректен. Верни только JSON {"picks":[{"key":"...","reason":"..."}]} с известными кандидатами.'});
         var choice = finalOnly ? 'none' : !run.tools.isReady() ? {type:'function',function:{name:'set_search_intent'}} : 'auto';
@@ -185,7 +198,7 @@ function createController(options) {
         }
         if (mode !== 'new' && options.session.size() >= 200) { stage = 'error'; emit({id:id},'error',appError('session_limit')); return null; }
         var base = mode === 'new' ? d.emptyIntent() : options.session.getIntent() || d.emptyIntent();
-        var run = {id:id,alive:true,args:d.clone(args),webDone:!args.webEnabled,query:query,key:String(args.key).trim(),cancels:[],trace:[],store:d.createCandidateStore(80),
+        var run = {id:id,alive:true,args:d.clone(args),webDone:!args.webEnabled,query:query,key:String(args.key).trim(),cancels:[],trace:[],exampleAttempts:Object.create(null),store:d.createCandidateStore(80),
             shown:mode === 'new' ? [] : options.session.getShown()};
         run.args.mode = mode;run.limits = normalizeLimits(args.limits);
         if (options.diagnostics) run.traceId = options.diagnostics.begin({mode:mode,limits:run.limits,filters:args.formFilters || {},queryLength:query.length});

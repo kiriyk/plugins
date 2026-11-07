@@ -6,7 +6,7 @@ function summarize(c) {
 }
 function buildMessages(args) {
     var state = {query:String(args.query || '').slice(0,2000),intent:args.intent,formFilters:args.formFilters || {},
-        examples:args.examples || [],shown:args.shown || [],dictionaries:args.dictionaries || {},candidates:(args.candidates || []).map(summarize)};
+        examples:args.examples || [],exampleContext:args.exampleContext || [],shown:args.shown || [],dictionaries:args.dictionaries || {},candidates:(args.candidates || []).map(summarize)};
     if (args.selectionReview) state.selectionReview = d.clone(args.selectionReview);
     var groups = [], current = null;
     (args.trace || []).forEach(function (message) {

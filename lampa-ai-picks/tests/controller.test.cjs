@@ -321,3 +321,22 @@ test('web snapshots invalidate on extraction or primary model change while Tavil
   h.c.cancel();assert.equal(h.timers.size,0);
  }
 });
+test('first model sees example facts and missing example descriptions load within catalog budget',()=>{
+ for(const missing of [false,true]){
+  const h=setup();h.boot({examples:[movie({overview:missing?'':'Первый контакт с пришельцами.'})]});
+  if(missing){
+   assert.equal(h.posts().length,0);const i=h.requests.findIndex(r=>r.url.includes('movie/1?'));assert.ok(i>=0);
+   h.reply(i,{id:1,title:'Прибытие',overview:'Первый контакт с пришельцами.',release_date:'2016-01-01'});
+  }
+  const state=JSON.parse(h.posts()[0].json.messages[1].content);
+  assert.equal(state.exampleContext.length,1);assert.equal(state.exampleContext[0].overview,'Первый контакт с пришельцами.');assert.deepEqual(state.candidates,[]);
+  h.c.cancel();assert.equal(h.timers.size,0);
+ }
+});
+test('failed example detail lookup keeps known facts and cancelled callbacks cannot seed next context',()=>{
+ const h=setup();h.boot({examples:[movie({overview:''})]});const i=h.requests.findIndex(r=>r.url.includes('movie/1?'));assert.ok(i>=0);
+ h.reject(i,{status:503});const state=JSON.parse(h.posts()[0].json.messages[1].content);assert.equal(state.exampleContext[0].overview,'');h.c.cancel();
+ const other=setup();other.boot({examples:[movie({overview:''})]});const pending=other.requests.findIndex(r=>r.url.includes('movie/1?'));other.boot({query:'другой поиск'});
+ other.reply(pending,{id:1,title:'Старый',overview:'OLD'});
+ assert.deepEqual(JSON.parse(other.posts()[0].json.messages[1].content).exampleContext,[]);other.c.cancel();
+});
